@@ -431,7 +431,6 @@
         import { initializeAuth, inMemoryPersistence, getAuth, signInAnonymously, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { initializeFirestore, getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        // --- BIBLIA EN MEMORIA (Reina Valera 1960 - Selección Representativa) ---
         const DEFAULT_BIBLE = {
             "Génesis": {
                 "1": [
@@ -494,7 +493,6 @@
             }
         };
 
-        // --- GLOBAL APP STATE ---
         let bibleData = DEFAULT_BIBLE;
         let selectedBook = "Génesis";
         let selectedChapter = "1";
@@ -536,7 +534,85 @@
             ? JSON.parse(__firebase_config) 
             : null;
 
-        // --- INITIALIZATION ---
+        function saveOperatorState() {
+            try {
+                localStorage.setItem('bible_operator_state_sincronizado', JSON.stringify({
+                    selectedBook,
+                    selectedChapter,
+                    selectedVerseIdx,
+                    currentText,
+                    currentCitation,
+                    isBlackout,
+                    isClearText,
+                    projectionStyles,
+                    cultoList
+                }));
+            } catch (e) {
+                console.warn("LocalStorage no disponible para persistencia:", e);
+            }
+        }
+
+        function loadOperatorState() {
+            try {
+                const saved = localStorage.getItem('bible_operator_state_sincronizado');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.selectedBook && bibleData[parsed.selectedBook]) {
+                        selectedBook = parsed.selectedBook;
+                    }
+                    if (parsed.selectedChapter && bibleData[selectedBook]?.[parsed.selectedChapter]) {
+                        selectedChapter = parsed.selectedChapter;
+                    }
+                    selectedVerseIdx = parsed.selectedVerseIdx !== undefined ? parsed.selectedVerseIdx : null;
+                    currentText = parsed.currentText || currentText;
+                    currentCitation = parsed.currentCitation || currentCitation;
+                    isBlackout = parsed.isBlackout !== undefined ? parsed.isBlackout : isBlackout;
+                    isClearText = parsed.isClearText !== undefined ? parsed.isClearText : isClearText;
+                    projectionStyles = parsed.projectionStyles || projectionStyles;
+                    cultoList = parsed.cultoList || [];
+                } else {
+                    loadDefaultSelection();
+                }
+            } catch (e) {
+                console.warn("Fallo al recuperar estado persistente:", e);
+                loadDefaultSelection();
+            }
+        }
+
+        function restoreStateAfterBibleLoad() {
+            try {
+                const saved = localStorage.getItem('bible_operator_state_sincronizado');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.selectedBook && bibleData[parsed.selectedBook]) {
+                        selectedBook = parsed.selectedBook;
+                    } else {
+                        selectedBook = Object.keys(bibleData)[0] || "Génesis";
+                    }
+                    
+                    const availableChapters = Object.keys(bibleData[selectedBook] || {});
+                    if (parsed.selectedChapter && availableChapters.includes(parsed.selectedChapter)) {
+                        selectedChapter = parsed.selectedChapter;
+                    } else {
+                        selectedChapter = availableChapters[0] || "1";
+                    }
+                    selectedVerseIdx = parsed.selectedVerseIdx !== undefined ? parsed.selectedVerseIdx : null;
+                } else {
+                    const firstBook = Object.keys(bibleData)[0];
+                    if (firstBook) {
+                        selectedBook = firstBook;
+                        selectedChapter = Object.keys(bibleData[firstBook])[0] || "1";
+                    }
+                }
+            } catch (e) {
+                console.warn("Error restableciendo índices de Biblia cargada:", e);
+            }
+            renderBooks();
+            renderChapters();
+            renderVerses();
+            renderCultoList();
+        }
+
         window.onload = async function() {
             try {
                 initIndexedDB();
@@ -545,12 +621,11 @@
             }
 
             try {
-                loadDefaultSelection();
+                loadOperatorState();
             } catch (err) {
                 console.error("Default selection failed to load:", err);
             }
 
-            // Detectar modo proyector autónomo de forma segura
             let salaParam = null;
             try {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -581,7 +656,6 @@
             }
         };
 
-        // --- COMPONENTE CRÍTICO: Inicialización de Firebase ---
         async function initFirebase() {
             if (!firebaseConfig || !firebaseConfig.apiKey) {
                 console.warn("Firebase no configurado. Ejecutando en Modo Local.");
@@ -806,6 +880,7 @@
             actualizarBotonesAlineacion();
             actualizarUIContenedoresFondo(projectionStyles.bgType);
             updateAllVisualStyles();
+            updateAllInputsFromStyles();
 
             document.addEventListener('keydown', function(event) {
                 if (event.key === "Escape") {
@@ -855,14 +930,7 @@
                             if (getReq.result) {
                                 bibleData = getReq.result.data;
                                 showToast("Biblia guardada cargada de forma local", "success");
-                                const firstBook = Object.keys(bibleData)[0];
-                                if (firstBook) {
-                                    selectedBook = firstBook;
-                                    selectedChapter = Object.keys(bibleData[firstBook])[0] || "1";
-                                }
-                                renderBooks();
-                                renderChapters();
-                                renderVerses();
+                                restoreStateAfterBibleLoad();
                             }
                         };
                     } catch (err) {
@@ -910,20 +978,17 @@
             });
         };
 
-        // --- ADAPTADOR UNIVERSAL DE ESTRUCTURA DE BIBLIA (Soporta Arrays y Objetos) ---
         function getNormalizedVerses(book, chapter) {
             if (!bibleData || !book || !chapter || !bibleData[book] || !bibleData[book][chapter]) {
                 return [];
             }
             const verses = bibleData[book][chapter];
             if (Array.isArray(verses)) {
-                // Formato Array de strings (DEFAULT_BIBLE)
                 return verses.map((text, idx) => ({
                     verseNum: idx + 1,
                     text: text
                 }));
             } else if (typeof verses === 'object' && verses !== null) {
-                // Formato Objeto Clave-Valor (GitHub RVR1960 JSON estándar)
                 return Object.keys(verses).map(key => ({
                     verseNum: parseInt(key),
                     text: verses[key]
@@ -1042,6 +1107,7 @@
             renderBooks();
             renderChapters();
             renderVerses();
+            saveOperatorState();
         }
 
         function selectChapter(chapter) {
@@ -1050,6 +1116,7 @@
 
             renderChapters();
             renderVerses();
+            saveOperatorState();
         }
 
         window.changeChapter = function(direction) {
@@ -1096,6 +1163,7 @@
 
             pushStateToCloud();
             actualizarMonitorDeOperador();
+            saveOperatorState();
         }
 
         window.clearProjection = function() {
@@ -1109,6 +1177,7 @@
 
             pushStateToCloud();
             actualizarMonitorDeOperador();
+            saveOperatorState();
         };
 
         window.toggleBlackout = function() {
@@ -1122,6 +1191,7 @@
             }
             pushStateToCloud();
             actualizarMonitorDeOperador();
+            saveOperatorState();
         };
 
         window.toggleClearText = function() {
@@ -1135,6 +1205,7 @@
             }
             pushStateToCloud();
             actualizarMonitorDeOperador();
+            saveOperatorState();
         };
 
         function actualizarMonitorDeOperador() {
@@ -1361,6 +1432,7 @@
 
             pushStateToCloud();
             actualizarMonitorDeOperador();
+            saveOperatorState();
         };
 
         window.toggleFontFormat = function(type) {
@@ -1375,6 +1447,7 @@
             actualizarBotonesFormato();
             pushStateToCloud();
             actualizarMonitorDeOperador();
+            saveOperatorState();
         };
 
         window.updateBackgroundType = function(type) {
@@ -1382,6 +1455,7 @@
             actualizarUIContenedoresFondo(type);
             pushStateToCloud();
             actualizarMonitorDeOperador();
+            saveOperatorState();
         };
 
         window.quickColor = function(color) {
@@ -1540,6 +1614,7 @@
 
             renderCultoList();
             showToast("Añadido a la lista de culto", "success");
+            saveOperatorState();
         };
 
         function renderCultoList() {
@@ -1589,12 +1664,14 @@
             cultoList.splice(index, 1);
             renderCultoList();
             showToast("Quitado de la lista de culto", "info");
+            saveOperatorState();
         };
 
         window.clearCultoList = function() {
             cultoList = [];
             renderCultoList();
             showToast("Lista de culto vaciada", "info");
+            saveOperatorState();
         };
 
         window.toggleExternalProjector = function() {
@@ -1612,7 +1689,7 @@
                         <head>
                             <meta charset="UTF-8">
                             <title>Pantalla de Proyección Externa</title>
-                            <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;700&family=Montserrat:wght@400;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&swap" rel="stylesheet">
+                            <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;700&family=Montserrat:wght@400;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
                         </head>
                         <body style="
                             height: 100%; 

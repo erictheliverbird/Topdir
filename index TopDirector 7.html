@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyector Bíblico Profesional con Sincronización</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Estilos de barra de desplazamiento modernos */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(31, 41, 55, 0.5);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.8);
+        }
+
+        /* Transición suave para cambios estéticos del proyector */
+        .fade-transition {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        /* Ocultar scroll en modo proyector de pantalla completa */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 h-screen overflow-hidden flex flex-col font-['Inter'] antialiased">
+
+    <!-- CONSOLA DE CONTROL PRINCIPAL (Visible por defecto) -->
+    <div id="operator-interface" class="h-full flex flex-col min-h-0">
+        <!-- CABECERA (HEADER) -->
+        <header class="bg-gray-900 border-b border-gray-800 h-16 px-6 flex items-center justify-between shrink-0 select-none">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/30">
+                    <i class="fa-solid fa-book-bible text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base md:text-lg leading-none tracking-wide text-white">PROYECTOR BÍBLICO</h1>
+                    <span class="text-[10px] text-blue-400 font-bold tracking-wider uppercase">Consola de Control Multi-Dispositivo</span>
+                </div>
+            </div>
+
+            <!-- Panel de Sincronización en la Nube -->
+            <div class="flex items-center gap-2 bg-gray-950 border border-gray-800 rounded-xl px-3 py-1">
+                <div class="flex flex-col">
+                    <span class="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Sala Activa</span>
+                    <div class="flex items-center gap-1.5">
+                        <span id="sync-indicator-dot" class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        <input id="room-id-input" type="text" class="bg-transparent border-none text-blue-400 font-bold text-xs w-20 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1 uppercase" value="GEN-777">
+                    </div>
+                </div>
+                <button onclick="copyProjectorLink()" class="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 p-2 rounded-lg transition" title="Copiar enlace del proyector para pantallas remotas">
+                    <i class="fa-solid fa-link text-xs"></i>
+                </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <!-- CARGAR JSON PROPIO -->
+                <label class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-1.5 cursor-pointer transition shadow-md shadow-amber-950/40">
+                    <i class="fa-solid fa-file-import text-xs"></i>
+                    <span class="hidden md:inline">Cargar Biblia JSON</span>
+                    <input type="file" id="json-bible-input" accept=".json" class="hidden" onchange="importCustomBible(event)">
+                </label>
+
+                <!-- VENTANA EXTERNA -->
+                <button onclick="toggleExternalProjector()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-1.5 transition shadow-md shadow-blue-950/40">
+                    <i class="fa-solid fa-desktop text-xs"></i>
+                    <span id="ext-win-text">Proyectar (Ventana)</span>
+                </button>
+
+                <!-- PANTALLA COMPLETA LOCAL -->
+                <button onclick="toggleLocalFullscreen()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-3 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-expand text-xs"></i>
+                    <span class="hidden md:inline">Simular Pantalla Completa</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- CUERPO PRINCIPAL (3 Columnas con límites de altura estrictos) -->
+        <main class="flex-1 min-h-0 flex overflow-hidden p-4 md:p-6 gap-4 md:gap-6">
+
+            <!-- COLUMNA 1: LIBROS Y CAPÍTULOS -->
+            <section class="w-72 md:w-80 h-full flex flex-col bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-xl shrink-0">
+                <!-- Barra de Búsqueda de Libros -->
+                <div class="p-4 border-b border-gray-800">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="search-book" placeholder="Buscar libro de la Biblia..." oninput="filterBooks()" class="w-full bg-gray-950 border border-gray-800 rounded-xl py-2 pl-9 pr-4 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition">
+                    </div>
+                </div>
+
+                <!-- Listado de Libros -->
+                <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-1" id="books-container">
+                    <!-- Se inyecta dinámicamente -->
+                </div>
+
+                <!-- Selector de Capítulos -->
+                <div class="p-4 bg-gray-950 border-t border-gray-800 flex flex-col h-56">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-list-numeric text-blue-400"></i> Capítulos
+                    </span>
+                    <div class="flex-1 min-h-0 overflow-y-auto grid grid-cols-5 gap-2 content-start pr-1" id="chapters-container">
+                        <!-- Se inyecta dinádimamente -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- COLUMNA 2: LISTADO DE VERSÍCULOS -->
+            <section class="flex-1 h-full flex flex-col bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="p-4 bg-gray-900 border-b border-gray-800 flex items-center justify-between shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-emerald-500/10 text-emerald-400 p-2 rounded-lg">
+                            <i class="fa-solid fa-quote-left text-sm"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-base text-white" id="current-title">Cargando...</h2>
+                            <span class="text-xs text-gray-400">Haz clic en un versículo para proyectar inmediatamente en todas las pantallas asociadas</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="changeChapter(-1)" class="bg-gray-800 hover:bg-gray-750 text-gray-300 p-2 rounded-lg transition" title="Capítulo Anterior">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <button onclick="changeChapter(1)" class="bg-gray-800 hover:bg-gray-750 text-gray-300 p-2 rounded-lg transition" title="Capítulo Siguiente">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Contenedor del listado de versículos -->
+                <div class="flex-1 min-h-0 overflow-y-auto p-6 space-y-3 bg-gray-950" id="verses-container">
+                    <!-- Se inyectan dinámicamente -->
+                </div>
+            </section>
+
+            <!-- COLUMNA 3: PREVIO, LISTA DE CULTO Y CONFIGURACIÓN -->
+            <section class="w-96 h-full flex flex-col gap-4 shrink-0">
+                
+                <!-- SUB-BLOQUE: PREVIO RÁPIDO DE PROYECCIÓN -->
+                <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 shadow-xl shrink-0 flex flex-col">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-eye text-emerald-400"></i> Previo en vivo
+                        </span>
+                        <button onclick="clearProjection()" class="text-xs bg-red-950/60 text-red-400 border border-red-900/50 hover:bg-red-900/50 px-2.5 py-1 rounded-md transition font-semibold">
+                            <i class="fa-solid fa-ban mr-1"></i> Limpiar Pantalla
+                        </button>
+                    </div>
+
+                    <!-- Simulación de la diapositiva en miniatura -->
+                    <div id="projector-preview-container" class="w-full aspect-video rounded-xl relative overflow-hidden flex flex-col items-center justify-center p-4 border border-gray-800 shadow-inner">
+                        <!-- Fondo dinámico aplicado por JS -->
+                        <div id="preview-backdrop" class="absolute inset-0 bg-slate-950 z-0 bg-cover bg-center"></div>
+                        <!-- Capa de overlay negra opcional -->
+                        <div id="preview-overlay" class="absolute inset-0 bg-black/25 z-0"></div>
+                        <!-- Texto de vista previa -->
+                        <div class="z-10 text-center w-full flex flex-col justify-between h-full pointer-events-none select-none">
+                            <p id="preview-text" class="text-white text-xs my-auto line-clamp-4 leading-relaxed"></p>
+                            <p id="preview-citation" class="text-[9px] text-gray-300 uppercase tracking-widest mt-1">SALA DE CONTROL</p>
+                        </div>
+                    </div>
+
+                    <!-- Botones Críticos de Acción del Operador -->
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                        <button id="btn-blackout" onclick="toggleBlackout()" class="border border-gray-700 bg-gray-950 hover:bg-gray-800 text-gray-200 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all">
+                            <i class="fa-solid fa-eye-slash text-amber-500"></i>
+                            <span>Pantalla Negra</span>
+                        </button>
+                        <button id="btn-clear-text" onclick="toggleClearText()" class="border border-gray-700 bg-gray-950 hover:bg-gray-800 text-gray-200 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all">
+                            <i class="fa-solid fa-font text-blue-400"></i>
+                            <span>Ocultar Letra</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUB-BLOQUE: PESTAÑAS (LISTA DE CULTO / ESTILOS) -->
+                <div class="flex-1 min-h-0 bg-gray-900 border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
+                    <!-- Control de Tabs -->
+                    <div class="flex border-b border-gray-800 bg-gray-900/50 shrink-0">
+                        <button onclick="switchTab('tab-culto')" id="btn-tab-culto" class="flex-1 py-3 text-sm font-semibold border-b-2 border-blue-500 text-blue-400 transition">
+                            <i class="fa-solid fa-list-check mr-2"></i>Lista de Culto
+                        </button>
+                        <button onclick="switchTab('tab-estilos')" id="btn-tab-estilos" class="flex-1 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-white transition">
+                            <i class="fa-solid fa-sliders mr-2"></i>Diseño y Estilo
+                        </button>
+                    </div>
+
+                    <!-- CONTENIDO DE PESTAÑAS -->
+                    <div class="flex-1 min-h-0 overflow-y-auto p-4 bg-gray-950">
+                        
+                        <!-- TAB 1: LISTA DE CULTO -->
+                        <div id="tab-culto" class="space-y-4 h-full flex flex-col min-h-0">
+                            <div class="flex items-center justify-between text-xs text-gray-400 shrink-0">
+                                <span>Pasajes preparados para la reunión:</span>
+                                <button onclick="clearCultoList()" class="text-gray-500 hover:text-red-400 transition" title="Limpiar lista entera">
+                                    <i class="fa-solid fa-trash-can"></i> Limpiar todo
+                                </button>
+                            </div>
+                            <!-- Lista scrollable -->
+                            <div id="culto-list-items" class="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+                                <!-- Se inyecta dinámicamente -->
+                            </div>
+                        </div>
+
+                        <!-- TAB 2: ESTILOS DE PROYECCIÓN -->
+                        <div id="tab-estilos" class="hidden space-y-5">
+                            
+                            <!-- Tipografía -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Fuente Tipográfica</label>
+                                <select id="style-font" onchange="updateStyleProperty('font', this.value)" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+                                    <option value="Inter">Inter (Moderna/Legible)</option>
+                                    <option value="Montserrat">Montserrat (Limpia)</option>
+                                    <option value="Cinzel">Cinzel (Clásica/Majestuosa)</option>
+                                    <option value="Playfair Display">Playfair Display (Elegante)</option>
+                                    <option value="Roboto Slab">Roboto Slab (Sólida)</option>
+                                </select>
+                            </div>
+
+                            <!-- Formato de Letra -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Formato de Letra</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button onclick="toggleFontFormat('bold')" id="btn-format-bold" class="transition py-2 rounded-lg text-xs font-bold flex items-center justify-center">
+                                        <i class="fa-solid fa-bold mr-1"></i> Negrita
+                                    </button>
+                                    <button onclick="toggleFontFormat('italic')" id="btn-format-italic" class="transition py-2 rounded-lg text-xs flex items-center justify-center">
+                                        <i class="fa-solid fa-italic mr-1"></i> Cursiva
+                                    </button>
+                                    <button onclick="toggleFontFormat('shadow')" id="btn-format-shadow" class="transition py-2 rounded-lg text-xs flex items-center justify-center">
+                                        <i class="fa-solid fa-circle-half-stroke mr-1"></i> Sombra
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Alineación -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Alineación del Texto</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button onclick="updateStyleProperty('align', 'left')" class="transition py-1.5 rounded-lg text-sm" id="btn-align-left"><i class="fa-solid fa-align-left"></i></button>
+                                    <button onclick="updateStyleProperty('align', 'center')" class="transition py-1.5 rounded-lg text-sm" id="btn-align-center"><i class="fa-solid fa-align-center"></i></button>
+                                    <button onclick="updateStyleProperty('align', 'right')" class="transition py-1.5 rounded-lg text-sm" id="btn-align-right"><i class="fa-solid fa-align-right"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- Tamaño de Letra Proyector -->
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Tamaño del Texto (Proyector)</label>
+                                    <span id="val-font-size" class="text-xs font-semibold text-blue-400">4.5vw</span>
+                                </div>
+                                <input type="range" id="style-size" min="2" max="8" step="0.1" value="4.5" oninput="updateStyleProperty('size', this.value)" class="w-full accent-blue-500">
+                            </div>
+
+                            <!-- Modos de Fondo -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Estilo del Fondo</label>
+                                <div class="grid grid-cols-3 gap-2 text-[10px] tracking-tight" id="bg-type-selection-container">
+                                    <button onclick="updateBackgroundType('color')" id="btn-bg-color" class="transition py-2 rounded-lg font-semibold text-gray-300">Color Sólido</button>
+                                    <button onclick="updateBackgroundType('gradient')" id="btn-bg-grad" class="transition py-2 rounded-lg font-semibold text-gray-300">Degradado</button>
+                                    <button onclick="updateBackgroundType('image')" id="btn-bg-img" class="transition py-2 rounded-lg font-semibold text-gray-300">Imagen</button>
+                                </div>
+                            </div>
+
+                            <!-- Selector de Color / Gradientes predefinidos -->
+                            <div id="palette-color-container" class="space-y-2">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Color de Fondo</label>
+                                <div class="flex gap-2">
+                                    <input type="color" id="style-bgcolor" value="#0f172a" oninput="updateStyleProperty('bgcolor', this.value)" class="bg-transparent border-0 rounded cursor-pointer w-10 h-10">
+                                    <div class="grid grid-cols-6 gap-1 flex-1">
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #0f172a" onclick="quickColor('#0f172a')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #050505" onclick="quickColor('#050505')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #1e1b4b" onclick="quickColor('#1e1b4b')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #14532d" onclick="quickColor('#14532d')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #701a75" onclick="quickColor('#701a75')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #7c2d12" onclick="quickColor('#7c2d12')"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="palette-gradient-container" class="space-y-2 hidden">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Estilo de Degradado</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button onclick="quickGradient('linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)')" class="h-10 rounded border border-white/10" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)"></button>
+                                    <button onclick="quickGradient('linear-gradient(135deg, #0f172a 0%, #14532d 100%)')" class="h-10 rounded border border-white/10" style="background: linear-gradient(135deg, #0f172a 0%, #14532d 100%)"></button>
+                                    <button onclick="quickGradient('linear-gradient(135deg, #180828 0%, #3b0764 100%)')" class="h-10 rounded border border-white/10" style="background: linear-gradient(135deg, #180828 0%, #3b0764 100%)"></button>
+                                    <button onclick="quickGradient('linear-gradient(135deg, #020617 0%, #0f172a 100%)')" class="h-10 rounded border border-white/10" style="background: linear-gradient(135deg, #020617 0%, #0f172a 100%)"></button>
+                                    <button onclick="quickGradient('linear-gradient(135deg, #1e1b4b 0%, #311042 100%)')" class="h-10 rounded border border-white/10" style="background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%)"></button>
+                                    <button onclick="quickGradient('linear-gradient(135deg, #450a0a 0%, #0f0505 100%)')" class="h-10 rounded border border-white/10" style="background: linear-gradient(135deg, #450a0a 0%, #0f0505 100%)"></button>
+                                </div>
+                            </div>
+
+                            <!-- Selector y Presets de Imagen de Fondo -->
+                            <div id="palette-image-container" class="space-y-3 hidden">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Imagen de Fondo</label>
+                                
+                                <!-- Subidor de archivos locales para imagen de fondo -->
+                                <label class="w-full bg-gray-900 hover:bg-gray-850 border border-dashed border-gray-700 p-4 rounded-xl flex flex-col items-center justify-center cursor-pointer transition">
+                                    <i class="fa-solid fa-image text-blue-500 text-lg mb-1.5"></i>
+                                    <span class="text-xs font-semibold text-gray-300">Subir desde este dispositivo</span>
+                                    <span class="text-[10px] text-gray-500 mt-0.5">Soporta PNG, JPG, WEBP</span>
+                                    <input type="file" id="bg-image-uploader" accept="image/*" class="hidden" onchange="uploadBackgroundImage(event)">
+                                </label>
+
+                                <!-- Buscador de Fondos Web Inteligente -->
+                                <div class="border-t border-gray-800 pt-3 mt-3">
+                                    <span class="text-[10px] text-gray-400 font-bold block uppercase mb-1.5 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-earth-americas text-blue-400"></i> Buscar Fondos en la Web
+                                    </span>
+                                    <div class="flex gap-2 mb-2">
+                                        <input type="text" id="web-bg-search-input" placeholder="Ej: cielo, cruz, estrellas, nubes..." class="flex-1 bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition">
+                                        <button onclick="searchWebBackgrounds()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center">
+                                            <i class="fa-solid fa-magnifying-glass"></i>
+                                        </button>
+                                    </div>
+                                    <!-- Contenedor de Resultados del Buscador Web -->
+                                    <div id="web-bg-results" class="grid grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
+                                        <!-- Se llena dinámicamente -->
+                                    </div>
+                                </div>
+
+                                <!-- Miniaturas con degradados artísticos simulando fondos premium -->
+                                <div class="space-y-1">
+                                    <span class="text-[10px] text-gray-400 font-semibold block uppercase">Presets de Fondo (Instantáneos)</span>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&w=150&q=50')" title="Estrellas"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1544764200-d834fd210a23?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1544764200-d834fd210a23?auto=format&fit=crop&w=150&q=50')" title="Cruz"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1498496294664-d9372ee521f3?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1498496294664-d9372ee521f3?auto=crop&w=150&q=50')" title="Nubes"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=crop&w=150&q=50')" title="Montañas"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=crop&w=150&q=50')" title="Mar"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=crop&w=150&q=50')" title="Bosque"></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Color de Texto del Proyector -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Color del Texto</label>
+                                <div class="flex gap-2">
+                                    <input type="color" id="style-textcolor" value="#ffffff" oninput="updateStyleProperty('textcolor', this.value)" class="bg-transparent border-0 rounded cursor-pointer w-10 h-10">
+                                    <div class="grid grid-cols-6 gap-1 flex-1">
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #ffffff" onclick="quickTextColor('#ffffff')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #fef08a" onclick="quickTextColor('#fef08a')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #fed7aa" onclick="quickTextColor('#fed7aa')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #bfdbfe" onclick="quickTextColor('#bfdbfe')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #bbf7d0" onclick="quickTextColor('#bbf7d0')"></div>
+                                        <div class="w-full aspect-square rounded cursor-pointer border border-white/10" style="background-color: #fbcfe8" onclick="quickTextColor('#fbcfe8')"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODO PROYECTOR AUTÓNOMO DE PANTALLA COMPLETA (Se activa automáticamente con el parámetro ?sala=) -->
+    <div id="projector-only-mode" class="hidden fixed inset-0 z-40 flex flex-col justify-between overflow-hidden no-scrollbar select-none">
+        <!-- Fondo proyectado -->
+        <div id="proj-bg" class="absolute inset-0 z-0 bg-slate-950 bg-cover bg-center transition-all duration-700 ease-in-out"></div>
+        <div id="proj-overlay" class="absolute inset-0 z-0 bg-black/15"></div>
+
+        <div class="z-10 text-center w-full my-auto px-12 md:px-24">
+            <p id="proj-text" class="text-white leading-relaxed transition-all duration-300"></p>
+        </div>
+        <div class="z-10 text-center w-full pb-10">
+            <p id="proj-citation" class="text-white/80 tracking-widest font-bold uppercase transition-all duration-300"></p>
+        </div>
+
+        <!-- Indicador discreto de sincronización para el templo -->
+        <div class="absolute bottom-4 right-4 z-20 text-[10px] text-white/30 flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-full backdrop-blur-sm">
+            <span id="proj-sync-dot" class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Sala: <strong id="proj-room-label">---</strong></span>
+        </div>
+    </div>
+
+    <!-- SIMULADOR LOCAL EN MÁS DE UNA PESTAÑA -->
+    <div id="local-fullscreen-container" class="fixed inset-0 z-50 hidden flex flex-col justify-between p-12 transition-all duration-300">
+        <!-- Fondo proyectado -->
+        <div id="local-fs-backdrop" class="absolute inset-0 z-0 bg-slate-950 bg-cover bg-center"></div>
+        <div id="local-fs-overlay" class="absolute inset-0 z-0 bg-black/20"></div>
+
+        <!-- Botón de Salida -->
+        <button onclick="toggleLocalFullscreen()" class="absolute top-6 right-6 z-20 bg-black/40 hover:bg-black/60 text-white/80 hover:text-white p-3 rounded-full transition border border-white/10 backdrop-blur" title="Salir de Simulación (Esc)">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <div class="z-10 text-center w-full my-auto select-none">
+            <p id="local-fs-text" class="text-white leading-relaxed"></p>
+        </div>
+        <div class="z-10 text-center w-full select-none pb-6">
+            <p id="local-fs-citation" class="text-white/60 text-lg tracking-widest uppercase"></p>
+        </div>
+    </div>
+
+    <!-- NOTIFICACIONES TOAST -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 bg-gray-900 border border-gray-800 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300">
+        <span id="toast-icon" class="p-1.5 bg-blue-500/10 rounded text-blue-400">
+            <i class="fa-solid fa-info-circle"></i>
+        </span>
+        <span id="toast-message" class="text-sm font-semibold text-gray-200">Guardado en la nube</span>
+    </div>
+
+    <!-- Firebase SDK Modules -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { initializeAuth, inMemoryPersistence, getAuth, signInAnonymously, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { initializeFirestore, getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        // --- BIBLIA EN MEMORIA (Reina Valera 1960 - Selección Representativa) ---
+        const DEFAULT_BIBLE = {
+            "Génesis": {
+                "1": [
+                    "En el principio creó Dios los cielos y la tierra.",
+                    "Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la faz del abismo, y el Espíritu de Dios se movía sobre la faz de las aguas.",
+                    "Y dijo Dios: Sea la luz; y fue la luz.",
+                    "Y vio Dios que la luz era buena; y separó Dios la luz de las tinieblas.",
+                    "Y llamó Dios a la luz Día, y a las tinieblas llamó Noche. Y fue la tarde y la mañana un día."
+                ],
+                "2": [
+                    "Fueron, pues, acabados los cielos y la tierra, y todo el ejército de ellos.",
+                    "Y acabó Dios en el día séptimo la obra que hizo; y reposó el día séptimo de toda la obra que hizo.",
+                    "Y bendijo Dios al día séptimo, y lo santificó, porque en él reposó de toda la obra que había hecho en la creación."
+                ]
+            },
+            "Salmos": {
+                "23": [
+                    "Jehová es mi pastor; nada me faltará.",
+                    "En lugares de delicados pastos me hará descansar; junto a aguas de reposo me pastoreará.",
+                    "Confortará mi alma; me guiará por sendas de justicia por amor de su nombre.",
+                    "Aunque ande en valle de sombra de muerte, no temeré mal alguno, porque tú estarás conmigo; tu vara y tu cayado me infundirán aliento.",
+                    "Aderezas mesa delante de mí en presencia de mis angustiadores; unges mi cabeza con aceite; mi copa está rebosando.",
+                    "Ciertamente el bien y la misericordia me seguirán todos los días de mi vida, y en la casa de Jehová moraré por largos días."
+                ],
+                "100": [
+                    "Cantad alegres a Dios, habitantes de toda la tierra.",
+                    "Servid a Jehová con alegría; venid ante su presencia con regocijo.",
+                    "Reconoced que Jehová es Dios; Él nos hizo, y no nosotros a nosotros mismos; pueblo suyo somos, y ovejas de su prado.",
+                    "Entrad por sus puertas con acción de gracias, por sus atrios con alabanza; alabadle, bendecid su nombre.",
+                    "Porque Jehová es bueno; para siempre es su misericordia, y su verdad por todas las generaciones."
+                ]
+            },
+            "Isaías": {
+                "40": [
+                    "¿No has sabido, no has oído que el Dios eterno es Jehová, el cual creó los confines de la tierra? No desfallece, ni se fatiga con cansancio, y su entendimiento no hay quien lo alcance.",
+                    "Él da esfuerzo al cansado, y multiplica las fuerzas al que no tiene ningunas.",
+                    "Los muchachos se fatigan y se cansan, los jóvenes flaquean y caen;",
+                    "pero los que esperan en Jehová tendrán nuevas fuerzas; levantarán alas como las águilas; correrán, y no se cansarán; caminarán, y no se fatigarán."
+                ]
+            },
+            "Mateo": {
+                "5": [
+                    "Viendo la multitud, subió al monte; y sentándose, se acercaron sus discípulos.",
+                    "Y abriendo su boca les enseñaba, diciendo:",
+                    "Bienaventurados los pobres en espíritu, porque de ellos es el reino de los cielos.",
+                    "Bienaventurados los que lloran, porque ellos recibirán consolación.",
+                    "Bienaventurados los mansos, porque ellos recibirán la tierra por heredad."
+                ]
+            },
+            "Juan": {
+                "3": [
+                    "Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.",
+                    "Porque no envió Dios a su Hijo al mundo para condenar al mundo, sino para que el mundo sea salvo por él."
+                ],
+                "14": [
+                    "No se turbe vuestro corazón; creéis en Dios, creed también en mí.",
+                    "En la casa de mi Padre muchas moradas hay; si así no fuera, yo os lo hubiera dicho; voy, pues, a preparar lugar para vosotros.",
+                    "Y si me fuere y os preparara lugar, vendré otra vez, y os tomaré a mí mismo, para que donde yo estoy, vosotros también estéis."
+                ]
+            }
+        };
+
+        // --- GLOBAL APP STATE ---
+        let bibleData = DEFAULT_BIBLE;
+        let selectedBook = "Génesis";
+        let selectedChapter = "1";
+        let selectedVerseIdx = null;
+
+        let currentText = "Selecciona un versículo para proyectar";
+        let currentCitation = "Proyector Bíblico";
+
+        let isBlackout = false;
+        let isClearText = false;
+
+        let projectionStyles = {
+            font: "Inter",
+            align: "center",
+            size: "4.5", // en vw
+            bgcolor: "#0f172a",
+            textcolor: "#ffffff",
+            bgType: "color", // 'color' | 'gradient' | 'image'
+            gradient: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",
+            bgImage: "", 
+            isBold: true,
+            isItalic: false,
+            hasShadow: true
+        };
+
+        let cultoList = [];
+        let projectorWindow = null;
+
+        const DB_NAME = "BibleProjectorDB";
+        const STORE_NAME = "BibleStore";
+
+        let dbRef = null;
+        let firebaseActive = false;
+        let currentRoomId = "GEN-777";
+        let unsubscribeRoom = null;
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'proyector-biblico-prod';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : null;
+
+        // --- INITIALIZATION ---
+        window.onload = async function() {
+            try {
+                initIndexedDB();
+            } catch (err) {
+                console.error("IndexedDB initialization skipped or blocked:", err);
+            }
+
+            try {
+                loadDefaultSelection();
+            } catch (err) {
+                console.error("Default selection failed to load:", err);
+            }
+
+            // Detectar modo proyector autónomo de forma segura
+            let salaParam = null;
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                salaParam = urlParams.get('sala') || urlParams.get('room');
+            } catch (err) {
+                console.error("Failed to read URL parameters:", err);
+            }
+
+            if (salaParam) {
+                currentRoomId = salaParam.toUpperCase();
+                try {
+                    configurarModoProyector();
+                } catch (err) {
+                    console.error("Projector mode setup error:", err);
+                }
+            } else {
+                try {
+                    configurarModoConsola();
+                } catch (err) {
+                    console.error("Console mode setup error:", err);
+                }
+            }
+
+            try {
+                await initFirebase();
+            } catch (err) {
+                console.error("Firebase connection error:", err);
+            }
+        };
+
+        // --- COMPONENTE CRÍTICO: Inicialización de Firebase blindada para TopDirector/WKWebView ---
+        async function initFirebase() {
+            if (!firebaseConfig || !firebaseConfig.apiKey) {
+                console.warn("Firebase no configurado. Ejecutando en Modo Local.");
+                actualizarConexionUI(false);
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                
+                // Forzar persistencia de autenticación en memoria para evitar colapsos por bloqueos de cookies/IndexedDB en iOS
+                let auth;
+                try {
+                    auth = initializeAuth(app, {
+                        persistence: inMemoryPersistence
+                    });
+                } catch (authErr) {
+                    console.warn("No se pudo iniciar Auth con persistencia en memoria, usando fallback:", authErr);
+                    auth = getAuth(app);
+                }
+
+                // Forzar long-polling en Firestore para evadir el bloqueo de WebSockets en TopDirector/WKWebView
+                try {
+                    dbRef = initializeFirestore(app, {
+                        experimentalForceLongPolling: true,
+                        useFetchStreams: false // Máxima compatibilidad con WebViews internas de iOS antiguas
+                    });
+                } catch (dbErr) {
+                    console.warn("No se pudo iniciar Firestore con Long-Polling, usando fallback:", dbErr);
+                    dbRef = getFirestore(app);
+                }
+
+                let userCredential;
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    userCredential = await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    userCredential = await signInAnonymously(auth);
+                }
+
+                if (userCredential && userCredential.user) {
+                    firebaseActive = true;
+                    console.log("Firebase autenticado de forma segura para WebView:", userCredential.user.uid);
+                    actualizarConexionUI(true);
+                    setupRealtimeSync();
+                }
+            } catch (err) {
+                console.error("Error crítico durante autenticación o inicialización de Firebase:", err);
+                actualizarConexionUI(false);
+            }
+        }
+
+        function setupRealtimeSync() {
+            if (!firebaseActive || !dbRef) return;
+            if (unsubscribeRoom) unsubscribeRoom();
+
+            const docRef = doc(dbRef, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+
+            unsubscribeRoom = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    applyIncomingState(data);
+                }
+            }, (error) => {
+                console.error("Error en conexión en tiempo real de Firestore:", error);
+                // Si la conexión cae o se bloquea, alertamos discretamente
+                actualizarConexionUI(false);
+            });
+        }
+
+        async function pushStateToCloud() {
+            if (!firebaseActive || !dbRef) {
+                try {
+                    localStorage.setItem(`local_state_${currentRoomId}`, JSON.stringify({
+                        text: currentText,
+                        citation: currentCitation,
+                        styles: projectionStyles,
+                        blackout: isBlackout,
+                        clearText: isClearText,
+                        updatedAt: Date.now()
+                    }));
+                } catch (e) {
+                    console.warn("LocalStorage is blocked by this browser overlay environment.", e);
+                }
+                return;
+            }
+
+            const docRef = doc(dbRef, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+
+            try {
+                await setDoc(docRef, {
+                    text: currentText,
+                    citation: currentCitation,
+                    styles: projectionStyles,
+                    blackout: isBlackout,
+                    clearText: isClearText,
+                    updatedAt: Date.now()
+                });
+            } catch (err) {
+                console.error("Fallo al sincronizar con la nube:", err);
+            }
+        }
+
+        function applyIncomingState(data) {
+            currentText = data.text || "";
+            currentCitation = data.citation || "";
+            projectionStyles = data.styles || projectionStyles;
+            isBlackout = !!data.blackout;
+            isClearText = !!data.clearText;
+
+            const isProjectorOnly = !document.getElementById('projector-only-mode').classList.contains('hidden');
+            if (isProjectorOnly) {
+                renderAutonomousProjector();
+            } else {
+                updateAllVisualStyles();
+                updateAllInputsFromStyles();
+            }
+        }
+
+        function actualizarConexionUI(active) {
+            const dotOperator = document.getElementById('sync-indicator-dot');
+            const dotProjector = document.getElementById('proj-sync-dot');
+            
+            if (active) {
+                if (dotOperator) {
+                    dotOperator.className = "h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse";
+                    dotOperator.title = "Sincronizado en tiempo real con la nube";
+                }
+                if (dotProjector) {
+                    dotProjector.className = "h-2 w-2 rounded-full bg-emerald-500 animate-pulse";
+                }
+            } else {
+                if (dotOperator) {
+                    dotOperator.className = "h-2.5 w-2.5 rounded-full bg-red-500";
+                    dotOperator.title = "Sincronización deshabilitada (Modo Local / Offline)";
+                }
+                if (dotProjector) {
+                    dotProjector.className = "h-2 w-2 rounded-full bg-red-500";
+                }
+            }
+        }
+
+        function configurarModoProyector() {
+            document.getElementById('operator-interface').classList.add('hidden');
+            document.getElementById('projector-only-mode').classList.remove('hidden');
+            document.getElementById('proj-room-label').innerText = currentRoomId;
+
+            window.addEventListener('storage', (e) => {
+                if (e.key === `local_state_${currentRoomId}`) {
+                    try {
+                        const data = JSON.parse(e.newValue);
+                        applyIncomingState(data);
+                    } catch (err) {
+                        console.error("Storage parse error:", err);
+                    }
+                }
+            });
+
+            try {
+                const initialVal = localStorage.getItem(`local_state_${currentRoomId}`);
+                if (initialVal) {
+                    applyIncomingState(JSON.parse(initialVal));
+                }
+            } catch (e) {
+                console.warn("LocalStorage read is blocked by this browser overlay environment.", e);
+            }
+        }
+
+        function renderAutonomousProjector() {
+            const textEl = document.getElementById('proj-text');
+            const citationEl = document.getElementById('proj-citation');
+            const bgEl = document.getElementById('proj-bg');
+            const shadowStyle = projectionStyles.hasShadow ? "0.15vw 0.15vw 0.4vw rgba(0,0,0,0.95), -0.15vw -0.15vw 0.4vw rgba(0,0,0,0.95)" : "none";
+
+            // 1. Fondo
+            if (isBlackout) {
+                bgEl.style.background = "#000000";
+            } else if (projectionStyles.bgType === 'color') {
+                bgEl.style.background = projectionStyles.bgcolor;
+            } else if (projectionStyles.bgType === 'gradient') {
+                bgEl.style.background = projectionStyles.gradient;
+            } else if (projectionStyles.bgType === 'image') {
+                bgEl.style.background = projectionStyles.bgImage ? `url('${projectionStyles.bgImage}')` : "radial-gradient(circle, #1e1b4b 0%, #020617 100%)";
+                bgEl.style.backgroundSize = "cover";
+                bgEl.style.backgroundPosition = "center";
+            }
+
+            // 2. Textos
+            if (isBlackout || isClearText) {
+                textEl.innerText = "";
+                citationEl.innerText = "";
+            } else {
+                textEl.innerText = currentText;
+                citationEl.innerText = currentCitation;
+            }
+
+            // 3. Estilos de Tipografía
+            textEl.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
+            textEl.style.textAlign = projectionStyles.align;
+            textEl.style.fontSize = `${projectionStyles.size}vw`;
+            textEl.style.color = projectionStyles.textcolor;
+            textEl.style.fontWeight = projectionStyles.isBold ? "700" : "400";
+            textEl.style.fontStyle = projectionStyles.isItalic ? "italic" : "normal";
+            textEl.style.textShadow = shadowStyle;
+
+            citationEl.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
+            citationEl.style.color = projectionStyles.textcolor;
+            citationEl.style.fontSize = `${parseFloat(projectionStyles.size) * 0.4}vw`;
+            citationEl.style.textShadow = shadowStyle;
+        }
+
+        function configurarModoConsola() {
+            const roomInput = document.getElementById('room-id-input');
+            roomInput.value = currentRoomId;
+
+            roomInput.addEventListener('change', (e) => {
+                let nuevaSala = e.target.value.trim().toUpperCase() || "GEN-777";
+                roomInput.value = nuevaSala;
+                currentRoomId = nuevaSala;
+                showToast(`Sala cambiada a ${nuevaSala}`, "success");
+                setupRealtimeSync();
+            });
+
+            renderBooks();
+            renderChapters();
+            renderVerses();
+            renderCultoList();
+            
+            // Inicializar botones de formato, alineación y fondos
+            actualizarBotonesFormato();
+            actualizarBotonesAlineacion();
+            actualizarUIContenedoresFondo(projectionStyles.bgType);
+            updateAllVisualStyles();
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key === "Escape") {
+                    const localFs = document.getElementById('local-fullscreen-container');
+                    if (!localFs.classList.contains('hidden')) {
+                        toggleLocalFullscreen();
+                    }
+                }
+            });
+
+            window.addEventListener('storage', (e) => {
+                if (e.key === `local_state_${currentRoomId}`) {
+                    try {
+                        applyIncomingState(JSON.parse(e.newValue));
+                    } catch (err) {
+                        console.error("Consola storage parse error:", err);
+                    }
+                }
+            });
+        }
+
+        function initIndexedDB() {
+            try {
+                if (!window.indexedDB) {
+                    console.warn("IndexedDB no está disponible en este entorno de navegación.");
+                    return;
+                }
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = function(e) {
+                    try {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME, { keyPath: "id" });
+                        }
+                    } catch (err) {
+                        console.error("Error en upgrade de base de datos:", err);
+                    }
+                };
+                request.onsuccess = function(e) {
+                    try {
+                        const db = e.target.result;
+                        const transaction = db.transaction(STORE_NAME, "readonly");
+                        const store = transaction.objectStore(STORE_NAME);
+                        const getReq = store.get("custom-bible");
+
+                        getReq.onsuccess = function() {
+                            if (getReq.result) {
+                                bibleData = getReq.result.data;
+                                showToast("Biblia guardada cargada de forma local", "success");
+                                const firstBook = Object.keys(bibleData)[0];
+                                if (firstBook) {
+                                    selectedBook = firstBook;
+                                    selectedChapter = Object.keys(bibleData[firstBook])[0] || "1";
+                                }
+                                renderBooks();
+                                renderChapters();
+                                renderVerses();
+                            }
+                        };
+                    } catch (err) {
+                        console.error("Error al procesar lectura de IndexedDB:", err);
+                    }
+                };
+                request.onerror = function(e) {
+                    console.warn("No se pudo iniciar IndexedDB. Operando en memoria con selección básica.", e);
+                };
+            } catch (err) {
+                console.warn("Acceso a IndexedDB totalmente bloqueado por políticas de TopDirector/iOS:", err);
+            }
+        }
+
+        function saveBibleToIndexedDB(data) {
+            try {
+                if (!window.indexedDB) return;
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onsuccess = function(e) {
+                    try {
+                        const db = e.target.result;
+                        const transaction = db.transaction(STORE_NAME, "readwrite");
+                        const store = transaction.objectStore(STORE_NAME);
+                        store.put({ id: "custom-bible", data: data });
+                        showToast("Base de Datos guardada offline en este navegador", "success");
+                    } catch (err) {
+                        console.error("No se pudo guardar la biblia localmente:", err);
+                    }
+                };
+            } catch (err) {
+                console.warn("Imposible escribir en IndexedDB debido al entorno restringido:", err);
+            }
+        }
+
+        window.filterBooks = function() {
+            const query = document.getElementById('search-book').value.toLowerCase();
+            const listItems = document.querySelectorAll('.book-item');
+            listItems.forEach(item => {
+                const bookName = item.dataset.book.toLowerCase();
+                if (bookName.includes(query)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        };
+
+        function renderBooks() {
+            const container = document.getElementById('books-container');
+            if (!container) return;
+            container.innerHTML = "";
+            
+            if (!bibleData || Object.keys(bibleData).length === 0) {
+                container.innerHTML = `<div class="text-gray-500 text-sm text-center py-4">No hay libros disponibles</div>`;
+                return;
+            }
+
+            const books = Object.keys(bibleData);
+            books.forEach(book => {
+                const isSelected = book === selectedBook;
+                const button = document.createElement('button');
+                button.className = `book-item w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition flex items-center justify-between ${
+                    isSelected 
+                    ? 'bg-blue-600/15 border border-blue-500/30 text-blue-400 font-bold' 
+                    : 'hover:bg-gray-800 text-gray-300'
+                }`;
+                button.dataset.book = book;
+                button.innerHTML = `
+                    <span class="truncate">${book}</span>
+                    <i class="fa-solid fa-chevron-right text-[10px] ${isSelected ? 'text-blue-400' : 'text-gray-600'}"></i>
+                `;
+                button.onclick = () => selectBook(book);
+                container.appendChild(button);
+            });
+        }
+
+        function renderChapters() {
+            const container = document.getElementById('chapters-container');
+            if (!container) return;
+            container.innerHTML = "";
+            
+            if (!bibleData || !selectedBook || !bibleData[selectedBook]) return;
+            
+            const chapters = Object.keys(bibleData[selectedBook]);
+            chapters.sort((a,b) => parseInt(a) - parseInt(b));
+
+            chapters.forEach(ch => {
+                const isSelected = ch === selectedChapter;
+                const btn = document.createElement('button');
+                btn.className = `aspect-square flex items-center justify-center font-bold text-sm rounded-xl border transition ${
+                    isSelected 
+                    ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-950/40' 
+                    : 'bg-gray-900 text-gray-400 border-gray-800 hover:border-gray-700 hover:text-white'
+                }`;
+                btn.innerText = ch;
+                btn.onclick = () => selectChapter(ch);
+                container.appendChild(btn);
+            });
+        }
+
+        function renderVerses() {
+            const container = document.getElementById('verses-container');
+            if (!container) return;
+            container.innerHTML = "";
+
+            const currentTitleEl = document.getElementById('current-title');
+            if (currentTitleEl) {
+                currentTitleEl.innerText = `${selectedBook} - Capítulo ${selectedChapter}`;
+            }
+
+            if (!bibleData || !selectedBook || !selectedChapter || !bibleData[selectedBook] || !bibleData[selectedBook][selectedChapter]) {
+                container.innerHTML = `<div class="text-gray-500 text-sm text-center py-12">No hay versículos en este capítulo.</div>`;
+                return;
+            }
+
+            const verses = bibleData[selectedBook][selectedChapter];
+            verses.forEach((verseText, index) => {
+                const vNum = index + 1;
+                const isSelected = index === selectedVerseIdx;
+                
+                const card = document.createElement('div');
+                card.className = `group border p-4 rounded-xl transition cursor-pointer flex gap-4 relative items-start select-none ${
+                    isSelected 
+                    ? 'bg-blue-950/40 border-blue-500/60 text-blue-100 shadow-lg' 
+                    : 'bg-gray-900/50 border-gray-800/80 text-gray-300 hover:bg-gray-800/80 hover:border-gray-700'
+                }`;
+                
+                card.onclick = () => selectVerse(index);
+
+                card.innerHTML = `
+                    <div class="bg-gray-950 px-2 py-1 rounded-lg text-xs font-bold text-blue-400 border border-gray-800 shrink-0">
+                        ${vNum}
+                    </div>
+                    <div class="flex-1 text-sm md:text-base leading-relaxed pr-8 font-medium">
+                        ${verseText}
+                    </div>
+                    <div class="absolute right-4 top-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="addToCultoList(event, '${selectedBook.replace(/'/g, "\\'")}', '${selectedChapter}', ${vNum}, '${verseText.replace(/'/g, "\\'")}')" class="bg-gray-950 hover:bg-emerald-950 text-gray-400 hover:text-emerald-400 border border-gray-800 p-2 rounded-lg transition" title="Añadir a lista de culto">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function selectBook(book) {
+            selectedBook = book;
+            const availableChapters = Object.keys(bibleData[book]);
+            availableChapters.sort((a,b) => parseInt(a) - parseInt(b));
+            selectedChapter = availableChapters[0] || "1";
+            selectedVerseIdx = null;
+
+            renderBooks();
+            renderChapters();
+            renderVerses();
+        }
+
+        function selectChapter(chapter) {
+            selectedChapter = chapter;
+            selectedVerseIdx = null;
+
+            renderChapters();
+            renderVerses();
+        }
+
+        window.changeChapter = function(direction) {
+            if (!bibleData[selectedBook]) return;
+            const chapters = Object.keys(bibleData[selectedBook]);
+            chapters.sort((a,b) => parseInt(a) - parseInt(b));
+            const currentIdx = chapters.indexOf(selectedChapter);
+            
+            let nextIdx = currentIdx + direction;
+            if (nextIdx >= 0 && nextIdx < chapters.length) {
+                selectChapter(chapters[nextIdx]);
+            } else {
+                showToast("Fin del libro", "info");
+            }
+        };
+
+        function selectVerse(idx) {
+            selectedVerseIdx = idx;
+            renderVerses();
+            triggerProjection();
+        }
+
+        function loadDefaultSelection() {
+            const books = Object.keys(bibleData);
+            if (books.length > 0) {
+                selectedBook = books[0];
+                const chapters = Object.keys(bibleData[selectedBook]);
+                if (chapters.length > 0) {
+                    selectedChapter = chapters[0];
+                }
+            }
+        }
+
+        function triggerProjection() {
+            if (selectedVerseIdx === null) return;
+            const text = bibleData[selectedBook][selectedChapter][selectedVerseIdx];
+            const citation = `${selectedBook} ${selectedChapter}:${selectedVerseIdx + 1}`;
+
+            currentText = `"${text}"`;
+            currentCitation = citation;
+            isBlackout = false;
+            isClearText = false;
+
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+        }
+
+        window.clearProjection = function() {
+            selectedVerseIdx = null;
+            renderVerses();
+
+            currentText = "Ningún versículo seleccionado";
+            currentCitation = "SALA DE CONTROL";
+            isBlackout = false;
+            isClearText = false;
+
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+        };
+
+        window.toggleBlackout = function() {
+            isBlackout = !isBlackout;
+            const btn = document.getElementById('btn-blackout');
+            if (isBlackout) {
+                btn.className = "border border-amber-600 bg-amber-600/20 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-600/10";
+                showToast("Proyección Apagada (Pantalla en negro)", "info");
+            } else {
+                btn.className = "border border-gray-700 bg-gray-950 hover:bg-gray-800 text-gray-200 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all";
+            }
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+        };
+
+        window.toggleClearText = function() {
+            isClearText = !isClearText;
+            const btn = document.getElementById('btn-clear-text');
+            if (isClearText) {
+                btn.className = "border border-blue-600 bg-blue-600/20 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/10";
+                showToast("Texto oculto temporalmente", "info");
+            } else {
+                btn.className = "border border-gray-700 bg-gray-950 hover:bg-gray-800 text-gray-200 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all";
+            }
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+        };
+
+        function actualizarMonitorDeOperador() {
+            const previewBackdrop = document.getElementById('preview-backdrop');
+            const previewText = document.getElementById('preview-text');
+            const previewCitation = document.getElementById('preview-citation');
+            const shadowStyle = projectionStyles.hasShadow ? "0.15vw 0.15vw 0.4vw rgba(0,0,0,0.95), -0.15vw -0.15vw 0.4vw rgba(0,0,0,0.95)" : "none";
+
+            // 1. Fondo del operador
+            if (isBlackout) {
+                previewBackdrop.style.background = "#000000";
+            } else if (projectionStyles.bgType === 'color') {
+                previewBackdrop.style.background = projectionStyles.bgcolor;
+            } else if (projectionStyles.bgType === 'gradient') {
+                previewBackdrop.style.background = projectionStyles.gradient;
+            } else if (projectionStyles.bgType === 'image') {
+                previewBackdrop.style.background = projectionStyles.bgImage ? `url('${projectionStyles.bgImage}')` : "radial-gradient(circle, #1e1b4b 0%, #020617 100%)";
+                previewBackdrop.style.backgroundSize = "cover";
+                previewBackdrop.style.backgroundPosition = "center";
+            }
+
+            // 2. Letra del operador
+            if (isBlackout || isClearText) {
+                previewText.innerText = "";
+                previewCitation.innerText = "";
+            } else {
+                previewText.innerText = currentText;
+                previewCitation.innerText = currentCitation;
+            }
+
+            // 3. Aplicación de Tipografías
+            previewText.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
+            previewText.style.textAlign = projectionStyles.align;
+            previewText.style.color = projectionStyles.textcolor;
+            previewText.style.fontWeight = projectionStyles.isBold ? "700" : "400";
+            previewText.style.fontStyle = projectionStyles.isItalic ? "italic" : "normal";
+            previewText.style.textShadow = shadowStyle;
+            
+            previewCitation.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
+            previewCitation.style.color = projectionStyles.textcolor;
+            previewCitation.style.opacity = "0.76";
+
+            // Aplicar también a simulación pantalla completa
+            const localFsBackdrop = document.getElementById('local-fs-backdrop');
+            const localFsText = document.getElementById('local-fs-text');
+            const localFsCitation = document.getElementById('local-fs-citation');
+
+            if (localFsBackdrop && localFsText && localFsCitation) {
+                if (isBlackout) {
+                    localFsBackdrop.style.background = "#000000";
+                } else if (projectionStyles.bgType === 'color') {
+                    localFsBackdrop.style.background = projectionStyles.bgcolor;
+                } else if (projectionStyles.bgType === 'gradient') {
+                    localFsBackdrop.style.background = projectionStyles.gradient;
+                } else if (projectionStyles.bgType === 'image') {
+                    localFsBackdrop.style.background = projectionStyles.bgImage ? `url('${projectionStyles.bgImage}')` : "radial-gradient(circle, #1e1b4b 0%, #020617 100%)";
+                    localFsBackdrop.style.backgroundSize = "cover";
+                    localFsBackdrop.style.backgroundPosition = "center";
+                }
+
+                if (isBlackout || isClearText) {
+                    localFsText.innerText = "";
+                    localFsCitation.innerText = "";
+                } else {
+                    localFsText.innerText = currentText;
+                    localFsCitation.innerText = currentCitation;
+                }
+
+                localFsText.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
+                localFsText.style.textAlign = projectionStyles.align;
+                localFsText.style.fontSize = `${projectionStyles.size}vw`;
+                localFsText.style.color = projectionStyles.textcolor;
+                localFsText.style.fontWeight = projectionStyles.isBold ? "700" : "400";
+                localFsText.style.fontStyle = projectionStyles.isItalic ? "italic" : "normal";
+                localFsText.style.textShadow = shadowStyle;
+
+                localFsCitation.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
+                localFsCitation.style.color = projectionStyles.textcolor;
+                localFsCitation.style.fontSize = `${parseFloat(projectionStyles.size) * 0.4}vw`;
+            }
+
+            // Aplicar a Ventana Externa si existe
+            if (projectorWindow && !projectorWindow.closed) {
+                const docObj = projectorWindow.document;
+                const extBackdrop = docObj.getElementById('projector-backdrop');
+                const extText = docObj.getElementById('projector-text');
+                const extCitation = docObj.getElementById('projector-citation');
+
+                if (extBackdrop && extText && extCitation) {
+                    if (isBlackout) {
+                        extBackdrop.style.background = "#000000";
+                    } else if (projectionStyles.bgType === 'color') {
+                        extBackdrop.style.background = projectionStyles.bgcolor;
+                    } else if (projectionStyles.bgType === 'gradient') {
+                        extBackdrop.style.background = projectionStyles.gradient;
+                    } else if (projectionStyles.bgType === 'image') {
+                        extBackdrop.style.background = projectionStyles.bgImage ? `url('${projectionStyles.bgImage}')` : "radial-gradient(circle, #1e1b4b 0%, #020617 100%)";
+                        extBackdrop.style.backgroundSize = "cover";
+                        extBackdrop.style.backgroundPosition = "center";
+                    }
+
+                    if (isBlackout || isClearText) {
+                        extText.innerText = "";
+                        extCitation.innerText = "";
+                    } else {
+                        extText.innerText = currentText;
+                        extCitation.innerText = currentCitation;
+                    }
+
+                    extText.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
+                    extText.style.textAlign = projectionStyles.align;
+                    extText.style.fontSize = `${projectionStyles.size}vw`;
+                    extText.style.color = projectionStyles.textcolor;
+                    extText.style.fontWeight = projectionStyles.isBold ? "700" : "400";
+                    extText.style.fontStyle = projectionStyles.isItalic ? "italic" : "normal";
+                    extText.style.textShadow = shadowStyle;
+
+                    extCitation.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
+                    extCitation.style.color = projectionStyles.textcolor;
+                    extCitation.style.fontSize = `${parseFloat(projectionStyles.size) * 0.4}vw`;
+                    extCitation.style.textShadow = shadowStyle;
+                }
+            }
+        }
+
+        function actualizarBotonesFormato() {
+            const btnBold = document.getElementById('btn-format-bold');
+            const btnItalic = document.getElementById('btn-format-italic');
+            const btnShadow = document.getElementById('btn-format-shadow');
+
+            if (btnBold) {
+                if (projectionStyles.isBold) {
+                    btnBold.className = "bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 py-2 rounded-lg text-xs font-bold flex items-center justify-center transition";
+                } else {
+                    btnBold.className = "bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 py-2 rounded-lg text-xs font-bold flex items-center justify-center transition";
+                }
+            }
+            if (btnItalic) {
+                if (projectionStyles.isItalic) {
+                    btnItalic.className = "bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 py-2 rounded-lg text-xs italic flex items-center justify-center transition";
+                } else {
+                    btnItalic.className = "bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 py-2 rounded-lg text-xs italic flex items-center justify-center transition";
+                }
+            }
+            if (btnShadow) {
+                if (projectionStyles.hasShadow) {
+                    btnShadow.className = "bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 py-2 rounded-lg text-xs flex items-center justify-center transition";
+                } else {
+                    btnShadow.className = "bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 py-2 rounded-lg text-xs flex items-center justify-center transition";
+                }
+            }
+        }
+
+        function actualizarBotonesAlineacion() {
+            const btnLeft = document.getElementById('btn-align-left');
+            const btnCenter = document.getElementById('btn-align-center');
+            const btnRight = document.getElementById('btn-align-right');
+
+            if (btnLeft) {
+                if (projectionStyles.align === 'left') {
+                    btnLeft.className = "bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 py-1.5 rounded-lg text-sm transition";
+                } else {
+                    btnLeft.className = "bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 py-1.5 rounded-lg text-sm transition";
+                }
+            }
+            if (btnCenter) {
+                if (projectionStyles.align === 'center') {
+                    btnCenter.className = "bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 py-1.5 rounded-lg text-sm transition";
+                } else {
+                    btnCenter.className = "bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 py-1.5 rounded-lg text-sm transition";
+                }
+            }
+            if (btnRight) {
+                if (projectionStyles.align === 'right') {
+                    btnRight.className = "bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 py-1.5 rounded-lg text-sm transition";
+                } else {
+                    btnRight.className = "bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 py-1.5 rounded-lg text-sm transition";
+                }
+            }
+        }
+
+        function actualizarUIContenedoresFondo(type) {
+            const btnColor = document.getElementById('btn-bg-color');
+            const btnGrad = document.getElementById('btn-bg-grad');
+            const btnImg = document.getElementById('btn-bg-img');
+            const colorContainer = document.getElementById('palette-color-container');
+            const gradContainer = document.getElementById('palette-gradient-container');
+            const imageContainer = document.getElementById('palette-image-container');
+
+            if (!btnColor || !btnGrad || !btnImg) return;
+
+            [btnColor, btnGrad, btnImg].forEach(b => {
+                b.className = "bg-gray-900 border border-gray-800 py-2 rounded-lg font-semibold text-gray-300 hover:bg-gray-800";
+            });
+
+            if (colorContainer) colorContainer.classList.add('hidden');
+            if (gradContainer) gradContainer.classList.add('hidden');
+            if (imageContainer) imageContainer.classList.add('hidden');
+
+            if (type === 'color') {
+                btnColor.className = "bg-blue-600 border border-blue-500 py-2 rounded-lg font-semibold text-white";
+                if (colorContainer) colorContainer.classList.remove('hidden');
+            } else if (type === 'gradient') {
+                btnGrad.className = "bg-blue-600 border border-blue-500 py-2 rounded-lg font-semibold text-white";
+                if (gradContainer) gradContainer.classList.remove('hidden');
+            } else if (type === 'image') {
+                btnImg.className = "bg-blue-600 border border-blue-500 py-2 rounded-lg font-semibold text-white";
+                if (imageContainer) imageContainer.classList.remove('hidden');
+            }
+        }
+
+        window.updateStyleProperty = function(property, value) {
+            if (property === 'font') projectionStyles.font = value;
+            if (property === 'align') {
+                projectionStyles.align = value;
+                actualizarBotonesAlineacion();
+            }
+            if (property === 'size') {
+                projectionStyles.size = value;
+                document.getElementById('val-font-size').innerText = value + "vw";
+            }
+            if (property === 'bgcolor') {
+                projectionStyles.bgcolor = value;
+                updateBackgroundType('color');
+            }
+            if (property === 'textcolor') projectionStyles.textcolor = value;
+
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+        };
+
+        window.toggleFontFormat = function(type) {
+            if (type === 'bold') {
+                projectionStyles.isBold = !projectionStyles.isBold;
+            } else if (type === 'italic') {
+                projectionStyles.isItalic = !projectionStyles.isItalic;
+            } else if (type === 'shadow') {
+                projectionStyles.hasShadow = !projectionStyles.hasShadow;
+            }
+            
+            actualizarBotonesFormato();
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+        };
+
+        window.updateBackgroundType = function(type) {
+            projectionStyles.bgType = type;
+            actualizarUIContenedoresFondo(type);
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+        };
+
+        window.quickColor = function(color) {
+            document.getElementById('style-bgcolor').value = color;
+            updateStyleProperty('bgcolor', color);
+        };
+
+        window.quickGradient = function(gradientString) {
+            projectionStyles.gradient = gradientString;
+            updateBackgroundType('gradient');
+        };
+
+        window.quickTextColor = function(color) {
+            document.getElementById('style-textcolor').value = color;
+            updateStyleProperty('textcolor', color);
+        };
+
+        function updateAllVisualStyles() {
+            actualizarMonitorDeOperador();
+        }
+
+        function updateAllInputsFromStyles() {
+            const fontSelect = document.getElementById('style-font');
+            if (fontSelect) fontSelect.value = projectionStyles.font;
+
+            const sizeSlider = document.getElementById('style-size');
+            if (sizeSlider) {
+                sizeSlider.value = projectionStyles.size;
+                document.getElementById('val-font-size').innerText = projectionStyles.size + "vw";
+            }
+
+            const colorInput = document.getElementById('style-bgcolor');
+            if (colorInput) colorInput.value = projectionStyles.bgcolor;
+
+            const textColorInput = document.getElementById('style-textcolor');
+            if (textColorInput) textColorInput.value = projectionStyles.textcolor;
+
+            // Sincronizar UI de botones de formato, alineación y fondo
+            actualizarBotonesFormato();
+            actualizarBotonesAlineacion();
+            actualizarUIContenedoresFondo(projectionStyles.bgType);
+        }
+
+        window.searchWebBackgrounds = function() {
+            const query = document.getElementById('web-bg-search-input').value.trim();
+            const resultsContainer = document.getElementById('web-bg-results');
+
+            if (!query) {
+                showToast("Escribe palabras como 'cielo', 'cruz' o 'estrellas'...", "info");
+                return;
+            }
+
+            resultsContainer.innerHTML = `
+                <div class="col-span-3 text-center py-4 text-xs text-gray-400">
+                    <i class="fa-solid fa-spinner animate-spin text-blue-500 mr-2"></i>Buscando fotos...
+                </div>
+            `;
+
+            setTimeout(() => {
+                resultsContainer.innerHTML = "";
+                for (let i = 1; i <= 6; i++) {
+                    const thumbUrl = `https://loremflickr.com/150/100/${encodeURIComponent(query)}?lock=${i}`;
+                    const fullUrl = `https://loremflickr.com/1600/900/${encodeURIComponent(query)}?lock=${i}`;
+
+                    const btn = document.createElement('button');
+                    btn.className = "relative aspect-video rounded border border-white/10 overflow-hidden hover:border-blue-500 transition bg-cover bg-center focus:outline-none";
+                    btn.style.backgroundImage = `url('${thumbUrl}')`;
+
+                    btn.onclick = () => {
+                        projectionStyles.bgImage = fullUrl;
+                        updateBackgroundType('image');
+                        showToast("Fondo web aplicado correctamente", "success");
+                    };
+
+                    resultsContainer.appendChild(btn);
+                }
+            }, 500);
+        };
+
+        window.uploadBackgroundImage = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                projectionStyles.bgImage = e.target.result;
+                updateBackgroundType('image');
+                showToast("Imagen de fondo cargada con éxito", "success");
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.quickPredefinedBackground = function(url) {
+            projectionStyles.bgImage = url;
+            updateBackgroundType('image');
+            showToast("Fondo premium aplicado", "success");
+        };
+
+        window.addToCultoList = function(event, book, chapter, verseNum, text) {
+            event.stopPropagation();
+            const citation = `${book} ${chapter}:${verseNum}`;
+            
+            const exists = cultoList.some(item => item.citation === citation);
+            if (exists) {
+                showToast("El versículo ya está en tu lista de culto", "info");
+                return;
+            }
+
+            cultoList.push({
+                book: book,
+                chapter: chapter,
+                verseIndex: verseNum - 1,
+                citation: citation,
+                text: text
+            });
+
+            renderCultoList();
+            showToast("Añadido a la lista de culto", "success");
+        };
+
+        function renderCultoList() {
+            const container = document.getElementById('culto-list-items');
+            if (!container) return;
+            container.innerHTML = "";
+
+            if (cultoList.length === 0) {
+                container.innerHTML = `
+                    <div class="h-32 flex flex-col items-center justify-center text-center text-gray-500 border-2 border-dashed border-gray-850 rounded-xl p-4">
+                        <i class="fa-solid fa-list-ul mb-2 text-gray-600 text-lg"></i>
+                        <span class="text-xs">No hay versículos en tu lista de culto</span>
+                    </div>
+                `;
+                return;
+            }
+
+            cultoList.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = "bg-gray-900 border border-gray-850 hover:border-gray-700 rounded-xl p-3 flex flex-col gap-1 transition cursor-pointer select-none group";
+                card.onclick = () => {
+                    selectedBook = item.book;
+                    selectedChapter = item.chapter;
+                    selectedVerseIdx = item.verseIndex;
+                    
+                    renderBooks();
+                    renderChapters();
+                    renderVerses();
+                    triggerProjection();
+                };
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">${item.citation}</span>
+                        <button onclick="removeFromCultoList(event, ${index})" class="text-gray-500 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition" title="Quitar de la lista">
+                            <i class="fa-solid fa-xmark text-[11px]"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-300 line-clamp-2 mt-1 italic">"${item.text}"</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        window.removeFromCultoList = function(event, index) {
+            event.stopPropagation();
+            cultoList.splice(index, 1);
+            renderCultoList();
+            showToast("Quitado de la lista de culto", "info");
+        };
+
+        window.clearCultoList = function() {
+            cultoList = [];
+            renderCultoList();
+            showToast("Lista de culto vaciada", "info");
+        };
+
+        window.toggleExternalProjector = function() {
+            if (projectorWindow && !projectorWindow.closed) {
+                projectorWindow.close();
+                projectorWindow = null;
+                document.getElementById('ext-win-text').innerText = "Proyectar (Ventana)";
+            } else {
+                projectorWindow = window.open("", "ProyectorBiblia", "width=1024,height=576,menubar=no,toolbar=no,location=no,status=no");
+                
+                if (projectorWindow) {
+                    projectorWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html lang="es" style="height: 100%; margin: 0; padding: 0; overflow: hidden;">
+                        <head>
+                            <meta charset="UTF-8">
+                            <title>Pantalla de Proyección Externa</title>
+                            <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;700&family=Montserrat:wght@400;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+                        </head>
+                        <body style="
+                            height: 100%; 
+                            margin: 0; 
+                            padding: 0; 
+                            display: flex; 
+                            flex-direction: column; 
+                            justify-content: space-between; 
+                            box-sizing: border-box;
+                            position: relative;
+                            overflow: hidden;
+                        ">
+                            <div id="projector-backdrop" style="position: absolute; inset: 0; z-index: 1; background-size: cover; background-position: center; transition: all 0.25s ease;"></div>
+                            <div id="projector-overlay" style="position: absolute; inset: 0; z-index: 2; background: rgba(0,0,0,0.18);"></div>
+                            <div style="z-index: 10; display: flex; flex: 1; align-items: center; justify-content: center; padding: 5% 8%; text-align: center; box-sizing: border-box; user-select: none;">
+                                <p id="projector-text" style="margin: 0; transition: all 0.2s ease;"></p>
+                            </div>
+                            <div style="z-index: 10; padding-bottom: 4%; text-align: center; box-sizing: border-box; user-select: none;">
+                                <p id="projector-citation" style="margin: 0; font-weight: 300; letter-spacing: 0.15em; transition: all 0.2s ease; opacity: 0.85; text-transform: uppercase;"></p>
+                            </div>
+                        </body>
+                        </html>
+                    `);
+                    projectorWindow.document.close();
+                    document.getElementById('ext-win-text').innerText = "Cerrar Proyección";
+                    
+                    setTimeout(() => {
+                        updateAllVisualStyles();
+                    }, 200);
+
+                    projectorWindow.onbeforeunload = function() {
+                        projectorWindow = null;
+                        document.getElementById('ext-win-text').innerText = "Proyectar (Ventana)";
+                    };
+                }
+            }
+        };
+
+        window.toggleLocalFullscreen = function() {
+            const container = document.getElementById('local-fullscreen-container');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                updateAllVisualStyles();
+            } else {
+                container.classList.add('hidden');
+            }
+        };
+
+        window.importCustomBible = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    let validData = null;
+
+                    if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        validData = {};
+                        for (const [key, book] of Object.entries(parsed)) {
+                            if (["mensaje", "metadata", "version", "info"].includes(key.toLowerCase())) continue;
+                            validData[key] = book;
+                        }
+                    }
+
+                    if (validData && Object.keys(validData).length > 0) {
+                        bibleData = validData;
+                        saveBibleToIndexedDB(validData);
+
+                        const firstBook = Object.keys(validData)[0];
+                        selectedBook = firstBook;
+                        selectedChapter = Object.keys(validData[firstBook])[0] || "1";
+                        selectedVerseIdx = null;
+
+                        renderBooks();
+                        renderChapters();
+                        renderVerses();
+                        showToast("¡Biblia personalizada cargada con éxito!", "success");
+                    } else {
+                        showToast("El formato JSON no es el esperado.", "error");
+                    }
+                } catch (err) {
+                    showToast("Error de análisis del JSON.", "error");
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        window.switchTab = function(tabId) {
+            document.getElementById('tab-culto').classList.add('hidden');
+            document.getElementById('tab-estilos').classList.add('hidden');
+            
+            document.getElementById('btn-tab-culto').className = "flex-1 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-white transition";
+            document.getElementById('btn-tab-estilos').className = "flex-1 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-white transition";
+
+            document.getElementById(tabId).classList.remove('hidden');
+
+            if (tabId === 'tab-culto') {
+                document.getElementById('btn-tab-culto').className = "flex-1 py-3 text-sm font-semibold border-b-2 border-blue-500 text-blue-400 transition";
+            } else {
+                document.getElementById('btn-tab-estilos').className = "flex-1 py-3 text-sm font-semibold border-b-2 border-blue-500 text-blue-400 transition";
+            }
+        };
+
+        window.copyProjectorLink = function() {
+            const url = `${window.location.origin}${window.location.pathname}?sala=${currentRoomId}`;
+            
+            const dummy = document.createElement('input');
+            document.body.appendChild(dummy);
+            dummy.value = url;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            showToast("Enlace de Proyección copiado. Ábrelo en otra pantalla.", "success");
+        };
+
+        function showToast(message, type = "info") {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-message');
+            const iconEl = document.getElementById('toast-icon');
+            if (!toast) return;
+
+            msgEl.innerText = message;
+            
+            if (type === "success") {
+                toast.className = "fixed bottom-5 right-5 z-50 transform bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300";
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            } else if (type === "error") {
+                toast.className = "fixed bottom-5 right-5 z-50 transform bg-red-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300";
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
+            } else {
+                toast.className = "fixed bottom-5 right-5 z-50 transform bg-gray-900 border border-gray-800 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300";
+                iconEl.innerHTML = '<i class="fa-solid fa-info-circle text-blue-400"></i>';
+            }
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

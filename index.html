@@ -91,7 +91,7 @@
                 </button>
 
                 <!-- PANTALLA COMPLETA LOCAL -->
-                <button onclick="toggleLocalFullscreen()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-3 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-1.5 transition">
+                <button onclick="toggleLocalFullscreen()" class="bg-gray-800 hover:bg-gray-750 text-gray-200 border border-gray-700 px-3 py-2 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-1.5 transition">
                     <i class="fa-solid fa-expand text-xs"></i>
                     <span class="hidden md:inline">Simular Pantalla Completa</span>
                 </button>
@@ -581,7 +581,7 @@
             }
         };
 
-        // --- COMPONENTE CRÍTICO: Inicialización de Firebase blindada para TopDirector/WKWebView ---
+        // --- COMPONENTE CRÍTICO: Inicialización de Firebase ---
         async function initFirebase() {
             if (!firebaseConfig || !firebaseConfig.apiKey) {
                 console.warn("Firebase no configurado. Ejecutando en Modo Local.");
@@ -592,25 +592,23 @@
             try {
                 const app = initializeApp(firebaseConfig);
                 
-                // Forzar persistencia de autenticación en memoria para evitar colapsos por bloqueos de cookies/IndexedDB en iOS
                 let auth;
                 try {
                     auth = initializeAuth(app, {
                         persistence: inMemoryPersistence
                     });
                 } catch (authErr) {
-                    console.warn("No se pudo iniciar Auth con persistencia en memoria, usando fallback:", authErr);
+                    console.warn("No se pudo iniciar Auth con persistencia en memoria:", authErr);
                     auth = getAuth(app);
                 }
 
-                // Forzar long-polling en Firestore para evadir el bloqueo de WebSockets en TopDirector/WKWebView
                 try {
                     dbRef = initializeFirestore(app, {
                         experimentalForceLongPolling: true,
-                        useFetchStreams: false // Máxima compatibilidad con WebViews internas de iOS antiguas
+                        useFetchStreams: false 
                     });
                 } catch (dbErr) {
-                    console.warn("No se pudo iniciar Firestore con Long-Polling, usando fallback:", dbErr);
+                    console.warn("No se pudo iniciar Firestore con Long-Polling:", dbErr);
                     dbRef = getFirestore(app);
                 }
 
@@ -623,12 +621,11 @@
 
                 if (userCredential && userCredential.user) {
                     firebaseActive = true;
-                    console.log("Firebase autenticado de forma segura para WebView:", userCredential.user.uid);
                     actualizarConexionUI(true);
                     setupRealtimeSync();
                 }
             } catch (err) {
-                console.error("Error crítico durante autenticación o inicialización de Firebase:", err);
+                console.error("Error en Firebase:", err);
                 actualizarConexionUI(false);
             }
         }
@@ -645,8 +642,7 @@
                     applyIncomingState(data);
                 }
             }, (error) => {
-                console.error("Error en conexión en tiempo real de Firestore:", error);
-                // Si la conexión cae o se bloquea, alertamos discretamente
+                console.error("Error en Firestore:", error);
                 actualizarConexionUI(false);
             });
         }
@@ -663,7 +659,7 @@
                         updatedAt: Date.now()
                     }));
                 } catch (e) {
-                    console.warn("LocalStorage is blocked by this browser overlay environment.", e);
+                    console.warn("LocalStorage bloqueado:", e);
                 }
                 return;
             }
@@ -680,7 +676,7 @@
                     updatedAt: Date.now()
                 });
             } catch (err) {
-                console.error("Fallo al sincronizar con la nube:", err);
+                console.error("Sincronización de nube fallida:", err);
             }
         }
 
@@ -707,7 +703,7 @@
             if (active) {
                 if (dotOperator) {
                     dotOperator.className = "h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse";
-                    dotOperator.title = "Sincronizado en tiempo real con la nube";
+                    dotOperator.title = "Sincronizado en la nube";
                 }
                 if (dotProjector) {
                     dotProjector.className = "h-2 w-2 rounded-full bg-emerald-500 animate-pulse";
@@ -715,7 +711,7 @@
             } else {
                 if (dotOperator) {
                     dotOperator.className = "h-2.5 w-2.5 rounded-full bg-red-500";
-                    dotOperator.title = "Sincronización deshabilitada (Modo Local / Offline)";
+                    dotOperator.title = "Modo Local / Sin Conexión";
                 }
                 if (dotProjector) {
                     dotProjector.className = "h-2 w-2 rounded-full bg-red-500";
@@ -734,7 +730,7 @@
                         const data = JSON.parse(e.newValue);
                         applyIncomingState(data);
                     } catch (err) {
-                        console.error("Storage parse error:", err);
+                        console.error("Error parseando estado:", err);
                     }
                 }
             });
@@ -745,7 +741,7 @@
                     applyIncomingState(JSON.parse(initialVal));
                 }
             } catch (e) {
-                console.warn("LocalStorage read is blocked by this browser overlay environment.", e);
+                console.warn("Error leyendo localstorage:", e);
             }
         }
 
@@ -755,7 +751,6 @@
             const bgEl = document.getElementById('proj-bg');
             const shadowStyle = projectionStyles.hasShadow ? "0.15vw 0.15vw 0.4vw rgba(0,0,0,0.95), -0.15vw -0.15vw 0.4vw rgba(0,0,0,0.95)" : "none";
 
-            // 1. Fondo
             if (isBlackout) {
                 bgEl.style.background = "#000000";
             } else if (projectionStyles.bgType === 'color') {
@@ -768,7 +763,6 @@
                 bgEl.style.backgroundPosition = "center";
             }
 
-            // 2. Textos
             if (isBlackout || isClearText) {
                 textEl.innerText = "";
                 citationEl.innerText = "";
@@ -777,7 +771,6 @@
                 citationEl.innerText = currentCitation;
             }
 
-            // 3. Estilos de Tipografía
             textEl.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
             textEl.style.textAlign = projectionStyles.align;
             textEl.style.fontSize = `${projectionStyles.size}vw`;
@@ -809,7 +802,6 @@
             renderVerses();
             renderCultoList();
             
-            // Inicializar botones de formato, alineación y fondos
             actualizarBotonesFormato();
             actualizarBotonesAlineacion();
             actualizarUIContenedoresFondo(projectionStyles.bgType);
@@ -829,7 +821,7 @@
                     try {
                         applyIncomingState(JSON.parse(e.newValue));
                     } catch (err) {
-                        console.error("Consola storage parse error:", err);
+                        console.error("Error sincronización local:", err);
                     }
                 }
             });
@@ -838,7 +830,7 @@
         function initIndexedDB() {
             try {
                 if (!window.indexedDB) {
-                    console.warn("IndexedDB no está disponible en este entorno de navegación.");
+                    console.warn("IndexedDB no está disponible en este entorno.");
                     return;
                 }
                 const request = indexedDB.open(DB_NAME, 1);
@@ -849,7 +841,7 @@
                             db.createObjectStore(STORE_NAME, { keyPath: "id" });
                         }
                     } catch (err) {
-                        console.error("Error en upgrade de base de datos:", err);
+                        console.error("Error IndexedDB Upgrade:", err);
                     }
                 };
                 request.onsuccess = function(e) {
@@ -874,14 +866,14 @@
                             }
                         };
                     } catch (err) {
-                        console.error("Error al procesar lectura de IndexedDB:", err);
+                        console.error("Error IndexedDB Read:", err);
                     }
                 };
                 request.onerror = function(e) {
-                    console.warn("No se pudo iniciar IndexedDB. Operando en memoria con selección básica.", e);
+                    console.warn("IndexedDB falló. Usando memoria.", e);
                 };
             } catch (err) {
-                console.warn("Acceso a IndexedDB totalmente bloqueado por políticas de TopDirector/iOS:", err);
+                console.warn("IndexedDB bloqueado por políticas de entorno WebView:", err);
             }
         }
 
@@ -897,11 +889,11 @@
                         store.put({ id: "custom-bible", data: data });
                         showToast("Base de Datos guardada offline en este navegador", "success");
                     } catch (err) {
-                        console.error("No se pudo guardar la biblia localmente:", err);
+                        console.error("Error guardando biblia localmente:", err);
                     }
                 };
             } catch (err) {
-                console.warn("Imposible escribir en IndexedDB debido al entorno restringido:", err);
+                console.warn("Error escribiendo en IndexedDB:", err);
             }
         }
 
@@ -917,6 +909,28 @@
                 }
             });
         };
+
+        // --- ADAPTADOR UNIVERSAL DE ESTRUCTURA DE BIBLIA (Soporta Arrays y Objetos) ---
+        function getNormalizedVerses(book, chapter) {
+            if (!bibleData || !book || !chapter || !bibleData[book] || !bibleData[book][chapter]) {
+                return [];
+            }
+            const verses = bibleData[book][chapter];
+            if (Array.isArray(verses)) {
+                // Formato Array de strings (DEFAULT_BIBLE)
+                return verses.map((text, idx) => ({
+                    verseNum: idx + 1,
+                    text: text
+                }));
+            } else if (typeof verses === 'object' && verses !== null) {
+                // Formato Objeto Clave-Valor (GitHub RVR1960 JSON estándar)
+                return Object.keys(verses).map(key => ({
+                    verseNum: parseInt(key),
+                    text: verses[key]
+                })).sort((a, b) => a.verseNum - b.verseNum);
+            }
+            return [];
+        }
 
         function renderBooks() {
             const container = document.getElementById('books-container');
@@ -981,14 +995,15 @@
                 currentTitleEl.innerText = `${selectedBook} - Capítulo ${selectedChapter}`;
             }
 
-            if (!bibleData || !selectedBook || !selectedChapter || !bibleData[selectedBook] || !bibleData[selectedBook][selectedChapter]) {
+            const normalizedVerses = getNormalizedVerses(selectedBook, selectedChapter);
+            if (normalizedVerses.length === 0) {
                 container.innerHTML = `<div class="text-gray-500 text-sm text-center py-12">No hay versículos en este capítulo.</div>`;
                 return;
             }
 
-            const verses = bibleData[selectedBook][selectedChapter];
-            verses.forEach((verseText, index) => {
-                const vNum = index + 1;
+            normalizedVerses.forEach((verse, index) => {
+                const vNum = verse.verseNum;
+                const verseText = verse.text;
                 const isSelected = index === selectedVerseIdx;
                 
                 const card = document.createElement('div');
@@ -1069,9 +1084,10 @@
         }
 
         function triggerProjection() {
-            if (selectedVerseIdx === null) return;
-            const text = bibleData[selectedBook][selectedChapter][selectedVerseIdx];
-            const citation = `${selectedBook} ${selectedChapter}:${selectedVerseIdx + 1}`;
+            const normalized = getNormalizedVerses(selectedBook, selectedChapter);
+            if (selectedVerseIdx === null || selectedVerseIdx >= normalized.length) return;
+            const text = normalized[selectedVerseIdx].text;
+            const citation = `${selectedBook} ${selectedChapter}:${normalized[selectedVerseIdx].verseNum}`;
 
             currentText = `"${text}"`;
             currentCitation = citation;
@@ -1127,7 +1143,6 @@
             const previewCitation = document.getElementById('preview-citation');
             const shadowStyle = projectionStyles.hasShadow ? "0.15vw 0.15vw 0.4vw rgba(0,0,0,0.95), -0.15vw -0.15vw 0.4vw rgba(0,0,0,0.95)" : "none";
 
-            // 1. Fondo del operador
             if (isBlackout) {
                 previewBackdrop.style.background = "#000000";
             } else if (projectionStyles.bgType === 'color') {
@@ -1140,7 +1155,6 @@
                 previewBackdrop.style.backgroundPosition = "center";
             }
 
-            // 2. Letra del operador
             if (isBlackout || isClearText) {
                 previewText.innerText = "";
                 previewCitation.innerText = "";
@@ -1149,7 +1163,6 @@
                 previewCitation.innerText = currentCitation;
             }
 
-            // 3. Aplicación de Tipografías
             previewText.style.fontFamily = `'${projectionStyles.font}', sans-serif`;
             previewText.style.textAlign = projectionStyles.align;
             previewText.style.color = projectionStyles.textcolor;
@@ -1161,7 +1174,7 @@
             previewCitation.style.color = projectionStyles.textcolor;
             previewCitation.style.opacity = "0.76";
 
-            // Aplicar también a simulación pantalla completa
+            // Simulación pantalla completa local
             const localFsBackdrop = document.getElementById('local-fs-backdrop');
             const localFsText = document.getElementById('local-fs-text');
             const localFsCitation = document.getElementById('local-fs-citation');
@@ -1200,7 +1213,7 @@
                 localFsCitation.style.fontSize = `${parseFloat(projectionStyles.size) * 0.4}vw`;
             }
 
-            // Aplicar a Ventana Externa si existe
+            // Ventana Externa
             if (projectorWindow && !projectorWindow.closed) {
                 const docObj = projectorWindow.document;
                 const extBackdrop = docObj.getElementById('projector-backdrop');
@@ -1406,7 +1419,6 @@
             const textColorInput = document.getElementById('style-textcolor');
             if (textColorInput) textColorInput.value = projectionStyles.textcolor;
 
-            // Sincronizar UI de botones de formato, alineación y fondo
             actualizarBotonesFormato();
             actualizarBotonesAlineacion();
             actualizarUIContenedoresFondo(projectionStyles.bgType);
@@ -1465,6 +1477,47 @@
             projectionStyles.bgImage = url;
             updateBackgroundType('image');
             showToast("Fondo premium aplicado", "success");
+        };
+
+        window.importCustomBible = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    let validData = null;
+
+                    if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        validData = {};
+                        for (const [key, book] of Object.entries(parsed)) {
+                            if (["mensaje", "metadata", "version", "info"].includes(key.toLowerCase())) continue;
+                            validData[key] = book;
+                        }
+                    }
+
+                    if (validData && Object.keys(validData).length > 0) {
+                        bibleData = validData;
+                        saveBibleToIndexedDB(validData);
+
+                        const firstBook = Object.keys(validData)[0];
+                        selectedBook = firstBook;
+                        selectedChapter = Object.keys(validData[firstBook])[0] || "1";
+                        selectedVerseIdx = null;
+
+                        renderBooks();
+                        renderChapters();
+                        renderVerses();
+                        showToast("¡Biblia personalizada cargada con éxito!", "success");
+                    } else {
+                        showToast("El formato JSON no es el esperado.", "error");
+                    }
+                } catch (err) {
+                    showToast("Error de análisis del JSON.", "error");
+                }
+            };
+            reader.readAsText(file);
         };
 
         window.addToCultoList = function(event, book, chapter, verseNum, text) {
@@ -1559,7 +1612,7 @@
                         <head>
                             <meta charset="UTF-8">
                             <title>Pantalla de Proyección Externa</title>
-                            <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;700&family=Montserrat:wght@400;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+                            <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;700&family=Montserrat:wght@400;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&swap" rel="stylesheet">
                         </head>
                         <body style="
                             height: 100%; 
@@ -1606,47 +1659,6 @@
             } else {
                 container.classList.add('hidden');
             }
-        };
-
-        window.importCustomBible = function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const parsed = JSON.parse(e.target.result);
-                    let validData = null;
-
-                    if (typeof parsed === 'object' && !Array.isArray(parsed)) {
-                        validData = {};
-                        for (const [key, book] of Object.entries(parsed)) {
-                            if (["mensaje", "metadata", "version", "info"].includes(key.toLowerCase())) continue;
-                            validData[key] = book;
-                        }
-                    }
-
-                    if (validData && Object.keys(validData).length > 0) {
-                        bibleData = validData;
-                        saveBibleToIndexedDB(validData);
-
-                        const firstBook = Object.keys(validData)[0];
-                        selectedBook = firstBook;
-                        selectedChapter = Object.keys(validData[firstBook])[0] || "1";
-                        selectedVerseIdx = null;
-
-                        renderBooks();
-                        renderChapters();
-                        renderVerses();
-                        showToast("¡Biblia personalizada cargada con éxito!", "success");
-                    } else {
-                        showToast("El formato JSON no es el esperado.", "error");
-                    }
-                } catch (err) {
-                    showToast("Error de análisis del JSON.", "error");
-                }
-            };
-            reader.readAsText(file);
         };
 
         window.switchTab = function(tabId) {

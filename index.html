@@ -11,7 +11,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Oswald:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     
     <style>
         /* Estilos de barra de desplazamiento modernos */
@@ -236,6 +236,10 @@
                                     <option value="Cinzel">Cinzel (Clásica/Majestuosa)</option>
                                     <option value="Playfair Display">Playfair Display (Elegante)</option>
                                     <option value="Roboto Slab">Roboto Slab (Sólida)</option>
+                                    <option value="Lora">Lora (Solemne/Elegante Serif)</option>
+                                    <option value="Merriweather">Merriweather (Lectura Confortable)</option>
+                                    <option value="Oswald">Oswald (Imponente/Condensada)</option>
+                                    <option value="EB Garamond">EB Garamond (Clásica Literaria)</option>
                                 </select>
                             </div>
 
@@ -353,6 +357,15 @@
                                         <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=crop&w=150&q=50')" title="Bosque"></button>
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Filtro Oscuro de Imagen (Visible solo si el fondo es tipo imagen) -->
+                            <div id="overlay-opacity-container" class="space-y-2 mt-3 hidden">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Filtro Oscuro de Imagen</label>
+                                    <span id="val-overlay-opacity" class="text-xs font-semibold text-blue-400">40%</span>
+                                </div>
+                                <input type="range" id="style-overlay-opacity" min="0" max="90" step="5" value="40" oninput="updateStyleProperty('bgOpacity', this.value)" class="w-full accent-blue-500">
                             </div>
 
                             <!-- Color de Texto del Proyector -->
@@ -510,7 +523,8 @@
             bgImage: "", 
             isBold: true,
             isItalic: false,
-            hasShadow: true
+            hasShadow: true,
+            bgOpacity: 40 // Filtro de oscuridad por defecto
         };
 
         let cultoList = [];
@@ -821,6 +835,7 @@
             const textEl = document.getElementById('proj-text');
             const citationEl = document.getElementById('proj-citation');
             const bgEl = document.getElementById('proj-bg');
+            const overlayEl = document.getElementById('proj-overlay');
             const shadowStyle = projectionStyles.hasShadow ? "0.15vw 0.15vw 0.4vw rgba(0,0,0,0.95), -0.15vw -0.15vw 0.4vw rgba(0,0,0,0.95)" : "none";
 
             if (isBlackout) {
@@ -833,6 +848,17 @@
                 bgEl.style.background = projectionStyles.bgImage ? `url('${projectionStyles.bgImage}')` : "radial-gradient(circle, #1e1b4b 0%, #020617 100%)";
                 bgEl.style.backgroundSize = "cover";
                 bgEl.style.backgroundPosition = "center";
+            }
+
+            // Aplicación dinámica de filtro oscuro
+            if (overlayEl) {
+                if (isBlackout) {
+                    overlayEl.style.background = "transparent";
+                } else if (projectionStyles.bgType === 'image') {
+                    overlayEl.style.background = `rgba(0, 0, 0, ${parseFloat(projectionStyles.bgOpacity !== undefined ? projectionStyles.bgOpacity : 40) / 100})`;
+                } else {
+                    overlayEl.style.background = "rgba(0, 0, 0, 0.15)";
+                }
             }
 
             if (isBlackout || isClearText) {
@@ -1208,6 +1234,7 @@
 
         function actualizarMonitorDeOperador() {
             const previewBackdrop = document.getElementById('preview-backdrop');
+            const previewOverlay = document.getElementById('preview-overlay');
             const previewText = document.getElementById('preview-text');
             const previewCitation = document.getElementById('preview-citation');
             const shadowStyle = projectionStyles.hasShadow ? "0.15vw 0.15vw 0.4vw rgba(0,0,0,0.95), -0.15vw -0.15vw 0.4vw rgba(0,0,0,0.95)" : "none";
@@ -1222,6 +1249,17 @@
                 previewBackdrop.style.background = projectionStyles.bgImage ? `url('${projectionStyles.bgImage}')` : "radial-gradient(circle, #1e1b4b 0%, #020617 100%)";
                 previewBackdrop.style.backgroundSize = "cover";
                 previewBackdrop.style.backgroundPosition = "center";
+            }
+
+            // Aplicación de filtro oscuro en monitor de operador
+            if (previewOverlay) {
+                if (isBlackout) {
+                    previewOverlay.style.background = "transparent";
+                } else if (projectionStyles.bgType === 'image') {
+                    previewOverlay.style.background = `rgba(0, 0, 0, ${parseFloat(projectionStyles.bgOpacity !== undefined ? projectionStyles.bgOpacity : 40) / 100})`;
+                } else {
+                    previewOverlay.style.background = "rgba(0, 0, 0, 0.15)";
+                }
             }
 
             if (isBlackout || isClearText) {
@@ -1245,6 +1283,7 @@
 
             // Simulación pantalla completa local
             const localFsBackdrop = document.getElementById('local-fs-backdrop');
+            const localFsOverlay = document.getElementById('local-fs-overlay');
             const localFsText = document.getElementById('local-fs-text');
             const localFsCitation = document.getElementById('local-fs-citation');
 
@@ -1259,6 +1298,17 @@
                     localFsBackdrop.style.background = projectionStyles.bgImage ? `url('${projectionStyles.bgImage}')` : "radial-gradient(circle, #1e1b4b 0%, #020617 100%)";
                     localFsBackdrop.style.backgroundSize = "cover";
                     localFsBackdrop.style.backgroundPosition = "center";
+                }
+
+                // Filtro oscuro simulador local
+                if (localFsOverlay) {
+                    if (isBlackout) {
+                        localFsOverlay.style.background = "transparent";
+                    } else if (projectionStyles.bgType === 'image') {
+                        localFsOverlay.style.background = `rgba(0, 0, 0, ${parseFloat(projectionStyles.bgOpacity !== undefined ? projectionStyles.bgOpacity : 40) / 100})`;
+                    } else {
+                        localFsOverlay.style.background = "rgba(0, 0, 0, 0.2)";
+                    }
                 }
 
                 if (isBlackout || isClearText) {
@@ -1286,6 +1336,7 @@
             if (projectorWindow && !projectorWindow.closed) {
                 const docObj = projectorWindow.document;
                 const extBackdrop = docObj.getElementById('projector-backdrop');
+                const extOverlay = docObj.getElementById('projector-overlay');
                 const extText = docObj.getElementById('projector-text');
                 const extCitation = docObj.getElementById('projector-citation');
 
@@ -1300,6 +1351,17 @@
                         extBackdrop.style.background = projectionStyles.bgImage ? `url('${projectionStyles.bgImage}')` : "radial-gradient(circle, #1e1b4b 0%, #020617 100%)";
                         extBackdrop.style.backgroundSize = "cover";
                         extBackdrop.style.backgroundPosition = "center";
+                    }
+
+                    // Filtro oscuro ventana externa
+                    if (extOverlay) {
+                        if (isBlackout) {
+                            extOverlay.style.background = "transparent";
+                        } else if (projectionStyles.bgType === 'image') {
+                            extOverlay.style.background = `rgba(0, 0, 0, ${parseFloat(projectionStyles.bgOpacity !== undefined ? projectionStyles.bgOpacity : 40) / 100})`;
+                        } else {
+                            extOverlay.style.background = "rgba(0, 0, 0, 0.18)";
+                        }
                     }
 
                     if (isBlackout || isClearText) {
@@ -1389,6 +1451,7 @@
             const colorContainer = document.getElementById('palette-color-container');
             const gradContainer = document.getElementById('palette-gradient-container');
             const imageContainer = document.getElementById('palette-image-container');
+            const overlayContainer = document.getElementById('overlay-opacity-container');
 
             if (!btnColor || !btnGrad || !btnImg) return;
 
@@ -1399,6 +1462,7 @@
             if (colorContainer) colorContainer.classList.add('hidden');
             if (gradContainer) gradContainer.classList.add('hidden');
             if (imageContainer) imageContainer.classList.add('hidden');
+            if (overlayContainer) overlayContainer.classList.add('hidden');
 
             if (type === 'color') {
                 btnColor.className = "bg-blue-600 border border-blue-500 py-2 rounded-lg font-semibold text-white";
@@ -1409,6 +1473,7 @@
             } else if (type === 'image') {
                 btnImg.className = "bg-blue-600 border border-blue-500 py-2 rounded-lg font-semibold text-white";
                 if (imageContainer) imageContainer.classList.remove('hidden');
+                if (overlayContainer) overlayContainer.classList.remove('hidden');
             }
         }
 
@@ -1427,6 +1492,11 @@
                 updateBackgroundType('color');
             }
             if (property === 'textcolor') projectionStyles.textcolor = value;
+            if (property === 'bgOpacity') {
+                projectionStyles.bgOpacity = value;
+                const label = document.getElementById('val-overlay-opacity');
+                if (label) label.innerText = value + "%";
+            }
 
             pushStateToCloud();
             actualizarMonitorDeOperador();
@@ -1490,6 +1560,13 @@
 
             const textColorInput = document.getElementById('style-textcolor');
             if (textColorInput) textColorInput.value = projectionStyles.textcolor;
+
+            const opacitySlider = document.getElementById('style-overlay-opacity');
+            if (opacitySlider) {
+                opacitySlider.value = projectionStyles.bgOpacity !== undefined ? projectionStyles.bgOpacity : 40;
+                const label = document.getElementById('val-overlay-opacity');
+                if (label) label.innerText = opacitySlider.value + "%";
+            }
 
             actualizarBotonesFormato();
             actualizarBotonesAlineacion();

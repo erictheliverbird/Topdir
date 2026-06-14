@@ -324,10 +324,10 @@
                                     <input type="file" id="bg-image-uploader" accept="image/*" class="hidden" onchange="uploadBackgroundImage(event)">
                                 </label>
 
-                                <!-- Buscador de Fondos Web Inteligente -->
+                                <!-- Buscador de Fondos Web Inteligente (Optimizado para 20 muestras en FHD) -->
                                 <div class="border-t border-gray-800 pt-3 mt-3">
                                     <span class="text-[10px] text-gray-400 font-bold block uppercase mb-1.5 flex items-center gap-1.5">
-                                        <i class="fa-solid fa-earth-americas text-blue-400"></i> Buscar Fondos en la Web
+                                        <i class="fa-solid fa-earth-americas text-blue-400"></i> Buscar Fondos en la Web (20 FHD)
                                     </span>
                                     <div class="flex gap-2 mb-2">
                                         <input type="text" id="web-bg-search-input" placeholder="Ej: cielo, cruz, estrellas, nubes..." class="flex-1 bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition">
@@ -336,8 +336,8 @@
                                         </button>
                                     </div>
                                     <!-- Contenedor de Resultados del Buscador Web -->
-                                    <div id="web-bg-results" class="grid grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
-                                        <!-- Se llena dinámicamente -->
+                                    <div id="web-bg-results" class="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+                                        <!-- Se llena dinámicamente con 20 tarjetas de proporción 16:9 FHD -->
                                     </div>
                                 </div>
 
@@ -345,12 +345,12 @@
                                 <div class="space-y-1">
                                     <span class="text-[10px] text-gray-400 font-semibold block uppercase">Presets de Fondo (Instantáneos)</span>
                                     <div class="grid grid-cols-3 gap-2">
-                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&w=150&q=50')" title="Estrellas"></button>
-                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1544764200-d834fd210a23?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1544764200-d834fd210a23?auto=format&fit=crop&w=150&q=50')" title="Cruz"></button>
-                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1498496294664-d9372ee521f3?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1498496294664-d9372ee521f3?auto=crop&w=150&q=50')" title="Nubes"></button>
-                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=crop&w=150&q=50')" title="Montañas"></button>
-                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=crop&w=150&q=50')" title="Mar"></button>
-                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=crop&w=150&q=50')" title="Bosque"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&w=1920&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&w=150&q=50')" title="Estrellas"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1544764200-d834fd210a23?auto=format&fit=crop&w=1920&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1544764200-d834fd210a23?auto=format&fit=crop&w=150&q=50')" title="Cruz"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1498496294664-d9372ee521f3?auto=format&fit=crop&w=1920&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1498496294664-d9372ee521f3?auto=crop&w=150&q=50')" title="Nubes"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=crop&w=150&q=50')" title="Montañas"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1920&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=crop&w=150&q=50')" title="Mar"></button>
+                                        <button onclick="quickPredefinedBackground('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80')" class="h-10 rounded border border-white/10 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=crop&w=150&q=50')" title="Bosque"></button>
                                     </div>
                                 </div>
                             </div>
@@ -1496,6 +1496,7 @@
             actualizarUIContenedoresFondo(projectionStyles.bgType);
         }
 
+        // Buscador Web Inteligente Rediseñado: Entrega 20 muestras premium FHD con ratio 16:9 exacto
         window.searchWebBackgrounds = function() {
             const query = document.getElementById('web-bg-search-input').value.trim();
             const resultsContainer = document.getElementById('web-bg-results');
@@ -1506,30 +1507,39 @@
             }
 
             resultsContainer.innerHTML = `
-                <div class="col-span-3 text-center py-4 text-xs text-gray-400">
-                    <i class="fa-solid fa-spinner animate-spin text-blue-500 mr-2"></i>Buscando fotos...
+                <div class="col-span-2 text-center py-6 text-xs text-gray-400">
+                    <i class="fa-solid fa-spinner animate-spin text-blue-500 mr-2"></i>Buscando 20 fondos FHD...
                 </div>
             `;
 
             setTimeout(() => {
                 resultsContainer.innerHTML = "";
-                for (let i = 1; i <= 6; i++) {
-                    const thumbUrl = `https://loremflickr.com/150/100/${encodeURIComponent(query)}?lock=${i}`;
-                    const fullUrl = `https://loremflickr.com/1600/900/${encodeURIComponent(query)}?lock=${i}`;
+                // Renderizado dinámico de 20 muestras en ratio 16:9
+                for (let i = 1; i <= 20; i++) {
+                    // Miniaturas ligeras en proporción 16:9 (320x180 px) para optimizar rendimiento de red
+                    const thumbUrl = `https://loremflickr.com/320/180/${encodeURIComponent(query)}?lock=${i}`;
+                    // Fondos FHD (1920x1080 px) ideales para el proyector sin deformar la imagen
+                    const fullUrl = `https://loremflickr.com/1920/1080/${encodeURIComponent(query)}?lock=${i}`;
 
                     const btn = document.createElement('button');
-                    btn.className = "relative aspect-video rounded border border-white/10 overflow-hidden hover:border-blue-500 transition bg-cover bg-center focus:outline-none";
+                    btn.className = "relative aspect-video rounded-lg border border-white/10 overflow-hidden hover:border-blue-500 hover:scale-105 transition duration-200 bg-cover bg-center focus:outline-none shadow-md";
                     btn.style.backgroundImage = `url('${thumbUrl}')`;
+                    btn.title = `Fondo FHD Muestra ${i}`;
+
+                    // Añadir una etiqueta de índice discreto para fácil identificación del operador
+                    btn.innerHTML = `
+                        <span class="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white/80 px-1 rounded font-bold">${i}</span>
+                    `;
 
                     btn.onclick = () => {
                         projectionStyles.bgImage = fullUrl;
                         updateBackgroundType('image');
-                        showToast("Fondo web aplicado correctamente", "success");
+                        showToast(`Fondo FHD Muestra ${i} aplicado con éxito`, "success");
                     };
 
                     resultsContainer.appendChild(btn);
                 }
-            }, 500);
+            }, 600);
         };
 
         window.uploadBackgroundImage = function(event) {

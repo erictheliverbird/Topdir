@@ -390,12 +390,7 @@
         <div class="z-10 text-center w-full pb-10">
             <p id="proj-citation" class="text-white/80 tracking-widest font-bold uppercase transition-all duration-300"></p>
         </div>
-
-        <!-- Indicador discreto de sincronización para el templo -->
-        <div class="absolute bottom-4 right-4 z-20 text-[10px] text-white/30 flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-full backdrop-blur-sm">
-            <span id="proj-sync-dot" class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Sala: <strong id="proj-room-label">---</strong></span>
-        </div>
+        <!-- El indicador visual de sala ha sido removido de la pantalla para garantizar una estética minimalista y profesional para el templo -->
     </div>
 
     <!-- SIMULADOR LOCAL EN MÁS DE UNA PESTAÑA -->
@@ -796,7 +791,10 @@
         function configurarModoProyector() {
             document.getElementById('operator-interface').classList.add('hidden');
             document.getElementById('projector-only-mode').classList.remove('hidden');
-            document.getElementById('proj-room-label').innerText = currentRoomId;
+            const roomLabel = document.getElementById('proj-room-label');
+            if (roomLabel) {
+                roomLabel.innerText = currentRoomId;
+            }
 
             window.addEventListener('storage', (e) => {
                 if (e.key === `local_state_${currentRoomId}`) {

@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts (Corregido y optimizado con el signo "?" necesario para cargar múltiples fuentes) -->
+    <!-- Google Fonts con enlace corregido para carga correcta de fuentes -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Oswald:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -169,12 +169,19 @@
                         </button>
                     </div>
 
-                    <!-- Simulación de la diapositiva en miniatura -->
+                    <!-- Simulación de la diapositiva en miniatura con contenedores de Logos para Preview -->
                     <div id="projector-preview-container" class="w-full aspect-video rounded-xl relative overflow-hidden flex flex-col items-center justify-center p-4 border border-gray-800 shadow-inner">
                         <!-- Fondo dinámico aplicado por JS -->
                         <div id="preview-backdrop" class="absolute inset-0 bg-slate-950 z-0 bg-cover bg-center"></div>
                         <!-- Capa de overlay negra opcional -->
                         <div id="preview-overlay" class="absolute inset-0 bg-black/25 z-0"></div>
+                        
+                        <!-- Standby Logo (Centro) -->
+                        <img id="preview-logo-standby" class="absolute max-w-[30%] max-h-[45%] object-contain z-10 hidden" alt="Standby Logo Preview" />
+                        
+                        <!-- Corner Logo (Esquina dinámica) -->
+                        <img id="preview-logo-corner" class="absolute max-w-[10%] max-h-[15%] object-contain z-20 hidden" alt="Corner Logo Preview" />
+
                         <!-- Texto de vista previa -->
                         <div class="z-10 text-center w-full flex flex-col justify-between h-full pointer-events-none select-none">
                             <p id="preview-text" class="text-white text-xs my-auto line-clamp-4 leading-relaxed"></p>
@@ -230,7 +237,7 @@
                             <!-- Tipografía -->
                             <div class="space-y-2">
                                 <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Fuente Tipográfica</label>
-                                <select id="style-font" onchange="updateStyleProperty('font', this.value)" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 font-medium text-white">
+                                <select id="style-font" onchange="updateStyleProperty('font', this.value)" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
                                     <option value="Inter">Inter (Moderna/Legible)</option>
                                     <option value="Montserrat">Montserrat (Limpia)</option>
                                     <option value="Cinzel">Cinzel (Clásica/Majestuosa)</option>
@@ -384,6 +391,50 @@
                                 </div>
                             </div>
 
+                            <!-- Sección Especial: Gestión del Logo de la Iglesia -->
+                            <div class="border-t border-gray-800 pt-4 mt-4 space-y-3">
+                                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                    <i class="fa-solid fa-church text-amber-500"></i> Logo de la Iglesia
+                                </label>
+                                
+                                <div class="flex items-center gap-3 bg-gray-900/50 p-3 rounded-xl border border-gray-800/80">
+                                    <div id="logo-preview-thumbnail" class="w-12 h-12 rounded-lg bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden shrink-0">
+                                        <i id="logo-placeholder-icon" class="fa-solid fa-image text-gray-600 text-lg"></i>
+                                        <img id="logo-thumbnail-img" class="w-full h-full object-contain hidden" alt="Miniatura de Logo" />
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <label class="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition select-none">
+                                            <i class="fa-solid fa-upload"></i> Subir Logo
+                                            <input type="file" id="logo-image-uploader" accept="image/*" class="hidden" onchange="uploadLogoImage(event)">
+                                        </label>
+                                        <button id="btn-remove-logo" onclick="removeLogoImage()" class="text-[11px] text-red-400 hover:text-red-300 ml-2.5 hidden font-semibold">
+                                            Eliminar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Opciones de Posicionamiento y Toggles de Visualización -->
+                                <div id="logo-options-box" class="space-y-3 hidden bg-gray-900/20 p-3 rounded-xl border border-gray-900/50">
+                                    <div class="flex items-center justify-between">
+                                        <label class="text-xs text-gray-300 font-medium">Ver en esquina al proyectar</label>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="toggle-logo-corner" class="sr-only peer" checked onchange="toggleLogoCorner(this.checked)">
+                                            <div class="w-9 h-5 bg-gray-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-400 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Ubicación del Logo</label>
+                                        <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+                                            <button onclick="updateStyleProperty('logoPosition', 'top-left')" id="btn-logo-tl" class="py-1 px-2 rounded-lg bg-gray-900 border border-gray-800 hover:bg-gray-850 text-gray-300 transition">Sup. Izquierda</button>
+                                            <button onclick="updateStyleProperty('logoPosition', 'top-right')" id="btn-logo-tr" class="py-1 px-2 rounded-lg bg-gray-900 border border-gray-800 hover:bg-gray-850 text-gray-300 transition">Sup. Derecha</button>
+                                            <button onclick="updateStyleProperty('logoPosition', 'bottom-left')" id="btn-logo-bl" class="py-1 px-2 rounded-lg bg-gray-900 border border-gray-800 hover:bg-gray-850 text-gray-300 transition">Inf. Izquierda</button>
+                                            <button onclick="updateStyleProperty('logoPosition', 'bottom-right')" id="btn-logo-br" class="py-1 px-2 rounded-lg bg-gray-900 border border-gray-800 hover:bg-gray-850 text-gray-300 transition">Inf. Derecha</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -396,6 +447,12 @@
         <!-- Fondo proyectado -->
         <div id="proj-bg" class="absolute inset-0 z-0 bg-slate-950 bg-cover bg-center transition-all duration-700 ease-in-out"></div>
         <div id="proj-overlay" class="absolute inset-0 z-0 bg-black/15"></div>
+
+        <!-- Standby Logo (Centro) -->
+        <img id="proj-logo-standby" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[40%] max-h-[60%] object-contain z-10 hidden transition-all duration-300" alt="Standby Logo Proyector" />
+        
+        <!-- Corner Logo (Esquina dinámica) -->
+        <img id="proj-logo-corner" class="absolute max-w-[12%] max-h-[15%] object-contain z-20 hidden transition-all duration-300" alt="Corner Logo Proyector" />
 
         <div class="z-10 text-center w-full my-auto px-12 md:px-24">
             <p id="proj-text" class="text-white leading-relaxed transition-all duration-300"></p>
@@ -410,6 +467,12 @@
         <!-- Fondo proyectado -->
         <div id="local-fs-backdrop" class="absolute inset-0 z-0 bg-slate-950 bg-cover bg-center"></div>
         <div id="local-fs-overlay" class="absolute inset-0 z-0 bg-black/20"></div>
+
+        <!-- Standby Logo (Centro) -->
+        <img id="local-fs-logo-standby" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[40%] max-h-[60%] object-contain z-10 hidden" alt="Standby Logo Sim" />
+        
+        <!-- Corner Logo (Esquina dinámica) -->
+        <img id="local-fs-logo-corner" class="absolute max-w-[12%] max-h-[15%] object-contain z-20 hidden" alt="Corner Logo Sim" />
 
         <!-- Botón de Salida -->
         <button onclick="toggleLocalFullscreen()" class="absolute top-6 right-6 z-20 bg-black/40 hover:bg-black/60 text-white/80 hover:text-white p-3 rounded-full transition border border-white/10 backdrop-blur" title="Salir de Simulación (Esc)">
@@ -505,8 +568,8 @@
         let selectedChapter = "1";
         let selectedVerseIdx = null;
 
-        let currentText = "Selecciona un versículo para proyectar";
-        let currentCitation = "Proyector Bíblico";
+        let currentText = ""; // Vacío por defecto para que inicie la pantalla limpia con el logo de espera
+        let currentCitation = "";
 
         let isBlackout = false;
         let isClearText = false;
@@ -523,7 +586,10 @@
             isBold: true,
             isItalic: false,
             hasShadow: true,
-            bgOpacity: 40 // Filtro de oscuridad por defecto
+            bgOpacity: 40, // Filtro de oscuridad por defecto
+            logoImage: "", // URL/Base64 optimizado del logo
+            showLogoInCorner: true, // Toggle en proyecciones activas
+            logoPosition: "top-right" // Esquina por defecto
         };
 
         let cultoList = [];
@@ -541,6 +607,11 @@
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
             ? JSON.parse(__firebase_config) 
             : null;
+
+        // Determina si las pantallas están en estado de espera/reposo (sin versículos)
+        function isStandbyMode() {
+            return !currentText || currentText === "Selecciona un versículo para proyectar" || currentText === "Ningún versículo seleccionado";
+        }
 
         function saveOperatorState() {
             try {
@@ -572,8 +643,8 @@
                         selectedChapter = parsed.selectedChapter;
                     }
                     selectedVerseIdx = parsed.selectedVerseIdx !== undefined ? parsed.selectedVerseIdx : null;
-                    currentText = parsed.currentText || currentText;
-                    currentCitation = parsed.currentCitation || currentCitation;
+                    currentText = parsed.currentText !== undefined ? parsed.currentText : currentText;
+                    currentCitation = parsed.currentCitation !== undefined ? parsed.currentCitation : currentCitation;
                     isBlackout = parsed.isBlackout !== undefined ? parsed.isBlackout : isBlackout;
                     isClearText = parsed.isClearText !== undefined ? parsed.isClearText : isClearText;
                     projectionStyles = parsed.projectionStyles || projectionStyles;
@@ -584,6 +655,45 @@
             } catch (e) {
                 console.warn("Fallo al recuperar estado persistente:", e);
                 loadDefaultSelection();
+            }
+        }
+
+        // Modifica dinámicamente las clases del Logo según la esquina seleccionada
+        function applyLogoPositions(element, position, isPreview = false) {
+            element.className = isPreview 
+                ? "absolute max-w-[10%] max-h-[15%] object-contain z-20 transition-all duration-300"
+                : "absolute max-w-[12%] max-h-[15%] object-contain z-20 transition-all duration-300";
+            
+            if (position === 'top-left') {
+                element.classList.add(isPreview ? 'top-2' : 'top-6', isPreview ? 'left-2' : 'left-6');
+            } else if (position === 'bottom-right') {
+                element.classList.add(isPreview ? 'bottom-2' : 'bottom-6', isPreview ? 'right-2' : 'right-6');
+            } else if (position === 'bottom-left') {
+                element.classList.add(isPreview ? 'bottom-2' : 'bottom-6', isPreview ? 'left-2' : 'left-6');
+            } else { // top-right (default)
+                element.classList.add(isPreview ? 'top-2' : 'top-6', isPreview ? 'right-2' : 'right-6');
+            }
+        }
+
+        // Modifica dinámicamente los estilos inline de la ventana popup externa
+        function applyLogoPositionInline(element, position) {
+            element.style.top = '';
+            element.style.bottom = '';
+            element.style.left = '';
+            element.style.right = '';
+            
+            if (position === 'top-left') {
+                element.style.top = '4%';
+                element.style.left = '4%';
+            } else if (position === 'bottom-right') {
+                element.style.bottom = '4%';
+                element.style.right = '4%';
+            } else if (position === 'bottom-left') {
+                element.style.bottom = '4%';
+                element.style.left = '4%';
+            } else { // top-right
+                element.style.top = '4%';
+                element.style.right = '4%';
             }
         }
 
@@ -763,8 +873,8 @@
         }
 
         function applyIncomingState(data) {
-            currentText = data.text || "";
-            currentCitation = data.citation || "";
+            currentText = data.text !== undefined ? data.text : "";
+            currentCitation = data.citation !== undefined ? data.citation : "";
             projectionStyles = data.styles || projectionStyles;
             isBlackout = !!data.blackout;
             isClearText = !!data.clearText;
@@ -835,6 +945,11 @@
             const citationEl = document.getElementById('proj-citation');
             const bgEl = document.getElementById('proj-bg');
             const overlayEl = document.getElementById('proj-overlay');
+            
+            const projLogoStandby = document.getElementById('proj-logo-standby');
+            const projLogoCorner = document.getElementById('proj-logo-corner');
+            const standbyMode = isStandbyMode();
+
             const shadowStyle = projectionStyles.hasShadow ? "0.15vw 0.15vw 0.4vw rgba(0,0,0,0.95), -0.15vw -0.15vw 0.4vw rgba(0,0,0,0.95)" : "none";
 
             if (isBlackout) {
@@ -860,7 +975,30 @@
                 }
             }
 
-            if (isBlackout || isClearText) {
+            // Lógica de visualización del Logo de la Iglesia
+            if (projLogoStandby && projLogoCorner) {
+                if (isBlackout || !projectionStyles.logoImage) {
+                    projLogoStandby.classList.add('hidden');
+                    projLogoCorner.classList.add('hidden');
+                } else {
+                    if (standbyMode) {
+                        projLogoStandby.src = projectionStyles.logoImage;
+                        projLogoStandby.classList.remove('hidden');
+                        projLogoCorner.classList.add('hidden');
+                    } else {
+                        projLogoStandby.classList.add('hidden');
+                        if (projectionStyles.showLogoInCorner && !isClearText) {
+                            projLogoCorner.src = projectionStyles.logoImage;
+                            projLogoCorner.classList.remove('hidden');
+                            applyLogoPositions(projLogoCorner, projectionStyles.logoPosition, false);
+                        } else {
+                            projLogoCorner.classList.add('hidden');
+                        }
+                    }
+                }
+            }
+
+            if (isBlackout || isClearText || standbyMode) {
                 textEl.innerText = "";
                 citationEl.innerText = "";
             } else {
@@ -902,6 +1040,7 @@
             actualizarBotonesFormato();
             actualizarBotonesAlineacion();
             actualizarUIContenedoresFondo(projectionStyles.bgType);
+            updateLogoUI();
             updateAllVisualStyles();
             updateAllInputsFromStyles();
 
@@ -1193,8 +1332,9 @@
             selectedVerseIdx = null;
             renderVerses();
 
-            currentText = "Ningún versículo seleccionado";
-            currentCitation = "SALA DE CONTROL";
+            // Seteamos a vacío para activar el Logo Standby automáticamente en las pantallas
+            currentText = "";
+            currentCitation = "";
             isBlackout = false;
             isClearText = false;
 
@@ -1236,6 +1376,11 @@
             const previewOverlay = document.getElementById('preview-overlay');
             const previewText = document.getElementById('preview-text');
             const previewCitation = document.getElementById('preview-citation');
+            
+            const previewLogoStandby = document.getElementById('preview-logo-standby');
+            const previewLogoCorner = document.getElementById('preview-logo-corner');
+            const standbyMode = isStandbyMode();
+
             const shadowStyle = projectionStyles.hasShadow ? "0.15vw 0.15vw 0.4vw rgba(0,0,0,0.95), -0.15vw -0.15vw 0.4vw rgba(0,0,0,0.95)" : "none";
 
             if (isBlackout) {
@@ -1261,7 +1406,30 @@
                 }
             }
 
-            if (isBlackout || isClearText) {
+            // Renderizado del Logo en el Monitor de Control
+            if (previewLogoStandby && previewLogoCorner) {
+                if (isBlackout || !projectionStyles.logoImage) {
+                    previewLogoStandby.classList.add('hidden');
+                    previewLogoCorner.classList.add('hidden');
+                } else {
+                    if (standbyMode) {
+                        previewLogoStandby.src = projectionStyles.logoImage;
+                        previewLogoStandby.classList.remove('hidden');
+                        previewLogoCorner.classList.add('hidden');
+                    } else {
+                        previewLogoStandby.classList.add('hidden');
+                        if (projectionStyles.showLogoInCorner && !isClearText) {
+                            previewLogoCorner.src = projectionStyles.logoImage;
+                            previewLogoCorner.classList.remove('hidden');
+                            applyLogoPositions(previewLogoCorner, projectionStyles.logoPosition, true);
+                        } else {
+                            previewLogoCorner.classList.add('hidden');
+                        }
+                    }
+                }
+            }
+
+            if (isBlackout || isClearText || standbyMode) {
                 previewText.innerText = "";
                 previewCitation.innerText = "";
             } else {
@@ -1285,6 +1453,8 @@
             const localFsOverlay = document.getElementById('local-fs-overlay');
             const localFsText = document.getElementById('local-fs-text');
             const localFsCitation = document.getElementById('local-fs-citation');
+            const localFsLogoStandby = document.getElementById('local-fs-logo-standby');
+            const localFsLogoCorner = document.getElementById('local-fs-logo-corner');
 
             if (localFsBackdrop && localFsText && localFsCitation) {
                 if (isBlackout) {
@@ -1310,7 +1480,30 @@
                     }
                 }
 
-                if (isBlackout || isClearText) {
+                // Renderizado de Logos en el Simulador Local
+                if (localFsLogoStandby && localFsLogoCorner) {
+                    if (isBlackout || !projectionStyles.logoImage) {
+                        localFsLogoStandby.classList.add('hidden');
+                        localFsLogoCorner.classList.add('hidden');
+                    } else {
+                        if (standbyMode) {
+                            localFsLogoStandby.src = projectionStyles.logoImage;
+                            localFsLogoStandby.classList.remove('hidden');
+                            localFsLogoCorner.classList.add('hidden');
+                        } else {
+                            localFsLogoStandby.classList.add('hidden');
+                            if (projectionStyles.showLogoInCorner && !isClearText) {
+                                localFsLogoCorner.src = projectionStyles.logoImage;
+                                localFsLogoCorner.classList.remove('hidden');
+                                applyLogoPositions(localFsLogoCorner, projectionStyles.logoPosition, false);
+                            } else {
+                                localFsLogoCorner.classList.add('hidden');
+                            }
+                        }
+                    }
+                }
+
+                if (isBlackout || isClearText || standbyMode) {
                     localFsText.innerText = "";
                     localFsCitation.innerText = "";
                 } else {
@@ -1331,13 +1524,16 @@
                 localFsCitation.style.fontSize = `${parseFloat(projectionStyles.size) * 0.4}vw`;
             }
 
-            // Ventana Externa
+            // Ventana Externa (Popup)
             if (projectorWindow && !projectorWindow.closed) {
                 const docObj = projectorWindow.document;
                 const extBackdrop = docObj.getElementById('projector-backdrop');
                 const extOverlay = docObj.getElementById('projector-overlay');
                 const extText = docObj.getElementById('projector-text');
                 const extCitation = docObj.getElementById('projector-citation');
+                
+                const extLogoStandby = docObj.getElementById('projector-logo-standby');
+                const extLogoCorner = docObj.getElementById('projector-logo-corner');
 
                 if (extBackdrop && extText && extCitation) {
                     if (isBlackout) {
@@ -1363,7 +1559,30 @@
                         }
                     }
 
-                    if (isBlackout || isClearText) {
+                    // Renderizado de Logos en Ventana Externa
+                    if (extLogoStandby && extLogoCorner) {
+                        if (isBlackout || !projectionStyles.logoImage) {
+                            extLogoStandby.style.display = 'none';
+                            extLogoCorner.style.display = 'none';
+                        } else {
+                            if (standbyMode) {
+                                extLogoStandby.src = projectionStyles.logoImage;
+                                extLogoStandby.style.display = 'block';
+                                extLogoCorner.style.display = 'none';
+                            } else {
+                                extLogoStandby.style.display = 'none';
+                                if (projectionStyles.showLogoInCorner && !isClearText) {
+                                    extLogoCorner.src = projectionStyles.logoImage;
+                                    extLogoCorner.style.display = 'block';
+                                    applyLogoPositionInline(extLogoCorner, projectionStyles.logoPosition);
+                                } else {
+                                    extLogoCorner.style.display = 'none';
+                                }
+                            }
+                        }
+                    }
+
+                    if (isBlackout || isClearText || standbyMode) {
                         extText.innerText = "";
                         extCitation.innerText = "";
                     } else {
@@ -1496,6 +1715,10 @@
                 const label = document.getElementById('val-overlay-opacity');
                 if (label) label.innerText = value + "%";
             }
+            if (property === 'logoPosition') {
+                projectionStyles.logoPosition = value;
+                syncLogoPositionButtons();
+            }
 
             pushStateToCloud();
             actualizarMonitorDeOperador();
@@ -1523,6 +1746,16 @@
             pushStateToCloud();
             actualizarMonitorDeOperador();
             saveOperatorState();
+        };
+
+        window.quickColor = function(color) {
+            document.getElementById('style-bgcolor').value = color;
+            updateStyleProperty('bgcolor', color);
+        };
+
+        window.quickGradient = function(gradientString) {
+            projectionStyles.gradient = gradientString;
+            updateBackgroundType('gradient');
         };
 
         window.quickColor = function(color) {
@@ -1570,6 +1803,7 @@
             actualizarBotonesFormato();
             actualizarBotonesAlineacion();
             actualizarUIContenedoresFondo(projectionStyles.bgType);
+            updateLogoUI();
         }
 
         // Buscador Web Inteligente Rediseñado: Entrega 20 muestras premium FHD con ratio 16:9 exacto
@@ -1641,6 +1875,117 @@
             updateBackgroundType('image');
             showToast("Fondo premium aplicado", "success");
         };
+
+        window.uploadLogoImage = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showToast("Procesando y optimizando logo...", "info");
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    // Redimensionamos a un máximo de 250px para mantener la carga en la nube ultraligera y rápida
+                    const MAX_WIDTH = 250;
+                    const MAX_HEIGHT = 250;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Exportamos como PNG para preservar transparencias del escudo de la iglesia
+                    const optimizedBase64 = canvas.toDataURL('image/png');
+                    
+                    projectionStyles.logoImage = optimizedBase64;
+                    
+                    updateLogoUI();
+                    pushStateToCloud();
+                    actualizarMonitorDeOperador();
+                    saveOperatorState();
+                    showToast("Logo de la iglesia subido con éxito", "success");
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.removeLogoImage = function() {
+            projectionStyles.logoImage = "";
+            updateLogoUI();
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+            saveOperatorState();
+            showToast("Logo de la iglesia removido", "info");
+        };
+
+        window.toggleLogoCorner = function(checked) {
+            projectionStyles.showLogoInCorner = checked;
+            pushStateToCloud();
+            actualizarMonitorDeOperador();
+            saveOperatorState();
+        };
+
+        function updateLogoUI() {
+            const thumbnailImg = document.getElementById('logo-thumbnail-img');
+            const placeholderIcon = document.getElementById('logo-placeholder-icon');
+            const btnRemove = document.getElementById('btn-remove-logo');
+            const optionsBox = document.getElementById('logo-options-box');
+
+            if (!thumbnailImg) return;
+
+            if (projectionStyles.logoImage) {
+                thumbnailImg.src = projectionStyles.logoImage;
+                thumbnailImg.classList.remove('hidden');
+                placeholderIcon.classList.add('hidden');
+                btnRemove.classList.remove('hidden');
+                optionsBox.classList.remove('hidden');
+
+                const toggleBox = document.getElementById('toggle-logo-corner');
+                if (toggleBox) toggleBox.checked = !!projectionStyles.showLogoInCorner;
+
+                syncLogoPositionButtons();
+            } else {
+                thumbnailImg.src = "";
+                thumbnailImg.classList.add('hidden');
+                placeholderIcon.classList.remove('hidden');
+                btnRemove.classList.add('hidden');
+                optionsBox.classList.add('hidden');
+            }
+        }
+
+        function syncLogoPositionButtons() {
+            const btnTl = document.getElementById('btn-logo-tl');
+            const btnTr = document.getElementById('btn-logo-tr');
+            const btnBl = document.getElementById('btn-logo-bl');
+            const btnBr = document.getElementById('btn-logo-br');
+            const pos = projectionStyles.logoPosition || "top-right";
+
+            [btnTl, btnTr, btnBl, btnBr].forEach(btn => {
+                if (btn) btn.className = "py-1 px-2 rounded-lg bg-gray-900 border border-gray-800 hover:bg-gray-850 text-gray-300 transition";
+            });
+
+            if (pos === 'top-left' && btnTl) btnTl.className = "py-1 px-2 rounded-lg bg-blue-600 border border-blue-500 text-white font-semibold transition";
+            if (pos === 'top-right' && btnTr) btnTr.className = "py-1 px-2 rounded-lg bg-blue-600 border border-blue-500 text-white font-semibold transition";
+            if (pos === 'bottom-left' && btnBl) btnBl.className = "py-1 px-2 rounded-lg bg-blue-600 border border-blue-500 text-white font-semibold transition";
+            if (pos === 'bottom-right' && btnBr) btnBr.className = "py-1 px-2 rounded-lg bg-blue-600 border border-blue-500 text-white font-semibold transition";
+        }
 
         window.importCustomBible = function(event) {
             const file = event.target.files[0];
@@ -1778,7 +2123,7 @@
                         <head>
                             <meta charset="UTF-8">
                             <title>Pantalla de Proyección Externa</title>
-                            <!-- Se importan exactamente las mismas fuentes que la cabecera principal de forma correcta -->
+                            <!-- Fuentes tipográficas completas sincronizadas -->
                             <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Oswald:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
                         </head>
                         <body style="
@@ -1794,6 +2139,13 @@
                         ">
                             <div id="projector-backdrop" style="position: absolute; inset: 0; z-index: 1; background-size: cover; background-position: center; transition: all 0.25s ease;"></div>
                             <div id="projector-overlay" style="position: absolute; inset: 0; z-index: 2; background: rgba(0,0,0,0.18);"></div>
+                            
+                            <!-- Standby Logo (Centro) -->
+                            <img id="projector-logo-standby" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 40%; max-height: 60%; object-fit: contain; z-index: 10; display: none; transition: all 0.3s;" alt="Standby Logo Window" />
+                            
+                            <!-- Corner Logo (Esquina dinámica) -->
+                            <img id="projector-logo-corner" style="position: absolute; max-width: 12%; max-height: 15%; object-fit: contain; z-index: 20; display: none; transition: all 0.3s;" alt="Corner Logo Window" />
+
                             <div style="z-index: 10; display: flex; flex: 1; align-items: center; justify-content: center; padding: 5% 8%; text-align: center; box-sizing: border-box; user-select: none;">
                                 <p id="projector-text" style="margin: 0; transition: all 0.2s ease;"></p>
                             </div>

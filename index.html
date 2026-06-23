@@ -11,7 +11,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Oswald:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2 family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&family=Roboto+Slab:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Oswald:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     
     <style>
         /* Estilos de barra de desplazamiento modernos */
@@ -1591,12 +1591,17 @@
 
             setTimeout(() => {
                 resultsContainer.innerHTML = "";
+                // Segmentar de manera segura la frase por palabras ignorando símbolos extraños
+                const words = query.toLowerCase().replace(/[^a-záéíóúñÑ0-9\s]/g, '').trim().split(/\s+/);
+                // LoremFlickr gestiona búsquedas multi-etiquetas separándolas con comas en el endpoint
+                const encodedTags = words.map(word => encodeURIComponent(word)).join(',');
+
                 // Renderizado dinámico de 20 muestras en ratio 16:9
                 for (let i = 1; i <= 20; i++) {
                     // Miniaturas ligeras en proporción 16:9 (320x180 px) para optimizar rendimiento de red
-                    const thumbUrl = `https://loremflickr.com/320/180/${encodeURIComponent(query)}?lock=${i}`;
+                    const thumbUrl = `https://loremflickr.com/320/180/${encodedTags}?lock=${i}`;
                     // Fondos FHD (1920x1080 px) ideales para el proyector sin deformar la imagen
-                    const fullUrl = `https://loremflickr.com/1920/1080/${encodeURIComponent(query)}?lock=${i}`;
+                    const fullUrl = `https://loremflickr.com/1920/1080/${encodedTags}?lock=${i}`;
 
                     const btn = document.createElement('button');
                     btn.className = "relative aspect-video rounded-lg border border-white/10 overflow-hidden hover:border-blue-500 hover:scale-105 transition duration-200 bg-cover bg-center focus:outline-none shadow-md";

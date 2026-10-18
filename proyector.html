@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+                        <html lang="es" class="h-full">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+                            <meta name="theme-color" content="#000000">
+                            <meta name="apple-mobile-web-app-capable" content="yes">
+                            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+                            <title>Proyección en Vivo - Pantalla Externa</title>
+                            <!-- Firebase compat SDK para recibir estado remoto -->
+                            <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+                            <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+                            <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+                            <script src="https://cdn.tailwindcss.com"></script>
+                            <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Cinzel:wght@500;700;900&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Montserrat:wght@400;600;800&family=Open+Sans:wght@300;400;600;700&family=Oswald:wght@400;700&family=Playfair+Display:ital,wght@0,600;0,800;1,400&family=Poppins:wght@300;400;600;700&family=Quicksand:wght@400;600;700&family=Raleway:wght@300;400;600;700&family=Roboto+Slab:wght@400;700&family=Ubuntu:wght@400;700&family=Fira+Sans:wght@400;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@400;600;700&family=Spectral:ital,wght@0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=Cardo:wght@400;700&family=Josefin+Sans:wght@400;600;700&family=Nunito+Sans:wght@400;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Archivo+Black&display=swap" rel="stylesheet">
+                            <style>
+                                :root { color-scheme: dark; }
+                                html, body { width: 100%; height: 100%; min-height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
+                                body { height: 100vh; height: 100dvh; padding: max(2.5vw, env(safe-area-inset-top)) max(2.5vw, env(safe-area-inset-right)) max(2.5vw, env(safe-area-inset-bottom)) max(2.5vw, env(safe-area-inset-left)) !important; box-sizing: border-box; }
+                                #proj-fullscreen-prompt { font-family: Inter, system-ui, sans-serif; }
+                                .text-projection-shadow { text-shadow: 0 2px 12px rgba(0,0,0,0.95), 0 4px 24px rgba(0,0,0,0.85); }
+                            </style>
+                        </head>
+                        <body class="h-screen w-screen overflow-hidden relative flex flex-col justify-between p-16 select-none bg-black">
+                            <button id="proj-fullscreen-prompt" type="button" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-xl border border-white/30 bg-black/85 px-5 py-3 text-sm font-bold text-white shadow-2xl" style="display:none">⛶ Activar pantalla completa</button>
+                            <div id="proj-backdrop" class="absolute inset-0 z-0 bg-cover bg-center transition-all duration-300"></div>
+                            <video id="proj-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline autoplay></video>
+                            <button id="proj-enable-audio" type="button" class="absolute z-50 hidden left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-black/85 border border-white/40 px-6 py-4 text-white text-lg font-bold shadow-2xl" style="pointer-events:auto">▶ Toca para reproducir con sonido</button>
+
+                            <video id="proj-screen-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline autoplay></video>
+                            <div id="proj-youtube" title="Reproductor de YouTube (proyección)" class="absolute inset-0 w-full h-full bg-black z-10 hidden overflow-hidden" aria-label="Reproductor de YouTube" style="contain:layout paint; clip-path:inset(0)"><div id="proj-youtube-player" data-youtube-api="1" class="absolute inset-0 w-full h-full"></div></div>
+                            <div id="proj-overlay" class="absolute inset-0 z-20 bg-black/40 transition-all duration-300"></div>
+                            <img id="proj-logo-standby" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[40%] max-h-[60%] object-contain z-30 hidden" alt="Standby Logo" />
+                            <img id="proj-logo-corner" class="absolute max-w-[12%] max-h-[15%] object-contain z-30 hidden" alt="Corner Logo" />
+                            <div id="proj-karaoke" class="absolute inset-0 z-40 hidden flex items-center justify-center px-[8%] py-[6%] pointer-events-none"><div id="proj-karaoke-bg" class="absolute inset-0 z-0 pointer-events-none"></div><div id="proj-karaoke-stanza" class="relative z-10 w-full whitespace-pre-line leading-relaxed text-center"></div></div>
+                            <div class="z-30 text-center w-full my-auto px-12">
+                                <p id="proj-text" class="text-white leading-relaxed"></p>
+                            </div>
+                            <div class="z-30 text-center w-full pb-6">
+                                <p id="proj-citation" class="text-white/90 tracking-widest font-black uppercase text-2xl"></p>
+                            </div>
+                            <script>
+                                // Receptor autónomo: la proyección sigue escuchando aunque Safari
+                                // separe esta pestaña y ya no podamos manipular su document desde la consola.
+                                (() => {
+                                    const CHANNEL_NAME = 'biblical-projector-channel';
+                                    const STORAGE_KEY = 'biblical_projector_data';
+                                    let channel = null;
+
+                                    // Pantalla completa: depende del navegador y del tipo de ventana.
+                                    // Solicitarla solo tras un gesto del usuario y mostrar un mensaje neutral si no está disponible.
+                                    const fullscreenPrompt = document.getElementById('proj-fullscreen-prompt');
+                                    const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                                    const updateFullscreenPrompt = () => {
+                                        if (!fullscreenPrompt) return;
+                                        fullscreenPrompt.style.display = (!isStandalone() && !document.fullscreenElement) ? 'block' : 'none';
+                                    };
+                                    if (fullscreenPrompt) fullscreenPrompt.addEventListener('click', async () => {
+                                        try {
+                                            const target = document.documentElement;
+                                            if (target.requestFullscreen) await target.requestFullscreen();
+                                            else if (document.body.requestFullscreen) await document.body.requestFullscreen();
+                                        } catch (error) {
+                                            fullscreenPrompt.textContent = 'Este navegador no permite pantalla completa en esta ventana. Prueba abrir la proyección en una pestaña normal o usa la opción de pantalla completa del navegador.';
+                                        }
+                                        updateFullscreenPrompt();
+                                    });
+                                    document.addEventListener('fullscreenchange', updateFullscreenPrompt);
+                                    window.addEventListener('resize', updateFullscreenPrompt);
+                                    window.addEventListener('orientationchange', updateFullscreenPrompt);
+                                    updateFullscreenPrompt();
+
+                                    // Un solo reproductor YT.Player persistente en la página de proyección.
+                                    // Los nuevos videos se ponen en cola hasta que el player confirme CUED,
+                                    // evitando que las órdenes del controlador lleguen antes que el iframe.
+                                    let ytPlayer = null;
+                                    let ytApiReady = false;
+                                    let ytPlayerReady = false;
+                                    let ytDesiredVideoId = '';
+                                    let ytCueIssuedId = '';
+                                    let ytPendingVideoId = '';
+                                    let ytPendingCommand = '';
+                                    let ytPlayerState = -1;
+                                    let ytLoopEnabled = false;
+                                    let ytSeparateWindowMode = false; // YouTube comparte la ventana del proyector con los versículos.
+                                    let ytLastStatus = '';
+                                    let ytPendingTarget = null;
+                                    let ytCloudStatusRef = null;
+
+                                    function getYouTubeId(value) {
+                                        try {
+                                            const u = new URL(value, location.href);
+                                            const host = u.hostname.toLowerCase().replace(/^www\./, '');
+                                            if (host === 'youtu.be') return (u.pathname.split('/').filter(Boolean)[0] || '').slice(0, 11);
+                                            if (u.pathname === '/watch') return u.searchParams.get('v') || '';
+                                            if (/^\/(embed|shorts)\//.test(u.pathname)) return u.pathname.split('/')[2] || '';
+                                            return '';
+                                        } catch (_) { return ''; }
+                                    }
+                                    function publishYouTubePlaybackStatus() {
+                                        if (!ytCloudStatusRef || !ytPlayerReady || !ytPlayer || !ytDesiredVideoId) return;
+                                        let currentTime = 0, duration = 0, playerState = ytPlayerState;
+                                        try { currentTime = Number(ytPlayer.getCurrentTime()) || 0; } catch (_) {}
+                                        try { duration = Number(ytPlayer.getDuration()) || 0; } catch (_) {}
+                                        try { playerState = Number(ytPlayer.getPlayerState()); } catch (_) {}
+                                        ytCloudStatusRef.set({
+                                            videoId: ytDesiredVideoId,
+                                            currentTime: Math.max(0, currentTime),
+                                            duration: Math.max(0, duration),
+                                            playerState,
+                                            playing: playerState === 1,
+                                            paused: playerState === 2,
+                                            timestamp: Date.now()
+                                        }).catch(error => console.warn('No se pudo publicar el estado de YouTube:', error));
+                                    }
+                                    function sendYouTubeStatus(status, extra = {}) {
+                                        if (status === ytLastStatus && !extra.force) { publishYouTubePlaybackStatus(); return; }
+                                        ytLastStatus = status;
+                                        try { if (channel) channel.postMessage({ type: '__youtube_status', status, timestamp: Date.now(), ...extra }); } catch (_) {}
+                                        publishYouTubePlaybackStatus();
+                                    }
+                                    function executeYouTubeCommand(command, target = null) {
+                                        if (!ytPlayerReady || !ytPlayer || !command) { ytPendingCommand = command || ytPendingCommand; ytPendingTarget = target; return; }
+                                        if (command === 'playVideo') {
+                                            if (ytPlayerState === -1 || !ytCueIssuedId) { ytPendingCommand = command; return; }
+                                            ytPendingCommand = '';
+                                            try { ytPlayer.playVideo(); } catch (_) { ytPendingCommand = command; }
+                                        } else if (command === 'pauseVideo') {
+                                            ytPendingCommand = '';
+                                            try { ytPlayer.pauseVideo(); } catch (_) {}
+                                        } else if (command === 'stopVideo') {
+                                            ytPendingCommand = '';
+                                            ytPendingTarget = null;
+                                            try { ytPlayer.stopVideo(); } catch (_) {}
+                                        } else if (command === 'seekTo') {
+                                            const seekTarget = Number(target);
+                                            if (!Number.isFinite(seekTarget) || seekTarget < 0) return;
+                                            ytPendingCommand = '';
+                                            ytPendingTarget = null;
+                                            try { ytPlayer.seekTo(seekTarget, true); publishYouTubePlaybackStatus(); } catch (_) {}
+                                        }
+                                    }
+                                    function cueYouTubeVideo(videoId) {
+                                        if (!videoId) return;
+                                        ytDesiredVideoId = videoId;
+                                        ytPendingVideoId = videoId;
+                                        ytCueIssuedId = '';
+                                        ytPlayerState = -1;
+                                        if (!ytPlayerReady || !ytPlayer) return;
+                                        try {
+                                            ytCueIssuedId = videoId;
+                                            ytPendingVideoId = '';
+                                            ytPlayer.cueVideoById({ videoId, startSeconds: 0 });
+                                            sendYouTubeStatus('video-cued', { videoId });
+                                        } catch (error) {
+                                            ytPendingVideoId = videoId;
+                                            sendYouTubeStatus('player-error', { message: String(error) });
+                                        }
+                                    }
+                                    function initializeYouTubeAPI() {
+                                        window.onYouTubeIframeAPIReady = () => {
+                                            ytApiReady = true;
+                                            const playerVars = { autoplay: 0, controls: 0, disablekb: 1, enablejsapi: 1, playsinline: 1, rel: 0, fs: 0, modestbranding: 1 };
+                                            if (location.protocol === 'https:' || location.protocol === 'http:') playerVars.origin = location.origin;
+                                            ytPlayer = new YT.Player('proj-youtube-player', {
+                                                width: '100%', height: '100%', playerVars,
+                                                events: {
+                                                    onReady: event => {
+                                                        ytPlayerReady = true;
+                                                        try {
+                                                            const frame = event.target.getIframe();
+                                                            frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share');
+                                                            frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+                                                            frame.style.width = '100%'; frame.style.height = '100%'; frame.style.border = '0';
+                                                        } catch (_) {}
+                                                        if (ytPendingVideoId || ytDesiredVideoId) cueYouTubeVideo(ytPendingVideoId || ytDesiredVideoId);
+                                                        sendYouTubeStatus('player-ready', { force: true });
+                                                    },
+                                                    onStateChange: event => {
+                                                        ytPlayerState = event.data;
+                                                        // 5 = CUED: ahora sí se puede ejecutar el Play que llegó antes.
+                                                        if (event.data === 5 && ytPendingCommand) {
+                                                            const queued = ytPendingCommand;
+                                                            const queuedTarget = ytPendingTarget;
+                                                            ytPendingCommand = '';
+                                                            ytPendingTarget = null;
+                                                            executeYouTubeCommand(queued, queuedTarget);
+                                                        }
+                                                        if (event.data === 1) sendYouTubeStatus('playing', { videoId: ytDesiredVideoId });
+                                                        else if (event.data === 2) sendYouTubeStatus('paused', { videoId: ytDesiredVideoId });
+                                                        else if (event.data === 0 && ytLoopEnabled) {
+                                                            try { ytPlayer.seekTo(0, true); ytPlayer.playVideo(); } catch (_) {}
+                                                        } else if (event.data === 5) sendYouTubeStatus('video-cued', { videoId: ytDesiredVideoId });
+                                                    },
+                                                    onError: event => sendYouTubeStatus('player-error', { code: event.data, videoId: ytDesiredVideoId }),
+                                                    onAutoplayBlocked: () => sendYouTubeStatus('autoplay-blocked', { videoId: ytDesiredVideoId, force: true })
+                                                }
+                                            });
+                                        };
+                                        const script = document.createElement('script');
+                                        script.src = 'https://www.youtube.com/iframe_api';
+                                        script.onerror = () => sendYouTubeStatus('api-load-error', { force: true });
+                                        document.head.appendChild(script);
+                                    }
+                                    // Un único reproductor YouTube dentro de la ventana real de proyección.
+                                    // La vista previa del panel no crea ningún iframe ni reproduce audio.
+                                    initializeYouTubeAPI();
+                                    // El reproductor proyectado es la única fuente de tiempo/duración.
+                                    // Se publica un estado ligero cada segundo para la barra del iPad.
+                                    setInterval(publishYouTubePlaybackStatus, 1000);
+                                    try {
+                                        if ('BroadcastChannel' in window) {
+                                            channel = new BroadcastChannel(CHANNEL_NAME);
+                                            channel.addEventListener('message', event => {
+                                                const data = event.data;
+                                                if (data && data.type === '__youtube_command') {
+                                                    handleYouTubeCommand(data.command, data.target);
+                                                    [180, 500, 950].forEach(delay => setTimeout(() => handleYouTubeCommand(data.command, data.target), delay));
+                                                    return;
+                                                }
+                                                if (data && data.type === '__controller_hello') {
+                                                    sendProjectorHeartbeat();
+                                                    return;
+                                                }
+                                                applyProjection(data);
+                                            });
+                                        }
+                                    } catch (error) { console.warn('BroadcastChannel no disponible', error); }
+
+                                    function sendProjectorHeartbeat() {
+                                        try {
+                                            if (channel) channel.postMessage({ type: '__projector_heartbeat', timestamp: Date.now(), page: location.pathname });
+                                        } catch (_) {}
+                                    }
+                                    // Latido periódico: el controlador sabe que esta página sigue viva
+                                    // incluso después de separar la pestaña a otra ventana/pantalla.
+                                    sendProjectorHeartbeat();
+                                    setInterval(sendProjectorHeartbeat, 2000);
+                                    window.addEventListener('pageshow', sendProjectorHeartbeat);
+                                    document.addEventListener('visibilitychange', () => { if (!document.hidden) sendProjectorHeartbeat(); });
+
+                                    function handleYouTubeCommand(command, target = null) {
+                                        if (ytSeparateWindowMode) return; // Seguridad: no aceptar comandos si el modo independiente está activado.
+                                        if (command !== 'playVideo' && command !== 'pauseVideo' && command !== 'stopVideo' && command !== 'seekTo') return;
+                                        // Si el video está cargando o esperando CUED, guardar la orden.
+                                        executeYouTubeCommand(command, target);
+                                    }
+                                    window.addEventListener('message', event => {
+                                        const data = event.data;
+                                        if (data && data.type === '__youtube_command') {
+                                            handleYouTubeCommand(data.command, data.target);
+                                            // Reintentar si el iframe aún está terminando de inicializarse.
+                                            [150, 450, 900].forEach(delay => setTimeout(() => handleYouTubeCommand(data.command, data.target), delay));
+                                            return;
+                                        }
+                                        applyProjection(data);
+                                    });
+                                    window.addEventListener('storage', event => {
+                                        if (event.key === STORAGE_KEY && event.newValue) {
+                                            try { applyProjection(JSON.parse(event.newValue)); } catch (_) {}
+                                        }
+                                    });
+
+                                    function queueProjectionSeek(video, target) {
+                                        if (!video || !Number.isFinite(target) || target < 0) return;
+                                        const applyTarget = () => {
+                                            const duration = Number.isFinite(video.duration) ? video.duration : target;
+                                            const safeTarget = Math.max(0, Math.min(target, duration));
+                                            try {
+                                                video.currentTime = safeTarget;
+                                                delete video.dataset.pendingSeek;
+                                            } catch (_) {
+                                                video.dataset.pendingSeek = String(safeTarget);
+                                            }
+                                        };
+                                        if (video.readyState >= 1 && Number.isFinite(video.duration)) applyTarget();
+                                        else {
+                                            video.dataset.pendingSeek = String(target);
+                                            if (video.dataset.seekListenerAttached !== '1') {
+                                                video.dataset.seekListenerAttached = '1';
+                                                const retry = () => {
+                                                    const pending = Number(video.dataset.pendingSeek);
+                                                    if (Number.isFinite(pending)) {
+                                                        const duration = Number.isFinite(video.duration) ? video.duration : pending;
+                                                        try { video.currentTime = Math.max(0, Math.min(pending, duration)); delete video.dataset.pendingSeek; } catch (_) {}
+                                                    }
+                                                    video.dataset.seekListenerAttached = '0';
+                                                };
+                                                video.addEventListener('loadedmetadata', retry, { once: true });
+                                                video.addEventListener('canplay', retry, { once: true });
+                                            }
+                                        }
+                                    }
+                                    let latestProjectionTimestamp = 0;
+                                    let latestProjectionData = null;
+                                    // Un URL blob: solo existe en la página que seleccionó el archivo.
+                                    // El archivo se recibe en esta ventana; la pantalla de proyección nunca pide al usuario elegirlo.
+                                    let pendingRemoteBlobKey = '';
+                                    let mappedRemoteBlobKey = '';
+                                    let localProjectionVideoUrl = '';
+                                    function applyProjection(data, force = false) {
+                                        // Ignorar mensajes ajenos al estado de proyección. El iframe de YouTube
+                                        // también emite mensajes window.postMessage; tratarlos como estado
+                                        // visual reiniciaba el diseño y volvía a pantalla completa.
+                                        if (!data || typeof data !== 'object' || !data.styles ||
+                                            !Object.prototype.hasOwnProperty.call(data, 'mediaMode') ||
+                                            !Number.isFinite(Number(data.timestamp)) || Number(data.timestamp) <= 0) return;
+                                        const incomingTimestamp = Number(data.timestamp || 0);
+                                        if (!force && incomingTimestamp && incomingTimestamp <= latestProjectionTimestamp) return;
+                                        if (incomingTimestamp && (!force || incomingTimestamp > latestProjectionTimestamp)) latestProjectionTimestamp = incomingTimestamp;
+                                        latestProjectionData = data;
+                                        const styles = data.styles;
+                                        const text = document.getElementById('proj-text');
+                                        const citation = document.getElementById('proj-citation');
+                                        const backdrop = document.getElementById('proj-backdrop');
+                                        const overlay = document.getElementById('proj-overlay');
+                                        const video = document.getElementById('proj-video');
+                                        const youtube = document.getElementById('proj-youtube');
+                                        const standby = document.getElementById('proj-logo-standby');
+                                        const corner = document.getElementById('proj-logo-corner');
+                                        const karaokeBox = document.getElementById('proj-karaoke'); const karaokeText = document.getElementById('proj-karaoke-stanza');
+                                        const karaoke = data.karaoke || {}; const karaokeStyle = karaoke.style || {};
+                                        const karaokeLoaded = !!karaoke.active && !!String(karaoke.stanza || '').trim();
+                                        const youtubeLyricsLayout = data.mediaMode === 'youtube' && karaokeLoaded;
+                                        // La API de YouTube reemplaza el nodo objetivo por un iframe. Por eso el tamaño
+                                        // se aplica al contenedor estable, no al iframe que controla YouTube.
+                                        const karaokeBg = document.getElementById('proj-karaoke-bg');
+                                        if (youtubeLyricsLayout) {
+                                            youtube.style.top='0'; youtube.style.left='0'; youtube.style.right='0'; youtube.style.bottom='auto';
+                                            youtube.style.width='100%'; youtube.style.height='76%'; youtube.style.overflow='hidden';
+                                            youtube.style.contain='layout paint'; youtube.style.clipPath='inset(0)';
+                                            karaokeBox.style.inset='76% 0 0 0'; karaokeBox.style.padding='1% 5%';
+                                            karaokeBox.style.zIndex='40';
+                                            karaokeText.style.maxHeight='100%'; karaokeText.style.overflow='hidden';
+                                            karaokeText.style.fontSize=Math.min(Number(karaokeStyle.size)||4.5,3.5)+'vw';
+                                        } else {
+                                            youtube.style.top=''; youtube.style.left=''; youtube.style.right=''; youtube.style.bottom='';
+                                            youtube.style.width=''; youtube.style.height=''; youtube.style.overflow='hidden';
+                                            youtube.style.contain='layout paint'; youtube.style.clipPath='inset(0)';
+                                            karaokeBox.style.inset=''; karaokeBox.style.padding=''; karaokeBox.style.zIndex='40';
+                                            karaokeText.style.maxHeight=''; karaokeText.style.overflow='';
+                                        }
+                                        if (karaokeLoaded && !data.isClearText && !data.isStandby && data.mediaMode !== 'screen') {
+                                            karaokeBox.classList.remove('hidden'); karaokeText.textContent=karaoke.stanza || '';
+                                            karaokeText.style.fontFamily='\"'+(karaokeStyle.font||'Inter')+'\", sans-serif';
+                                            if (!youtubeLyricsLayout) karaokeText.style.fontSize=(Number(karaokeStyle.size)||4.5)+'vw';
+                                            karaokeText.style.color=karaokeStyle.color||'#fff'; karaokeText.style.textAlign=karaokeStyle.align||'center';
+                                            karaokeText.style.fontWeight='700';
+                                            karaokeText.style.textShadow=karaokeStyle.shadow===false?'none':'0 2px 12px rgba(0,0,0,.95), 0 4px 24px rgba(0,0,0,.75)';
+                                            karaokeText.style.whiteSpace='pre-line';
+                                            if (karaokeBg) {
+                                                karaokeBg.style.opacity=String(Math.max(0,Math.min(100,Number(karaokeStyle.bgOpacity===undefined?100:karaokeStyle.bgOpacity))/100));
+                                                if (karaokeStyle.transparent) { karaokeBg.style.background='transparent'; karaokeBg.style.backgroundImage='none'; }
+                                                else if (karaokeStyle.bgType==='image' && karaokeStyle.bgImage) { karaokeBg.style.background='none'; karaokeBg.style.backgroundImage='url(\"'+String(karaokeStyle.bgImage).replace(/\"/g,'%22')+'\")'; karaokeBg.style.backgroundSize='cover'; karaokeBg.style.backgroundPosition='center'; }
+                                                else if (karaokeStyle.bgType==='gradient') { karaokeBg.style.background=karaokeStyle.bgGradient||'linear-gradient(135deg,#020617,#1e1b4b)'; karaokeBg.style.backgroundImage='none'; }
+                                                else { karaokeBg.style.background=karaokeStyle.bgColor||'#000000'; karaokeBg.style.backgroundImage='none'; }
+                                            }
+                                        } else { karaokeBox.classList.add('hidden'); }
+                                        if (!text || !backdrop) return;
+
+                                        if (data.isBlackout) {
+                                            if (ytPlayerReady && ytPlayer) { try { ytPlayer.pauseVideo(); } catch (_) {} }
+                                            backdrop.style.background = '#000';
+                                            text.textContent = '';
+                                            citation.textContent = '';
+                                            standby.classList.add('hidden'); corner.classList.add('hidden'); const karaokeLayer = document.getElementById('proj-karaoke'); if (karaokeLayer) karaokeLayer.classList.add('hidden');
+                                            video.classList.add('hidden'); youtube.classList.add('hidden');
+                                            const screenVideo = document.getElementById('proj-screen-video');
+                                            if (screenVideo) screenVideo.classList.add('hidden');
+                                            return;
+                                        }
+
+                                        text.textContent = data.text || '';
+                                        text.style.fontFamily = '"' + (styles.font || 'Inter') + '", sans-serif';
+                                        text.style.fontSize = (parseFloat(styles.size) || 4.5) + 'vw';
+                                        text.style.fontWeight = styles.isBold ? '800' : '400';
+                                        text.style.fontStyle = styles.isItalic ? 'italic' : 'normal';
+                                        text.style.textAlign = styles.align || 'center';
+                                        text.style.color = styles.textcolor || '#fff';
+                                        text.classList.toggle('text-projection-shadow', !!styles.hasShadow);
+
+                                        if (karaoke.active) { text.textContent=''; citation.textContent=''; standby.classList.add('hidden'); corner.classList.add('hidden'); }
+                                        citation.textContent = data.citation || '';
+                                        citation.style.fontFamily = '"' + (styles.citationFont || styles.font || 'Inter') + '", sans-serif';
+                                        citation.style.fontSize = (parseFloat(styles.citationSize) || 1.6) + 'vw';
+                                        citation.style.fontWeight = styles.citationBold === false ? '400' : '800';
+                                        citation.style.fontStyle = styles.citationItalic ? 'italic' : 'normal';
+                                        citation.style.color = styles.citationColor || styles.textcolor || '#fff';
+                                        citation.style.textAlign = styles.citationAlign || 'center';
+                                        citation.style.position = 'absolute'; citation.style.zIndex = '35';
+                                        citation.style.margin = '0'; citation.style.padding = '0.25em 0.5em';
+                                        citation.style.maxWidth = '90%'; citation.style.boxSizing = 'border-box';
+                                        citation.style.pointerEvents = 'none';
+                                        citation.style.top = 'auto'; citation.style.bottom = 'auto';
+                                        citation.style.left = 'auto'; citation.style.right = 'auto';
+                                        citation.style.transform = 'none';
+                                        const pos = styles.citationPosition || 'bottom-center';
+                                        if (pos.startsWith('top-')) citation.style.top = '4%';
+                                        else if (pos.startsWith('bottom-')) citation.style.bottom = '4%';
+                                        else citation.style.top = '50%';
+                                        if (pos.endsWith('-left')) { citation.style.left = '4%'; citation.style.textAlign = 'left'; }
+                                        else if (pos.endsWith('-right')) { citation.style.right = '4%'; citation.style.textAlign = 'right'; }
+                                        else { citation.style.left = '50%'; citation.style.transform = 'translateX(-50%)'; }
+                                        if (pos.startsWith('middle-')) citation.style.transform = (pos.endsWith('-left') || pos.endsWith('-right')) ? 'translateY(-50%)' : 'translate(-50%, -50%)';
+                                        citation.classList.toggle('text-projection-shadow', styles.citationShadow !== false);
+
+                                        if (styles.bgType === 'color') { backdrop.style.background = styles.bgcolor || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
+                                        else if (styles.bgType === 'gradient') { backdrop.style.background = styles.gradient || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
+                                        else if (styles.bgType === 'image') { backdrop.style.background = 'none'; backdrop.style.backgroundImage = 'url("' + String(styles.bgImage || '').replace(/"/g, '%22') + '")'; backdrop.style.backgroundSize = 'cover'; backdrop.style.backgroundPosition = 'center'; }
+                                        overlay.style.backgroundColor = 'rgba(0,0,0,' + (Number(styles.bgOpacity || 0) / 100) + ')';
+
+                                        const hasText = (data.text || '').trim().length > 0;
+                                        if (data.isStandby === true && styles.logoUrl && data.mediaMode === 'none') { standby.src = styles.logoUrl; standby.classList.remove('hidden'); }
+                                        else standby.classList.add('hidden');
+                                        if (styles.logoUrl && hasText && styles.showLogoCorner) {
+                                            corner.src = styles.logoUrl;
+                                            corner.className = 'absolute max-w-[12%] max-h-[15%] object-contain z-30 transition-all';
+                                            const logoPos = styles.logoPosition || 'top-left';
+                                            const logoClasses = {'top-left':['top-4','left-4'],'top-center':['top-4','left-1/2','-translate-x-1/2'],'top-right':['top-4','right-4'],'bottom-left':['bottom-4','left-4'],'bottom-center':['bottom-4','left-1/2','-translate-x-1/2'],'bottom-right':['bottom-4','right-4']};
+                                            corner.classList.add(...(logoClasses[logoPos] || logoClasses['top-left'])); corner.classList.remove('hidden');
+                                        } else corner.classList.add('hidden');
+
+                                        const screenVideo = document.getElementById('proj-screen-video');
+                                        if (data.mediaMode === 'screen') {
+                                            if (ytPlayerReady && ytPlayer) { try { ytPlayer.pauseVideo(); } catch (_) {} }
+                                            youtube.classList.add('hidden');
+                                            video.pause(); video.classList.add('hidden');
+                                            if (screenVideo && screenVideo.srcObject) {
+                                                screenVideo.classList.remove('hidden');
+                                                screenVideo.play().catch(() => {});
+                                            } else {
+                                                // Espera la pista WebRTC; el vídeo no pasa por Firebase.
+                                                if (screenVideo) screenVideo.classList.add('hidden');
+                                            }
+                                        } else if (screenVideo) {
+                                            screenVideo.classList.add('hidden');
+                                            if (data.mediaMode !== 'screen' && screenVideo.srcObject) {
+                                                try { screenVideo.srcObject.getTracks().forEach(track => track.stop()); } catch (_) {}
+                                                screenVideo.srcObject = null;
+                                            }
+                                        }
+                                        if (data.mediaMode === 'youtube' && data.videoUrl) {
+                                            // Cambio automático al reproductor YouTube de esta misma ventana.
+                                            // El reproductor local se pausa y se oculta; nunca hay dos videos activos.
+                                            video.pause();
+                                            video.classList.add('hidden');
+                                            if (video.srcObject) video.srcObject = null;
+                                            const audioPrompt = document.getElementById('proj-enable-audio');
+                                            if (audioPrompt) audioPrompt.classList.add('hidden');
+                                            const localPrompt = document.getElementById('proj-local-video-prompt');
+                                            if (localPrompt) localPrompt.classList.add('hidden');
+                                            text.classList.add('hidden');
+                                            citation.classList.add('hidden');
+                                            backdrop.classList.add('hidden');
+                                            overlay.classList.add('hidden');
+                                            standby.classList.add('hidden');
+                                            corner.classList.add('hidden');
+                                            youtube.classList.remove('hidden');
+                                            youtube.style.pointerEvents = 'auto';
+                                            ytSeparateWindowMode = false;
+                                            ytLoopEnabled = !!data.videoLoop;
+                                            const ytId = getYouTubeId(data.videoUrl);
+                                            if (ytId && ytId !== ytDesiredVideoId) cueYouTubeVideo(ytId);
+                                            else if (!ytId) sendYouTubeStatus('invalid-url', { force: true });
+                                            return;
+                                        } else {
+                                            if (ytPlayerReady && ytPlayer) { try { ytPlayer.pauseVideo(); } catch (_) {} }
+                                            youtube.classList.add('hidden');
+                                            youtube.style.pointerEvents = 'none';
+                                            if (data.mediaMode === 'screen') {
+                                                text.classList.add('hidden');
+                                                citation.classList.add('hidden');
+                                                backdrop.classList.add('hidden');
+                                                overlay.classList.add('hidden');
+                                                standby.classList.add('hidden');
+                                                corner.classList.add('hidden');
+                                            } else {
+                                                text.classList.remove('hidden');
+                                                citation.classList.remove('hidden');
+                                                backdrop.classList.remove('hidden');
+                                                overlay.classList.remove('hidden');
+                                            }
+                                            if (data.mediaMode === 'video' && data.videoUrl) {
+                                                const remoteUrl = String(data.videoUrl);
+                                                const isBlobUrl = remoteUrl.startsWith('blob:');
+                                                const audioPrompt = document.getElementById('proj-enable-audio');
+                                                let usableUrl = remoteUrl;
+                                                if (isBlobUrl) {
+                                                    // El blob de Safari no existe en esta app: esperar la transferencia WebRTC,
+                                                    // sin mostrar controles ni pedir que se seleccione el archivo en la proyección.
+                                                    if (mappedRemoteBlobKey !== remoteUrl || !localProjectionVideoUrl) {
+                                                        pendingRemoteBlobKey = remoteUrl;
+                                                        video.pause();
+                                                        video.classList.add('hidden');
+                                                        if (audioPrompt) audioPrompt.classList.add('hidden');
+                                                        return;
+                                                    }
+                                                    usableUrl = localProjectionVideoUrl;
+                                                }
+                                                const sourceChanged = video.getAttribute('src') !== usableUrl;
+                                                if (sourceChanged) {
+                                                    // Firebase actualiza texto/estilos, no controla el transporte multimedia.
+                                                    // El reproductor solo se inicializa al recibir un archivo nuevo.
+                                                    video.setAttribute('src', usableUrl);
+                                                    video.load();
+                                                    video.loop = !!data.videoLoop;
+                                                    video.muted = false;
+                                                    video.volume = 1;
+                                                    if (Number.isFinite(data.videoSeekTo) && data.videoSeekTo !== null && String(video.dataset.lastSeekId || '') !== String(data.videoSeekId ?? 'legacy')) {
+                                                        video.dataset.lastSeekId = String(data.videoSeekId ?? 'legacy');
+                                                        queueProjectionSeek(video, data.videoSeekTo);
+                                                    }
+                                                }
+                                                video.classList.remove('hidden');
+                                                if (sourceChanged && data.isVideoPlaying) {
+                                                    video.play().then(() => { if (audioPrompt) audioPrompt.classList.add('hidden'); }).catch(() => {
+                                                        if (audioPrompt) { audioPrompt.textContent = '▶ Toca para reproducir con sonido'; audioPrompt.classList.remove('hidden'); }
+                                                    });
+                                                }
+                                            }
+                                            else { video.pause(); video.classList.add('hidden'); if (video.srcObject) video.srcObject = null; const localPrompt = document.getElementById('proj-local-video-prompt'); if (localPrompt) localPrompt.classList.add('hidden'); }
+                                        }
+                                    }
+
+                                    // Recibe el archivo desde Safari por WebRTC. El archivo nunca se sube a Firebase;
+                                    // la base de datos solo transporta la oferta/respuesta de conexión.
+                                    const CLOUD_TRANSFER_PATH = 'rooms/casa-bendiciones/transfer';
+                                    let projectorTransferPeer = null;
+                                    let projectorTransferSessionId = '';
+                                    let projectorReceiveChannel = null;
+                                    let projectorControlChannel = null;
+                                    let projectorMirrorChannel = null;
+                                    let projectorMirrorTimer = null;
+                                    let projectorMirrorCanvas = null;
+                                    let incomingVideoTransfer = null;
+                                    let lastProjectorStatusAt = 0;
+                                    let pendingProjectorVideoCommand = null;
+                                    let projectorTransferDatabase = null;
+                                    const projectorInstanceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+
+                                    function waitForIceGathering(pc, timeoutMs = 12000) {
+                                        return new Promise(resolve => {
+                                            if (pc.iceGatheringState === 'complete') return resolve();
+                                            let done = false;
+                                            const finish = () => { if (done) return; done = true; clearTimeout(timer); pc.removeEventListener('icegatheringstatechange', check); resolve(); };
+                                            const check = () => { if (pc.iceGatheringState === 'complete') finish(); };
+                                            const timer = setTimeout(finish, timeoutMs);
+                                            pc.addEventListener('icegatheringstatechange', check);
+                                        });
+                                    }
+
+                                    function closeProjectorTransferPeer() {
+                                        try { if (projectorReceiveChannel) projectorReceiveChannel.close(); } catch (_) {}
+                                        try { if (projectorControlChannel) projectorControlChannel.close(); } catch (_) {}
+                                        try { if (projectorMirrorChannel) projectorMirrorChannel.close(); } catch (_) {}
+                                        if (projectorMirrorTimer) clearInterval(projectorMirrorTimer);
+                                        projectorMirrorTimer = null; projectorMirrorChannel = null; projectorMirrorCanvas = null;
+                                        try { if (projectorTransferPeer) projectorTransferPeer.close(); } catch (_) {}
+                                        projectorReceiveChannel = null; projectorControlChannel = null; projectorTransferPeer = null; incomingVideoTransfer = null;
+                                    }
+
+                                    function sendProjectorVideoStatus(force = false) {
+                                        const channel = projectorControlChannel;
+                                        const video = document.getElementById('proj-video');
+                                        if (!channel || channel.readyState !== 'open' || !video) return;
+                                        const now = Date.now();
+                                        if (!force && now - lastProjectorStatusAt < 450) return;
+                                        lastProjectorStatusAt = now;
+                                        try {
+                                            channel.send(JSON.stringify({ type: 'video-status', sourceKey: mappedRemoteBlobKey, currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0, duration: Number.isFinite(video.duration) ? video.duration : 0, playing: !video.paused && !video.ended, paused: video.paused, ended: video.ended, loop: !!video.loop, timestamp: now }));
+                                        } catch (error) { console.warn('No se pudo enviar el estado multimedia:', error); }
+                                    }
+
+                                    function handleProjectorVideoControl(event) {
+                                        if (typeof event.data !== 'string') return;
+                                        let command;
+                                        try { command = JSON.parse(event.data); } catch (_) { return; }
+                                        if (!command || command.type !== 'video-control') return;
+                                        if (command.action === 'get-status') { sendProjectorVideoStatus(true); return; }
+                                        if (command.sourceKey && mappedRemoteBlobKey && command.sourceKey !== mappedRemoteBlobKey) return;
+                                        const video = document.getElementById('proj-video');
+                                        if (!video) return;
+                                        if (!video.src || video.readyState === 0) {
+                                            pendingProjectorVideoCommand = command;
+                                            return;
+                                        }
+                                        if (command.action === 'play') {
+                                            video.muted = false; video.volume = 1;
+                                            video.play().then(() => sendProjectorVideoStatus(true)).catch(() => {
+                                                const prompt = document.getElementById('proj-enable-audio');
+                                                if (prompt) { prompt.textContent = '▶ Toca para reproducir con sonido'; prompt.classList.remove('hidden'); }
+                                            });
+                                        } else if (command.action === 'pause') {
+                                            video.pause(); sendProjectorVideoStatus(true);
+                                        } else if (command.action === 'seek' && Number.isFinite(Number(command.target))) {
+                                            const target = Math.max(0, Math.min(Number.isFinite(video.duration) ? video.duration : Number(command.target), Number(command.target)));
+                                            try { video.currentTime = target; } catch (_) { video.dataset.pendingSeek = String(target); }
+                                            if (command.seekId != null) video.dataset.lastSeekId = String(command.seekId);
+                                            sendProjectorVideoStatus(true);
+                                        } else if (command.action === 'loop') {
+                                            video.loop = !!command.loop; sendProjectorVideoStatus(true);
+                                        }
+                                    }
+
+                                    function flushPendingProjectorVideoCommand() {
+                                        const command = pendingProjectorVideoCommand;
+                                        if (!command) return;
+                                        pendingProjectorVideoCommand = null;
+                                        handleProjectorVideoControl({ data: JSON.stringify(command) });
+                                    }
+
+                                    function handleReceivedVideoMessage(event) {
+                                        if (typeof event.data === 'string') {
+                                            let message;
+                                            try { message = JSON.parse(event.data); } catch (_) { return; }
+                                            if (message.type !== 'video-file-meta') return;
+                                            incomingVideoTransfer = { sourceKey: message.sourceKey, name: message.name, mime: message.mime || 'video/mp4', size: Number(message.size) || 0, totalChunks: Number(message.totalChunks) || 0, chunks: [], receivedBytes: 0 };
+                                            return;
+                                        }
+                                        const transfer = incomingVideoTransfer;
+                                        if (!transfer) return;
+                                        const chunk = event.data instanceof ArrayBuffer ? event.data : (event.data && event.data.buffer ? event.data.buffer : null);
+                                        if (!chunk) return;
+                                        transfer.chunks.push(chunk);
+                                        transfer.receivedBytes += chunk.byteLength || 0;
+                                        if (transfer.chunks.length < transfer.totalChunks && transfer.receivedBytes < transfer.size) return;
+                                        try {
+                                            const blob = new Blob(transfer.chunks, { type: transfer.mime });
+                                            if (localProjectionVideoUrl) { try { URL.revokeObjectURL(localProjectionVideoUrl); } catch (_) {} }
+                                            localProjectionVideoUrl = URL.createObjectURL(blob);
+                                            mappedRemoteBlobKey = transfer.sourceKey;
+                                            pendingRemoteBlobKey = '';
+                                            incomingVideoTransfer = null;
+                                            if (latestProjectionData) applyProjection(latestProjectionData, true);
+                                            setTimeout(flushPendingProjectorVideoCommand, 100);
+                                            sendProjectorVideoStatus(true);
+                                            console.info('Video recibido desde el panel de control:', blob.size, 'bytes');
+                                        } catch (error) { console.error('No se pudo preparar el video recibido:', error); }
+                                    }
+
+                                    function sendProjectorMirrorFrame(force = false) {
+                                        const channel = projectorMirrorChannel;
+                                        const video = document.getElementById('proj-video');
+                                        if (!channel || channel.readyState !== 'open' || !video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+                                        if (!force && video.paused) return;
+                                        if (channel.bufferedAmount > 180000) return;
+                                        try {
+                                            if (!projectorMirrorCanvas) projectorMirrorCanvas = document.createElement('canvas');
+                                            const scale = Math.min(1, 640 / video.videoWidth, 360 / video.videoHeight);
+                                            projectorMirrorCanvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+                                            projectorMirrorCanvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+                                            const ctx = projectorMirrorCanvas.getContext('2d', { alpha: false });
+                                            if (!ctx) return;
+                                            ctx.drawImage(video, 0, 0, projectorMirrorCanvas.width, projectorMirrorCanvas.height);
+                                            channel.send(JSON.stringify({ type: 'preview-frame', frame: projectorMirrorCanvas.toDataURL('image/jpeg', 0.48), timestamp: Date.now() }));
+                                        } catch (error) { console.warn('No se pudo enviar el fotograma espejo:', error); }
+                                    }
+                                    function startProjectorMirror() {
+                                        if (projectorMirrorTimer) clearInterval(projectorMirrorTimer);
+                                        projectorMirrorTimer = setInterval(() => sendProjectorMirrorFrame(false), 250);
+                                        const video = document.getElementById('proj-video');
+                                        if (video) ['loadeddata', 'playing', 'pause', 'seeked', 'timeupdate'].forEach(name => video.addEventListener(name, () => sendProjectorMirrorFrame(true)));
+                                        sendProjectorMirrorFrame(true);
+                                    }
+
+                                    async function handleVideoOffer(offer) {
+                                        if (!offer || !offer.sessionId || !offer.sdp || offer.projectorId !== projectorInstanceId) return;
+                                        if (offer.sessionId === projectorTransferSessionId) return;
+                                        closeProjectorTransferPeer();
+                                        projectorTransferSessionId = offer.sessionId;
+                                        try {
+                                            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+                                            projectorTransferPeer = pc;
+                                            pc.ondatachannel = event => {
+                                                const incomingChannel = event.channel;
+                                                if (incomingChannel.label === 'video-control') {
+                                                    projectorControlChannel = incomingChannel;
+                                                    projectorControlChannel.onmessage = handleProjectorVideoControl;
+                                                    projectorControlChannel.onopen = () => sendProjectorVideoStatus(true);
+                                                    projectorControlChannel.onerror = error => console.error('Canal de controles multimedia:', error);
+                                                } else if (incomingChannel.label === 'preview-mirror') {
+                                                    projectorMirrorChannel = incomingChannel;
+                                                    projectorMirrorChannel.onopen = startProjectorMirror;
+                                                    projectorMirrorChannel.onerror = error => console.error('Canal espejo de video:', error);
+                                                    if (projectorMirrorChannel.readyState === 'open') startProjectorMirror();
+                                                } else {
+                                                    projectorReceiveChannel = incomingChannel;
+                                                    projectorReceiveChannel.binaryType = 'arraybuffer';
+                                                    projectorReceiveChannel.onmessage = handleReceivedVideoMessage;
+                                                    projectorReceiveChannel.onerror = error => console.error('Canal de video:', error);
+                                                }
+                                            };
+                                            await pc.setRemoteDescription({ type: 'offer', sdp: offer.sdp });
+                                            const answer = await pc.createAnswer();
+                                            await pc.setLocalDescription(answer);
+                                            await waitForIceGathering(pc);
+                                            await projectorTransferDatabase.ref(CLOUD_TRANSFER_PATH + '/answer').set({ sessionId: offer.sessionId, type: 'answer', sdp: pc.localDescription.sdp, timestamp: Date.now() });
+                                        } catch (error) { console.error('No se pudo aceptar la conexión de video:', error); }
+                                    }
+
+                                    let projectorScreenPeer = null;
+                                    let projectorScreenSessionId = '';
+                                    function closeProjectorScreenPeer() {
+                                        try { if (projectorScreenPeer) projectorScreenPeer.close(); } catch (_) {}
+                                        projectorScreenPeer = null;
+                                        projectorScreenSessionId = '';
+                                        const screenVideo = document.getElementById('proj-screen-video');
+                                        if (screenVideo) {
+                                            try { if (screenVideo.srcObject) screenVideo.srcObject.getTracks().forEach(track => track.stop()); } catch (_) {}
+                                            screenVideo.pause(); screenVideo.srcObject = null; screenVideo.classList.add('hidden');
+                                        }
+                                    }
+                                    async function handleScreenOffer(offer) {
+                                        if (!offer || !offer.sessionId || !offer.sdp || offer.projectorId !== projectorInstanceId) return;
+                                        if (offer.sessionId === projectorScreenSessionId) return;
+                                        closeProjectorScreenPeer();
+                                        projectorScreenSessionId = offer.sessionId;
+                                        try {
+                                            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+                                            projectorScreenPeer = pc;
+                                            pc.ontrack = event => {
+                                                const screenVideo = document.getElementById('proj-screen-video');
+                                                if (!screenVideo) return;
+                                                screenVideo.srcObject = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+                                                screenVideo.muted = false;
+                                                screenVideo.volume = 1;
+                                                if (latestProjectionData && latestProjectionData.mediaMode === 'screen') screenVideo.classList.remove('hidden');
+                                                screenVideo.play().then(() => {
+                                                    const prompt = document.getElementById('proj-enable-audio');
+                                                    if (prompt) prompt.classList.add('hidden');
+                                                }).catch(error => {
+                                                    console.warn('La reproducción de captura necesita activación en la ventana del proyector:', error);
+                                                    const prompt = document.getElementById('proj-enable-audio');
+                                                    if (prompt) { prompt.textContent = '▶ Toca para activar el audio de la captura'; prompt.classList.remove('hidden'); }
+                                                });
+                                            };
+                                            pc.onconnectionstatechange = () => {
+                                                if (['failed', 'closed'].includes(pc.connectionState)) {
+                                                    const screenVideo = document.getElementById('proj-screen-video');
+                                                    if (screenVideo) screenVideo.classList.add('hidden');
+                                                }
+                                            };
+                                            await pc.setRemoteDescription({ type: 'offer', sdp: offer.sdp });
+                                            const answer = await pc.createAnswer();
+                                            await pc.setLocalDescription(answer);
+                                            await waitForIceGathering(pc);
+                                            await projectorTransferDatabase.ref(CLOUD_TRANSFER_PATH + '/screenAnswer').set({ sessionId: offer.sessionId, type: 'answer', sdp: pc.localDescription.sdp, timestamp: Date.now() });
+                                        } catch (error) { console.error('No se pudo recibir el vídeo de pantalla por WebRTC:', error); closeProjectorScreenPeer(); }
+                                    }
+
+                                    function setupProjectorVideoTransfer(database) {
+                                        projectorTransferDatabase = database;
+                                        const transferRef = database.ref(CLOUD_TRANSFER_PATH);
+                                        transferRef.child('projectorReady').set({ id: projectorInstanceId, timestamp: Date.now() });
+                                        try { transferRef.child('projectorReady').onDisconnect().remove(); } catch (_) {}
+                                        transferRef.child('offer').on('value', snapshot => {
+                                            const offer = snapshot.val();
+                                            if (offer) handleVideoOffer(offer);
+                                        }, error => console.error('No se pudo escuchar la oferta de video:', error));
+                                        transferRef.child('screenOffer').on('value', snapshot => {
+                                            const offer = snapshot.val();
+                                            if (offer) handleScreenOffer(offer);
+                                        }, error => console.error('No se pudo escuchar la oferta de captura de pantalla:', error));
+                                    }
+
+                                    const projectedVideoElement = document.getElementById('proj-video');
+                                    if (projectedVideoElement) {
+                                        ['loadedmetadata', 'durationchange', 'play', 'playing', 'pause', 'seeked', 'ended', 'timeupdate', 'waiting'].forEach(eventName => {
+                                            projectedVideoElement.addEventListener(eventName, () => sendProjectorVideoStatus(eventName !== 'timeupdate'));
+                                        });
+                                    }
+
+                                    // Safari puede bloquear audio iniciado desde otra ventana. Si sucede,
+                                    // permite activar el video con un gesto dentro de esta ventana.
+                                    const audioPrompt = document.getElementById('proj-enable-audio');
+                                    if (audioPrompt) audioPrompt.addEventListener('click', () => {
+                                        const screenVideo = document.getElementById('proj-screen-video');
+                                        const video = screenVideo && !screenVideo.classList.contains('hidden') ? screenVideo : document.getElementById('proj-video');
+                                        if (!video) return;
+                                        video.muted = false; video.volume = 1;
+                                        video.play().then(() => audioPrompt.classList.add('hidden')).catch(() => { audioPrompt.textContent = 'No se pudo iniciar el audio'; });
+                                    });
+
+                                    // Canal remoto independiente del almacenamiento local y BroadcastChannel.
+                                    // Permite que la app instalada y Safari se comuniquen aunque iPadOS los aísle.
+                                    const FIREBASE_CONFIG = {
+                                        apiKey: 'AIzaSyAhEPSlcD45NiePlqC8tws4QGkEEeawwRM',
+                                        authDomain: 'proyector-iglesia.firebaseapp.com',
+                                        databaseURL: 'https://proyector-iglesia-default-rtdb.firebaseio.com',
+                                        projectId: 'proyector-iglesia',
+                                        storageBucket: 'proyector-iglesia.firebasestorage.app',
+                                        messagingSenderId: '373203685730',
+                                        appId: '1:373203685730:web:c6ec20d684b6771b9edc3b'
+                                    };
+                                    const CLOUD_PROJECTION_PATH = 'rooms/casa-bendiciones/state';
+                                    const CLOUD_YOUTUBE_COMMAND_PATH = 'rooms/casa-bendiciones/youtubeCommands';
+                                    const CLOUD_YOUTUBE_STATUS_PATH = 'rooms/casa-bendiciones/youtubeStatus';
+                                    let lastCloudYouTubeCommandId = '';
+                                    try {
+                                        if (window.firebase && firebase.database && firebase.auth) {
+                                            if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+                                            firebase.auth().signInAnonymously().then(() => {
+                                                const transferDatabase = firebase.database();
+                                                ytCloudStatusRef = transferDatabase.ref(CLOUD_YOUTUBE_STATUS_PATH);
+                                                setupProjectorVideoTransfer(transferDatabase);
+                                                transferDatabase.ref(CLOUD_PROJECTION_PATH).on('value', snapshot => {
+                                                    const cloudData = snapshot.val();
+                                                    if (cloudData && typeof cloudData === 'object') applyProjection(cloudData);
+                                                }, error => console.error('Firebase no pudo recibir la proyección:', error));
+                                                // Canal de comandos separado: play/pause no reescriben el estado visual
+                                                // ni reinicializan el video. Los comandos viejos se descartan.
+                                                transferDatabase.ref(CLOUD_YOUTUBE_COMMAND_PATH).on('child_added', snapshot => {
+                                                    const item = snapshot.val();
+                                                    if (!item || !item.commandId || !item.command) { snapshot.ref.remove(); return; }
+                                                    const age = Date.now() - Number(item.timestamp || 0);
+                                                    if (item.commandId !== lastCloudYouTubeCommandId && age >= 0 && age < 15000) {
+                                                        lastCloudYouTubeCommandId = item.commandId;
+                                                        handleYouTubeCommand(item.command, item.target);
+                                                    }
+                                                    snapshot.ref.remove().catch(error => console.warn('No se pudo limpiar un comando de YouTube:', error));
+                                                }, error => console.error('Firebase no pudo recibir los comandos de YouTube:', error));
+                                            }).catch(error => console.error('Firebase Auth anónimo no disponible:', error));
+                                        } else {
+                                            console.warn('Firebase SDK no disponible; se mantiene sincronización local.');
+                                        }
+                                    } catch (error) { console.error('No se pudo iniciar la sincronización remota:', error); }
+
+                                    // Recupera el último estado al abrir o recargar la ventana de proyección.
+                                    try {
+                                        const saved = localStorage.getItem(STORAGE_KEY);
+                                        if (saved) applyProjection(JSON.parse(saved));
+                                    } catch (error) { console.warn('No se pudo recuperar el estado guardado', error); }
+                                })();
+                            </script>
+                        </body>
+                        </html>

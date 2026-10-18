@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>YouTube · Proyector Bíblico</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#050505;color:#f8fafc}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#050505;overflow:hidden}
+body{display:flex;flex-direction:column}.top{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#111827;border-bottom:1px solid #374151;min-height:54px}.brand{font-weight:800;font-size:14px;flex:1}.status{font-size:12px;color:#cbd5e1}.controls{display:flex;gap:8px;flex-wrap:wrap;padding:10px;background:#111827;border-top:1px solid #374151;align-items:center}
+button{border:0;border-radius:9px;padding:10px 14px;font-weight:700;color:#fff;background:#b91c1c;font-size:14px;cursor:pointer}button.secondary{background:#374151}button:active{transform:scale(.98)}#player-shell{position:relative;flex:1;min-height:0;background:#000;display:flex;align-items:center;justify-content:center}#player{width:100%;height:100%;}#empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:28px;color:#cbd5e1;background:#000;line-height:1.5;pointer-events:none}#empty.hidden{display:none}.note{font-size:11px;color:#9ca3af;padding:0 6px;flex:1;min-width:180px}
+</style>
+</head>
+<body>
+<header class="top"><div class="brand">▶ YouTube · Reproductor interactivo</div><div id="status" class="status" role="status">Esperando enlace de YouTube…</div></header>
+<main id="player-shell"><div id="player"></div><div id="empty">Carga un enlace de YouTube desde los controles principales.<br>Cuando el video esté listo, puedes usar aquí los controles originales para reproducir, avanzar y saltar anuncios disponibles.</div></main>
+<footer class="controls">
+<button id="play">▶ Reproducir</button><button id="pause" class="secondary">Ⅱ Pausar</button><button id="reload" class="secondary">↻ Recargar video</button>
+<div class="note">Para saltar anuncios, utiliza el botón «Saltar anuncio» del propio reproductor cuando aparezca. YouTube no permite saltarlos antes de que estén disponibles.</div>
+</footer>
+<script>
+(() => {
+ const CHANNEL_NAME='biblical-projector-channel';
+ const STORAGE_KEY='biblical_projector_data';
+ const pageParams=new URLSearchParams(location.search);
+ const monitorMode=pageParams.get('monitor')==='1';
+ const monitorVideoUrl=monitorMode?(pageParams.get('video')||''):'';
+ let channel=null, player=null, apiReady=false, playerReady=false, desiredId='', loopEnabled=false, pendingCommand='';
+ const statusEl=document.getElementById('status'), emptyEl=document.getElementById('empty');
+ function status(s){statusEl.textContent=s;}
+ function extractId(value){
+   try { const u=new URL(value,location.href); const host=u.hostname.toLowerCase().replace(/^www\./,''); let id='';
+     if(host==='youtu.be') id=u.pathname.split('/').filter(Boolean)[0]||'';
+     else if(u.pathname==='/watch') id=u.searchParams.get('v')||'';
+     else if(/^\/(embed|shorts)\//.test(u.pathname)) id=u.pathname.split('/')[2]||'';
+     return /^[A-Za-z0-9_-]{11}$/.test(id)?id:'';
+   } catch(_){return '';}
+ }
+ function stateFromStorage(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}}
+ function loadState(data){
+   if(!data||data.mediaMode!=='youtube'||!data.videoUrl)return;
+   const id=extractId(data.videoUrl); if(!id){status('El enlace de YouTube no es válido');return;}
+   loopEnabled=!!data.videoLoop;
+   if(id===desiredId){emptyEl.classList.add('hidden');status(playerReady?'Video listo · controles de YouTube activos':'Preparando reproductor…');return;}
+   desiredId=id; emptyEl.classList.add('hidden');
+   if(playerReady&&player){try{player.cueVideoById({videoId:id,startSeconds:0});status('Video cargado · pulsa Reproducir aquí');}catch(e){status('No se pudo cargar el video');}}
+   else status('Enlace recibido · preparando reproductor…');
+ }
+ function runCommand(command){
+   if(!playerReady||!player){pendingCommand=command;status('Esperando que YouTube esté listo…');return;}
+   try{
+     if(command==='playVideo'){player.playVideo();status('Orden de reproducción enviada');}
+     else if(command==='pauseVideo'){player.pauseVideo();status('Video en pausa');}
+     else if(command==='stopVideo'){player.stopVideo();status('Video detenido');}
+   }catch(_){pendingCommand=command;status('Usa el botón Reproducir de esta ventana');}
+ }
+ window.onYouTubeIframeAPIReady=()=>{
+   apiReady=true;
+   player=new YT.Player('player',{width:'100%',height:'100%',videoId:desiredId||undefined,playerVars:{autoplay:0,controls:1,playsinline:1,rel:0,fs:1,enablejsapi:1},events:{
+     onReady:e=>{playerReady=true;try{const f=e.target.getIframe();f.setAttribute('allow','autoplay; encrypted-media; picture-in-picture; web-share');f.setAttribute('referrerpolicy','strict-origin-when-cross-origin');f.style.width='100%';f.style.height='100%';f.style.border='0';}catch(_){}
+       const saved=stateFromStorage();if(!monitorMode&&saved)loadState(saved);status(desiredId?'Video listo · toca Reproducir o el control del reproductor':'Esperando enlace de YouTube…');if(pendingCommand){const c=pendingCommand;pendingCommand='';runCommand(c);}},
+     onStateChange:e=>{if(e.data===1)status('Reproduciendo');else if(e.data===2)status('En pausa');else if(e.data===5)status('Video listo · controles de YouTube activos');else if(e.data===0&&loopEnabled){try{player.seekTo(0,true);player.playVideo();}catch(_){}}},
+     onError:e=>status('YouTube no permite reproducir este video (código '+e.data+').')
+   }});
+ };
+ if(monitorMode){
+   document.querySelector('.brand').textContent='▶ YouTube · Monitor de preparación';
+   const monitorId=extractId(monitorVideoUrl);
+   if(monitorId){desiredId=monitorId;emptyEl.classList.add('hidden');status('Video preparado en monitor · espera los anuncios y usa los controles de YouTube');}
+   else status('El enlace preparado no es válido');
+ }
+ const script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.onerror=()=>status('No se pudo cargar la API de YouTube; comprueba Internet.');document.head.appendChild(script);
+ try{channel=new BroadcastChannel(CHANNEL_NAME);channel.addEventListener('message',e=>{const d=e.data;if(!d)return;if(d.type==='__youtube_command'){if(!monitorMode)runCommand(d.command);return;}if(d.type==='__controller_hello'){try{channel.postMessage({type:'__youtube_window_heartbeat',timestamp:Date.now()});}catch(_){}return;}if(!monitorMode&&d.mediaMode==='youtube')loadState(d);else if(d.mediaMode==='none'&&d.youtubeSeparateWindow===false){/* mantener el video abierto hasta que el usuario lo cambie */}});setInterval(()=>{try{channel.postMessage({type:'__youtube_window_heartbeat',timestamp:Date.now()});}catch(_){}},2000);}catch(_){status('Este navegador no admite el canal de sincronización; usa los controles del video.');}
+ if(!monitorMode)window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){const d=stateFromStorage();if(d)loadState(d);}});
+ document.getElementById('play').addEventListener('click',()=>runCommand('playVideo'));
+ document.getElementById('pause').addEventListener('click',()=>runCommand('pauseVideo'));
+ document.getElementById('reload').addEventListener('click',()=>{if(desiredId&&playerReady){try{player.loadVideoById({videoId:desiredId,startSeconds:0});status('Reiniciando video…');}catch(_){status('No se pudo reiniciar el video');}}else{const d=stateFromStorage();if(d)loadState(d);}});
+ const saved=stateFromStorage();if(!monitorMode&&saved)loadState(saved);
+})();
+</script>
+</body></html>

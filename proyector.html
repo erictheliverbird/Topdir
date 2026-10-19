@@ -40,7 +40,7 @@
                                 <p id="proj-citation" class="text-white/90 tracking-widest font-black uppercase text-2xl"></p>
                             </div>
                             <script>
-                                // Receptor autónomo: la proyección sigue escuchando aunque Safari
+                                // Receptor autónomo: la proyección sigue escuchando aunque el navegador
                                 // separe esta pestaña y ya no podamos manipular su document desde la consola.
                                 (() => {
                                     const CHANNEL_NAME = 'biblical-projector-channel';
@@ -51,19 +51,31 @@
                                     // Solicitarla solo tras un gesto del usuario y mostrar un mensaje neutral si no está disponible.
                                     const fullscreenPrompt = document.getElementById('proj-fullscreen-prompt');
                                     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                                    let fullscreenHelpShown = false;
+                                    const hasDocumentFullscreen = () => !!(document.documentElement.requestFullscreen || document.body.requestFullscreen);
                                     const updateFullscreenPrompt = () => {
                                         if (!fullscreenPrompt) return;
-                                        fullscreenPrompt.style.display = (!isStandalone() && !document.fullscreenElement) ? 'block' : 'none';
+                                        // En iPadOS, los navegadores basados en WebKit pueden no permitir
+                                        // fullscreen de documento en ventanas emergentes. No insistir en una API no disponible.
+                                        fullscreenPrompt.style.display = (!isStandalone() && !document.fullscreenElement && !fullscreenHelpShown) ? 'block' : 'none';
                                     };
                                     if (fullscreenPrompt) fullscreenPrompt.addEventListener('click', async () => {
-                                        try {
-                                            const target = document.documentElement;
-                                            if (target.requestFullscreen) await target.requestFullscreen();
-                                            else if (document.body.requestFullscreen) await document.body.requestFullscreen();
-                                        } catch (error) {
-                                            fullscreenPrompt.textContent = 'Este navegador no permite pantalla completa en esta ventana. Prueba abrir la proyección en una pestaña normal o usa la opción de pantalla completa del navegador.';
+                                        if (fullscreenHelpShown) {
+                                            fullscreenPrompt.style.display = 'none';
+                                            return;
                                         }
-                                        updateFullscreenPrompt();
+                                        if (hasDocumentFullscreen()) {
+                                            try {
+                                                await document.documentElement.requestFullscreen();
+                                                fullscreenHelpShown = true;
+                                                updateFullscreenPrompt();
+                                                return;
+                                            } catch (error) { /* Mostrar instrucciones compatibles debajo. */ }
+                                        }
+                                        fullscreenPrompt.textContent = 'En iPadOS no siempre se puede ocultar la barra desde una ventana web. Amplía esta ventana con los controles del sistema. Toca aquí para cerrar este aviso.';
+                                        fullscreenPrompt.style.whiteSpace = 'normal';
+                                        fullscreenPrompt.style.maxWidth = 'min(92vw, 560px)';
+                                        fullscreenHelpShown = true;
                                     });
                                     document.addEventListener('fullscreenchange', updateFullscreenPrompt);
                                     window.addEventListener('resize', updateFullscreenPrompt);
@@ -486,7 +498,7 @@
                                                 const audioPrompt = document.getElementById('proj-enable-audio');
                                                 let usableUrl = remoteUrl;
                                                 if (isBlobUrl) {
-                                                    // El blob de Safari no existe en esta app: esperar la transferencia WebRTC,
+                                                    // El objeto blob de la ventana de control no existe en esta página: esperar la transferencia WebRTC,
                                                     // sin mostrar controles ni pedir que se seleccione el archivo en la proyección.
                                                     if (mappedRemoteBlobKey !== remoteUrl || !localProjectionVideoUrl) {
                                                         pendingRemoteBlobKey = remoteUrl;
@@ -522,7 +534,7 @@
                                         }
                                     }
 
-                                    // Recibe el archivo desde Safari por WebRTC. El archivo nunca se sube a Firebase;
+                                    // Recibe el archivo desde la ventana de control por WebRTC. El archivo nunca se sube a Firebase;
                                     // la base de datos solo transporta la oferta/respuesta de conexión.
                                     const CLOUD_TRANSFER_PATH = 'rooms/casa-bendiciones/transfer';
                                     let projectorTransferPeer = null;
@@ -770,7 +782,7 @@
                                         });
                                     }
 
-                                    // Safari puede bloquear audio iniciado desde otra ventana. Si sucede,
+                                    // El navegador puede bloquear audio iniciado desde otra ventana. Si sucede,
                                     // permite activar el video con un gesto dentro de esta ventana.
                                     const audioPrompt = document.getElementById('proj-enable-audio');
                                     if (audioPrompt) audioPrompt.addEventListener('click', () => {
@@ -782,7 +794,7 @@
                                     });
 
                                     // Canal remoto independiente del almacenamiento local y BroadcastChannel.
-                                    // Permite que la app instalada y Safari se comuniquen aunque iPadOS los aísle.
+                                    // Permite que la app instalada y el navegador se comuniquen aunque iPadOS los aísle.
                                     const FIREBASE_CONFIG = {
                                         apiKey: 'AIzaSyAhEPSlcD45NiePlqC8tws4QGkEEeawwRM',
                                         authDomain: 'proyector-iglesia.firebaseapp.com',

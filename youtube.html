@@ -9,13 +9,19 @@
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#050505;overflow:hidden}
 body{display:flex;flex-direction:column}.top{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#111827;border-bottom:1px solid #374151;min-height:54px}.brand{font-weight:800;font-size:14px;flex:1}.status{font-size:12px;color:#cbd5e1}.controls{display:flex;gap:8px;flex-wrap:wrap;padding:10px;background:#111827;border-top:1px solid #374151;align-items:center}
 button{border:0;border-radius:9px;padding:10px 14px;font-weight:700;color:#fff;background:#b91c1c;font-size:14px;cursor:pointer}button.secondary{background:#374151}button:active{transform:scale(.98)}#player-shell{position:relative;flex:1;min-height:0;background:#000;display:flex;align-items:center;justify-content:center}#player{width:100%;height:100%;}#empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:28px;color:#cbd5e1;background:#000;line-height:1.5;pointer-events:none}#empty.hidden{display:none}.note{font-size:11px;color:#9ca3af;padding:0 6px;flex:1;min-width:180px}
+body.presentation .top,body.presentation .controls{display:none!important}
+body.presentation #player-shell{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;z-index:10}
+#exit-presentation{display:none;position:fixed;top:10px;right:10px;z-index:30;background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.22);padding:8px 11px;font-size:12px;opacity:.18}
+body.presentation #exit-presentation{display:block}
+body.presentation #exit-presentation:focus,body.presentation #exit-presentation:active{opacity:1}
 </style>
 </head>
 <body>
 <header class="top"><div class="brand">▶ YouTube · Reproductor interactivo</div><div id="status" class="status" role="status">Esperando enlace de YouTube…</div></header>
 <main id="player-shell"><div id="player"></div><div id="empty">Carga un enlace de YouTube desde los controles principales.<br>Cuando el video esté listo, puedes usar aquí los controles originales para reproducir, avanzar y saltar anuncios disponibles.</div></main>
+<button id="exit-presentation" type="button" aria-label="Volver al monitor">↩ Volver al monitor</button>
 <footer class="controls">
-<button id="play">▶ Reproducir</button><button id="pause" class="secondary">Ⅱ Pausar</button><button id="reload" class="secondary">↻ Recargar video</button>
+<button id="play">▶ Reproducir</button><button id="pause" class="secondary">Ⅱ Pausar</button><button id="reload" class="secondary">↻ Recargar video</button><button id="present" class="secondary" type="button">⛶ Usar esta ventana para proyección</button>
 <div class="note">Para saltar anuncios, utiliza el botón «Saltar anuncio» del propio reproductor cuando aparezca. YouTube no permite saltarlos antes de que estén disponibles.</div>
 </footer>
 <script>
@@ -72,6 +78,18 @@ button{border:0;border-radius:9px;padding:10px 14px;font-weight:700;color:#fff;b
  const script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.onerror=()=>status('No se pudo cargar la API de YouTube; comprueba Internet.');document.head.appendChild(script);
  try{channel=new BroadcastChannel(CHANNEL_NAME);channel.addEventListener('message',e=>{const d=e.data;if(!d)return;if(d.type==='__youtube_command'){if(!monitorMode)runCommand(d.command);return;}if(d.type==='__controller_hello'){try{channel.postMessage({type:'__youtube_window_heartbeat',timestamp:Date.now()});}catch(_){}return;}if(!monitorMode&&d.mediaMode==='youtube')loadState(d);else if(d.mediaMode==='none'&&d.youtubeSeparateWindow===false){/* mantener el video abierto hasta que el usuario lo cambie */}});setInterval(()=>{try{channel.postMessage({type:'__youtube_window_heartbeat',timestamp:Date.now()});}catch(_){}},2000);}catch(_){status('Este navegador no admite el canal de sincronización; usa los controles del video.');}
  if(!monitorMode)window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){const d=stateFromStorage();if(d)loadState(d);}});
+ document.getElementById('present').addEventListener('click',()=>{
+   document.body.classList.add('presentation');
+   status('Proyección activa: se conserva este mismo reproductor. No se ha abierto una segunda reproducción.');
+   try{channel&&channel.postMessage({type:'__youtube_monitor_promoted',timestamp:Date.now(),videoId:desiredId});}catch(_){}
+   try{if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});}catch(_){}
+ });
+ document.getElementById('exit-presentation').addEventListener('click',()=>{
+   document.body.classList.remove('presentation');
+   try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});}catch(_){}
+   status('Monitor YouTube: el mismo reproductor sigue abierto.');
+ });
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('presentation')){document.body.classList.remove('presentation');try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});}catch(_){}status('Monitor YouTube: el mismo reproductor sigue abierto.');}});
  document.getElementById('play').addEventListener('click',()=>runCommand('playVideo'));
  document.getElementById('pause').addEventListener('click',()=>runCommand('pauseVideo'));
  document.getElementById('reload').addEventListener('click',()=>{if(desiredId&&playerReady){try{player.loadVideoById({videoId:desiredId,startSeconds:0});status('Reiniciando video…');}catch(_){status('No se pudo reiniciar el video');}}else{const d=stateFromStorage();if(d)loadState(d);}});

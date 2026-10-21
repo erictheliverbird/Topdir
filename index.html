@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icon-192.png">
     <title>Proyector Bíblico Profesional & Buscador de Imágenes</title>
-    <!-- Firebase compat SDK para sincronización entre navegadores y la app instalada -->
+    <!-- Firebase compat SDK para sincronización entre Safari y la app instalada -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
@@ -282,33 +282,6 @@
             align-self: flex-start !important;
             flex: 0 0 auto !important;
             margin-top: 0 !important;
-        }
-
-        /* v18.2.11 — viewport adaptable y navegación siempre accesible en iPadOS/Brave */
-        html { height:100%; min-height:100%; }
-        body { height:100vh; height:100svh; height:100dvh; min-height:0; overflow:hidden; }
-        #operator-interface { height:100%; height:100vh; height:100svh; height:100dvh; min-height:0; min-width:0; overflow:hidden; }
-        #operator-interface > header { flex:0 0 auto; }
-        #operator-interface > main { flex:1 1 0%; min-height:0; min-width:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; -webkit-overflow-scrolling:touch; padding-bottom:calc(76px + env(safe-area-inset-bottom, 0px)); }
-        #workspace-navigation { position:fixed !important; left:0; right:0; bottom:0; z-index:100; display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:2px; flex:0 0 auto; width:100%; box-sizing:border-box; padding:6px max(4px, env(safe-area-inset-left, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-right, 0px)); background:rgba(8,14,26,.98); border-top:1px solid rgba(148,163,184,.22); }
-        .workspace-nav-item { min-width:0; min-height:48px; padding:7px 1px 5px !important; gap:4px; touch-action:manipulation; }
-        .workspace-nav-item i { font-size:16px !important; }
-        .workspace-nav-item span { font-size:clamp(8px, 2.1vw, 10px) !important; line-height:1.15; white-space:normal; text-align:center; overflow-wrap:anywhere; }
-        .workspace-nav-item small { display:none !important; }
-        @supports not (height:100dvh) { body, #operator-interface { height:100vh; } }
-        @media (max-width:900px) {
-          #operator-interface > header { flex:0 0 auto; min-height:48px !important; height:auto !important; padding: max(4px, env(safe-area-inset-top, 0px)) 8px 5px !important; gap:5px !important; }
-          #operator-interface > header > div:first-child { min-width:0; flex:1 1 auto; gap:6px !important; }
-          #operator-interface header h1 { font-size:clamp(10px, 2.6vw, 15px) !important; }
-          #operator-interface > header > div:last-child { min-width:0; flex-wrap:wrap; justify-content:flex-end; gap:4px !important; }
-          #btn-quick-screen-share, #btn-toggle-ext-projector, #btn-toggle-local-fs, #btn-install-help, #operator-interface header label:has(#json-bible-input) { padding:7px 8px !important; }
-        }
-        @media (max-height:650px) {
-          #operator-interface > header { min-height:42px !important; padding-top:3px !important; padding-bottom:3px !important; }
-          #operator-interface > main { padding-bottom:calc(62px + env(safe-area-inset-bottom, 0px)); }
-          #workspace-navigation { padding-top:3px; padding-bottom:calc(3px + env(safe-area-inset-bottom, 0px)); }
-          .workspace-nav-item { min-height:40px; padding-top:4px !important; padding-bottom:3px !important; }
-          .workspace-nav-item i { font-size:14px !important; }
         }
 </style>
 </head>
@@ -1072,7 +1045,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let youtubeSeparateWindowMode = false;
         let broadcastChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('biblical-projector-channel') : null;
 
-        // Sincronización en la nube para comunicar navegadores y la app instalada en iPadOS.
+        // Sincronización en la nube para comunicar Safari y la app instalada en iPadOS.
         const FIREBASE_CONFIG = {
             apiKey: 'AIzaSyAhEPSlcD45NiePlqC8tws4QGkEEeawwRM',
             authDomain: 'proyector-iglesia.firebaseapp.com',
@@ -1475,7 +1448,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     }
                 }
                 // La respuesta no depende de externalWindow: BroadcastChannel sigue funcionando
-                // cuando el navegador separa la pestaña del proyector en otra ventana.
+                // cuando Safari separa la pestaña del proyector en otra ventana.
             });
             try { broadcastChannel.postMessage({ type: '__controller_hello', timestamp: Date.now() }); } catch (_) {}
         }
@@ -1871,7 +1844,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return '';
                 const embed = new URL(`https://www.youtube.com/embed/${videoId}`);
                 // Solicitar reproducción automática. La carga se inicia desde el botón del operador;
-                // El navegador/YouTube todavía pueden bloquear autoplay con sonido según sus políticas.
+                // Safari/YouTube todavía pueden bloquear autoplay con sonido según sus políticas.
                 embed.searchParams.set('autoplay', '0');
                 embed.searchParams.set('mute', '0');
                 embed.searchParams.set('controls', '1');
@@ -1902,7 +1875,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
         // YouTube: priorizar SIEMPRE el reproductor de la ventana de proyección.
         // La vista previa se deja congelada/oculta para evitar dos reproductores compitiendo
-        // por audio, decodificación y políticas de reproducción automática del navegador.
+        // por audio, decodificación y políticas de reproducción automática en Safari.
         function sendYouTubeCommand(command, target = null) {
             if (!['playVideo', 'pauseVideo', 'stopVideo', 'seekTo'].includes(command)) return;
             if (command === 'seekTo' && (!Number.isFinite(Number(target)) || Number(target) < 0)) return;
@@ -1918,7 +1891,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 timestamp
             };
 
-            // Firebase es el canal principal entre el navegador y la app instalada.
+            // Firebase es el canal principal entre Safari y la app instalada.
             if (cloudAuthReady && cloudDatabase) {
                 cloudDatabase.ref(CLOUD_YOUTUBE_COMMAND_PATH).push(commandData)
                     .then(() => {
@@ -2496,7 +2469,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const status = document.getElementById('screen-capture-status');
             try {
                 if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
-                    if (status) status.textContent = 'Este navegador o contexto no permite capturar pantalla. Abre la aplicación en una pestaña normal y comprueba los permisos de pantalla.';
+                    if (status) status.textContent = 'Este navegador no permite capturar pantalla. Prueba desde Safari actualizado o un navegador compatible.';
                     showToast("Este navegador no permite capturar pantalla", "error");
                     return;
                 }
@@ -2575,11 +2548,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 youtubeMonitorWindow = window.open(monitorUrl.href, 'BiblicalYouTubeMonitor', 'width=1000,height=650');
             }
             if (youtubeMonitorWindow) showToast('Monitor abierto. La proyección principal sigue sin cambios.', 'success');
-            else showToast('El navegador bloqueó la ventana. Permite las ventanas emergentes para este sitio.', 'error');
+            else showToast('Safari bloqueó la ventana. Permite ventanas emergentes para este sitio.', 'error');
         }
 
         function toggleExternalProjector() {
-            // Si la ventana fue separada manualmente y el navegador perdió la referencia,
+            // Si la ventana fue separada manualmente y Safari perdió la referencia,
             // el heartbeat permite evitar abrir una segunda proyección duplicada.
             if ((!externalWindow || externalWindow.closed) && isProjectorConnected()) {
                 showToast('La ventana de proyección ya está abierta. Busca la ventana “Proyección en Vivo” y muévela al monitor externo; no abras otra.', 'info');
@@ -2595,7 +2568,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
             // Abrir una página real e independiente alojada junto a index.html.
             // Esto evita depender de document.write/about:blank, que puede comportarse
-            // de forma distinta cuando el sistema mueve la ventana a una pantalla externa.
+            // de forma distinta cuando Safari mueve la ventana a una pantalla externa.
             const projectorUrl = new URL('proyector.html', window.location.href);
             projectorUrl.searchParams.set('projection', '1');
             externalWindow = window.open(projectorUrl.href, 'BiblicalProjectorWindow', 'width=1280,height=720');
@@ -2607,7 +2580,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (externalWindow && !externalWindow.closed) syncToProjector();
                 }, delay));
             } else {
-                showToast("El navegador bloqueó la ventana. Permite las ventanas emergentes para este sitio.", "error");
+                showToast("Safari bloqueó la ventana. Permite las ventanas emergentes para este sitio.", "error");
             }
         }
 
@@ -3403,14 +3376,14 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 <h2 id="install-help-title" class="text-lg font-extrabold text-white"><i class="fa-solid fa-mobile-screen-button mr-2 text-blue-400"></i>Usar como aplicación en iPad</h2>
                 <button id="btn-close-install-help" class="rounded-lg px-3 py-1 text-gray-300 hover:bg-gray-800" aria-label="Cerrar">✕</button>
             </div>
-            <p class="mb-4 text-sm leading-6 text-gray-300">Para abrir el panel sin las barras del navegador, utiliza el modo de aplicación disponible en tu navegador. En Brave para iPad, también puedes seguir usando la web directamente.</p>
+            <p class="mb-4 text-sm leading-6 text-gray-300">Para abrir el panel de control sin la barra de direcciones de Safari, añade esta web a la pantalla de inicio.</p>
             <ol class="mb-5 list-decimal space-y-2 pl-5 text-sm leading-6 text-gray-200">
-                <li>Abre esta página en el navegador que vayas a utilizar habitualmente. La opción de instalar como aplicación puede variar según el navegador y la versión de iPadOS.</li>
+                <li>Abre esta página en <strong>Safari</strong> (no desde una pestaña de otro navegador).</li>
                 <li>Toca <strong>Compartir</strong> y selecciona <strong>Añadir a pantalla de inicio</strong>.</li>
                 <li>Si aparece la opción <strong>Abrir como app web</strong>, actívala y toca <strong>Añadir</strong>.</li>
                 <li>En adelante, inicia el proyector desde el nuevo icono de la pantalla de inicio.</li>
             </ol>
-            <p class="mb-5 rounded-xl border border-amber-700/40 bg-amber-950/50 p-3 text-xs leading-5 text-amber-200">En iPadOS, una página web no siempre puede ocultar las barras del navegador desde una ventana emergente. Si aparece la interfaz del navegador, amplía la ventana con los controles de iPadOS o abre la proyección en una pestaña/ventana que permita ocupar toda la pantalla.</p>
+            <p class="mb-5 rounded-xl bg-amber-950/50 p-3 text-xs leading-5 text-amber-200">La ventana externa puede seguir mostrando controles de Safari según la versión de iPadOS. En esa ventana, toca «Pantalla completa» si aparece el aviso. iPadOS no permite que una página web fuerce siempre ese modo sin interacción.</p>
             <button id="btn-close-install-help-bottom" class="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-500">Entendido</button>
         </div>
     </div>

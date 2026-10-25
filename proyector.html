@@ -20,8 +20,9 @@
                                 #proj-fullscreen-prompt { font-family: Inter, system-ui, sans-serif; }
                                 .text-projection-shadow { text-shadow: 0 2px 12px rgba(0,0,0,0.95), 0 4px 24px rgba(0,0,0,0.85); }
                             </style>
+                            <link rel="stylesheet" href="responsive.css">
                         </head>
-                        <body class="h-screen w-screen overflow-hidden relative flex flex-col justify-between p-16 select-none bg-black">
+                        <body class="projection-page h-screen w-screen overflow-hidden relative flex flex-col justify-between p-16 select-none bg-black">
                             <button id="proj-fullscreen-prompt" type="button" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-xl border border-white/30 bg-black/85 px-5 py-3 text-sm font-bold text-white shadow-2xl" style="display:none">⛶ Activar pantalla completa</button>
                             <div id="proj-backdrop" class="absolute inset-0 z-0 bg-cover bg-center transition-all duration-300"></div>
                             <video id="proj-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline autoplay></video>
@@ -61,7 +62,7 @@
                                             if (target.requestFullscreen) await target.requestFullscreen();
                                             else if (document.body.requestFullscreen) await document.body.requestFullscreen();
                                         } catch (error) {
-                                            fullscreenPrompt.textContent = 'No se pudo activar pantalla completa en esta ventana. Usa los controles del navegador o abre la app desde Inicio.';
+                                            fullscreenPrompt.textContent = 'Safari no permite pantalla completa aquí. Añade la app a Inicio.';
                                         }
                                         updateFullscreenPrompt();
                                     });
@@ -91,10 +92,13 @@
                                         try {
                                             const u = new URL(value, location.href);
                                             const host = u.hostname.toLowerCase().replace(/^www\./, '');
-                                            if (host === 'youtu.be') return (u.pathname.split('/').filter(Boolean)[0] || '').slice(0, 11);
-                                            if (u.pathname === '/watch') return u.searchParams.get('v') || '';
-                                            if (/^\/(embed|shorts)\//.test(u.pathname)) return u.pathname.split('/')[2] || '';
-                                            return '';
+                                            let videoId = '';
+                                            if (host === 'youtu.be') videoId = u.pathname.split('/').filter(Boolean)[0] || '';
+                                            else if (['youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(host)) {
+                                                if (u.pathname === '/watch') videoId = u.searchParams.get('v') || '';
+                                                else if (/^\/(embed|shorts)\//.test(u.pathname)) videoId = u.pathname.split('/')[2] || '';
+                                            }
+                                            return /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : '';
                                         } catch (_) { return ''; }
                                     }
                                     function publishYouTubePlaybackStatus() {
@@ -105,6 +109,7 @@
                                         try { playerState = Number(ytPlayer.getPlayerState()); } catch (_) {}
                                         ytCloudStatusRef.set({
                                             videoId: ytDesiredVideoId,
+                                            status: ytLastStatus,
                                             currentTime: Math.max(0, currentTime),
                                             duration: Math.max(0, duration),
                                             playerState,
@@ -118,15 +123,6 @@
                                         ytLastStatus = status;
                                         try { if (channel) channel.postMessage({ type: '__youtube_status', status, timestamp: Date.now(), ...extra }); } catch (_) {}
                                         publishYouTubePlaybackStatus();
-                                    }
-                                    function restoreProjectionAfterYouTubeFailure(videoId) {
-                                        const failedProjection = latestProjectionData;
-                                        if (!videoId || !failedProjection || failedProjection.mediaMode !== 'youtube' ||
-                                            getYouTubeId(failedProjection.videoUrl) !== videoId || !lastNonYouTubeProjectionData) return;
-                                        ytCueIssuedId = '';
-                                        ytPendingVideoId = '';
-                                        ytPlayerState = -1;
-                                        applyProjection(lastNonYouTubeProjectionData, true);
                                     }
                                     function executeYouTubeCommand(command, target = null) {
                                         if (!ytPlayerReady || !ytPlayer || !command) { ytPendingCommand = command || ytPendingCommand; ytPendingTarget = target; return; }
@@ -163,14 +159,14 @@
                                             sendYouTubeStatus('video-cued', { videoId });
                                         } catch (error) {
                                             ytPendingVideoId = videoId;
-                                            sendYouTubeStatus('player-error', { message: String(error), videoId });
-                                            restoreProjectionAfterYouTubeFailure(videoId);
+                                            sendYouTubeStatus('player-error', { message: String(error) });
                                         }
                                     }
                                     function initializeYouTubeAPI() {
                                         window.onYouTubeIframeAPIReady = () => {
                                             ytApiReady = true;
-                                            const playerVars = { autoplay: 0, controls: 0, disablekb: 1, enablejsapi: 1, playsinline: 1, rel: 0, fs: 0 };
+                                            // Los controles oficiales permiten usar «Saltar anuncio» cuando YouTube lo habilita.
+                                            const playerVars = { autoplay: 0, controls: 1, enablejsapi: 1, playsinline: 1, rel: 0, fs: 1 };
                                             if (location.protocol === 'https:' || location.protocol === 'http:') playerVars.origin = location.origin;
                                             ytPlayer = new YT.Player('proj-youtube-player', {
                                                 width: '100%', height: '100%', playerVars,
@@ -179,7 +175,8 @@
                                                         ytPlayerReady = true;
                                                         try {
                                                             const frame = event.target.getIframe();
-                                                            frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share');
+                                                            frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
+                                                            frame.setAttribute('allowfullscreen', '');
                                                             frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
                                                             frame.style.width = '100%'; frame.style.height = '100%'; frame.style.border = '0';
                                                         } catch (_) {}
@@ -200,18 +197,9 @@
                                                         else if (event.data === 2) sendYouTubeStatus('paused', { videoId: ytDesiredVideoId });
                                                         else if (event.data === 0 && ytLoopEnabled) {
                                                             try { ytPlayer.seekTo(0, true); ytPlayer.playVideo(); } catch (_) {}
-                                                        } else if (event.data === 5) {
-                                                            sendYouTubeStatus('video-cued', { videoId: ytDesiredVideoId });
-                                                            if (latestProjectionData && latestProjectionData.mediaMode === 'youtube' && getYouTubeId(latestProjectionData.videoUrl) === ytDesiredVideoId) {
-                                                                applyProjection(latestProjectionData, true);
-                                                            }
-                                                        }
+                                                        } else if (event.data === 5) sendYouTubeStatus('video-cued', { videoId: ytDesiredVideoId });
                                                     },
-                                                    onError: event => {
-                                                        const failedVideoId = ytDesiredVideoId;
-                                                        sendYouTubeStatus('player-error', { code: event.data, videoId: failedVideoId, force: true });
-                                                        restoreProjectionAfterYouTubeFailure(failedVideoId);
-                                                    },
+                                                    onError: event => sendYouTubeStatus('player-error', { code: event.data, videoId: ytDesiredVideoId }),
                                                     onAutoplayBlocked: () => sendYouTubeStatus('autoplay-blocked', { videoId: ytDesiredVideoId, force: true })
                                                 }
                                             });
@@ -312,7 +300,6 @@
                                     }
                                     let latestProjectionTimestamp = 0;
                                     let latestProjectionData = null;
-                                    let lastNonYouTubeProjectionData = null;
                                     // Un URL blob: solo existe en la página que seleccionó el archivo.
                                     // El archivo se recibe en esta ventana; la pantalla de proyección nunca pide al usuario elegirlo.
                                     let pendingRemoteBlobKey = '';
@@ -328,25 +315,7 @@
                                         const incomingTimestamp = Number(data.timestamp || 0);
                                         if (!force && incomingTimestamp && incomingTimestamp <= latestProjectionTimestamp) return;
                                         if (incomingTimestamp && (!force || incomingTimestamp > latestProjectionTimestamp)) latestProjectionTimestamp = incomingTimestamp;
-                                        if (data.mediaMode !== 'youtube') {
-                                            lastNonYouTubeProjectionData = data.mediaMode === 'screen'
-                                                ? { ...data, mediaMode: 'none', videoUrl: '', isVideoPlaying: false }
-                                                : data;
-                                        }
                                         latestProjectionData = data;
-                                        if (data.mediaMode === 'youtube') {
-                                            const requestedVideoId = getYouTubeId(data.videoUrl);
-                                            if (!requestedVideoId) { sendYouTubeStatus('invalid-url', { force: true }); return; }
-                                            const playerHasRequestedVideo = ytPlayerReady && ytPlayer &&
-                                                ytDesiredVideoId === requestedVideoId && ytCueIssuedId === requestedVideoId &&
-                                                [1, 2, 5].includes(ytPlayerState);
-                                            if (!playerHasRequestedVideo) {
-                                                if (ytDesiredVideoId !== requestedVideoId || ytCueIssuedId !== requestedVideoId || ytPlayerState === 0) {
-                                                    cueYouTubeVideo(requestedVideoId);
-                                                }
-                                                return;
-                                            }
-                                        }
                                         const styles = data.styles;
                                         const text = document.getElementById('proj-text');
                                         const citation = document.getElementById('proj-citation');

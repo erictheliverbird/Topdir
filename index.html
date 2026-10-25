@@ -69,7 +69,7 @@
         #operator-interface button { -webkit-tap-highlight-color: transparent; }
         #operator-interface button:not(.workspace-nav-item) { transition: background-color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
         #operator-interface button:not(:disabled):active { transform: scale(.985); }
-        .workspace-nav { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; padding: 9px max(12px, env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); background: rgba(9,14,26,.97); border-top: 1px solid rgba(148,163,184,.18); box-shadow: 0 -10px 28px rgba(0,0,0,.16); }
+        .workspace-nav { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; padding: 9px max(12px, env(safe-area-inset-left)) calc(9px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right)); background: rgba(9,14,26,.97); border-top: 1px solid rgba(148,163,184,.18); box-shadow: 0 -10px 28px rgba(0,0,0,.16); }
         .workspace-nav-item { min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:10px 5px 8px; border:1px solid transparent; border-radius:14px; color:#8b98ad; background:transparent; position:relative; }
         .workspace-nav-item i { font-size:19px; line-height:1; }
         .workspace-nav-item span { font-size:12px; font-weight:750; letter-spacing:.01em; color:#d1d9e6; }
@@ -160,7 +160,7 @@
         body[data-workspace="design"] #workspace-control .flex-1.min-h-0.bg-gray-900 { min-width:0; }
         body[data-workspace="design"] #tab-estilos { display:block !important; }
         @media (max-width: 900px) {
-          .workspace-nav { grid-template-columns: repeat(6,minmax(0,1fr)); gap:4px; padding-left:max(6px, env(safe-area-inset-left)); padding-right:max(6px, env(safe-area-inset-right)); }
+          .workspace-nav { grid-template-columns: repeat(6,minmax(0,1fr)); gap:4px; padding-left:6px; padding-right:6px; }
           .workspace-nav-item { padding:9px 2px 7px; border-radius:11px; }
           .workspace-nav-item i { font-size:17px; }
           .workspace-nav-item span { font-size:10px; }
@@ -284,8 +284,9 @@
             margin-top: 0 !important;
         }
 </style>
+<link rel="stylesheet" href="responsive.css">
 </head>
-<body class="bg-gray-950 text-gray-100 h-screen overflow-hidden flex flex-col font-['Inter'] antialiased select-none">
+<body class="operator-page bg-gray-950 text-gray-100 h-screen overflow-hidden flex flex-col font-['Inter'] antialiased select-none">
 
     <div id="operator-interface" class="h-full flex flex-col min-h-0">
         <!-- CABECERA DE LA CONSOLA -->
@@ -412,7 +413,7 @@
                         
                         <video id="preview-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline muted></video>
                         <img id="preview-video-mirror" alt="Vista espejo del video proyectado" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" />
-                        <div id="preview-youtube" title="El video de YouTube se muestra en la ventana de proyección" class="absolute inset-0 z-50 hidden bg-black text-center text-sm font-semibold text-white"><div class="max-w-sm px-6 leading-relaxed">YouTube se reproduce en la ventana de proyección.<br><span class="text-xs font-normal text-gray-300">La vista previa no crea otro reproductor.</span></div></div>
+                        <iframe id="preview-youtube" referrerpolicy="strict-origin-when-cross-origin" title="Reproductor de YouTube (vista previa)" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>
 
                         <div id="preview-overlay" class="absolute inset-0 bg-black/40 z-20 transition-all duration-300"></div>
                         
@@ -497,6 +498,7 @@
                                 </div>
                                 <div class="rounded-xl border border-amber-800/60 bg-amber-950/30 p-2.5 space-y-2">
                                     <p id="youtube-staged-status" class="text-[10px] text-amber-200">Pega un enlace y pulsa Preparar. La proyección actual no cambiará.</p>
+                                    <p class="text-[10px] leading-relaxed text-amber-100/80">YouTube decide cuándo muestra anuncios y no ofrece un ajuste oficial para quitarlos. Si necesitas reproducción continua sin anuncios, usa un video local que tengas derecho a proyectar.</p>
                                     <button id="btn-launch-youtube-projection" type="button" disabled class="w-full disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
                                         <i class="fa-solid fa-display"></i> Enviar video a proyección
                                     </button>
@@ -911,9 +913,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             <button type="button" class="workspace-nav-item" data-workspace="capture">
                 <i class="fa-solid fa-display"></i><span>Captura</span><small>Pantalla externa</small>
             </button>
-            <button type="button" class="workspace-nav-item" data-workspace="karaoke"><i class="fa-solid fa-music"></i><span>Karaoke Lyrics</span><small>Letras por estrofas</small></button>
+            <button type="button" class="workspace-nav-item" data-workspace="karaoke"><i class="fa-solid fa-music"></i><span>Letras</span><small>Canciones por estrofas</small></button>
             <button type="button" class="workspace-nav-item" data-workspace="design">
-                <i class="fa-solid fa-sliders"></i><span>Personalización</span><small>Diseño y logo</small>
+                <i class="fa-solid fa-sliders"></i><span>Diseño</span><small>Diseño y logo</small>
             </button>
         </nav>
     </div>
@@ -1442,6 +1444,15 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     updateProjectorConnectionStatus();
                 }
                 if (data.type === '__youtube_status') {
+                    youtubeRemoteStatus = {
+                        videoId: typeof data.videoId === 'string' ? data.videoId : '',
+                        status: typeof data.status === 'string' ? data.status : '',
+                        timestamp: Number(data.timestamp) || Date.now(),
+                        playerState: Number.isFinite(Number(data.playerState)) ? Number(data.playerState) : -1,
+                        currentTime: Number.isFinite(Number(data.currentTime)) ? Number(data.currentTime) : 0,
+                        duration: Number.isFinite(Number(data.duration)) ? Number(data.duration) : 0
+                    };
+                    refreshYouTubeControls();
                     const label = document.getElementById('projector-connection-label');
                     if (label && data.status === 'autoplay-blocked') {
                         label.textContent = 'Proyector conectado · YouTube requiere pulsar reproducir';
@@ -1927,17 +1938,26 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const currentLabel = document.getElementById('youtube-current-time');
             const durationLabel = document.getElementById('youtube-duration');
             const status = youtubeRemoteStatus;
-            const fresh = !!(status && Number.isFinite(Number(status.timestamp)) && Date.now() - Number(status.timestamp) < 8000);
+            let activeVideoId = '';
+            try { activeVideoId = new URL(activeVideoUrl).pathname.split('/').filter(Boolean).pop() || ''; } catch (_) {}
+            const matchesActiveVideo = !status || !status.videoId || !activeVideoId || status.videoId === activeVideoId;
+            const fresh = !!(status && matchesActiveVideo && Number.isFinite(Number(status.timestamp)) && Date.now() - Number(status.timestamp) < 8000);
             const active = mediaMode === 'youtube';
-            const duration = fresh && Number(status.duration) > 0 ? Number(status.duration) : 0;
+            const playerState = fresh ? Number(status.playerState) : -1;
+            const playerReadyForControls = [0, 1, 2, 3, 5].includes(playerState);
+            const duration = fresh && playerReadyForControls && Number(status.duration) > 0 ? Number(status.duration) : 0;
             const current = fresh && Number.isFinite(Number(status.currentTime)) ? Math.max(0, Number(status.currentTime)) : 0;
-            const enabled = active && fresh && duration > 0;
+            const enabled = active && fresh && playerReadyForControls && duration > 0;
             if (slider) slider.disabled = !enabled;
             if (back) back.disabled = !enabled;
             if (forward) forward.disabled = !enabled;
             if (statusLabel) {
                 if (!active) statusLabel.textContent = 'YouTube inactivo';
                 else if (!fresh) statusLabel.textContent = 'Conectando…';
+                else if (status.status === 'autoplay-blocked') statusLabel.textContent = 'Toca Reproducir en la pantalla';
+                else if (status.status === 'api-load-error') statusLabel.textContent = 'No se pudo conectar con YouTube';
+                else if (status.status === 'invalid-url') statusLabel.textContent = 'El enlace de YouTube no es válido';
+                else if (status.status === 'player-error') statusLabel.textContent = 'YouTube no permite este video';
                 else if (Number(status.playerState) === 1) statusLabel.textContent = 'Reproduciendo';
                 else if (Number(status.playerState) === 2) statusLabel.textContent = 'En pausa';
                 else if (Number(status.playerState) === 0) statusLabel.textContent = 'Finalizado';
@@ -2205,7 +2225,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             refreshYouTubeControls();
 
             updateProjectorDOM(document, payload, false);
-            if (externalWindow && !externalWindow.closed && payload.mediaMode !== 'youtube') {
+            if (externalWindow && !externalWindow.closed) {
                 try { updateProjectorDOM(externalWindow.document, payload); } catch (e) {}
             }
             updateProjectorDOM(document, payload, true);
@@ -2260,13 +2280,16 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             }
 
             if (youtubeEl) {
-                const showYouTube = data.mediaMode === 'youtube' && !!data.videoUrl && !data.youtubeSeparateWindow;
-                if (youtubeEl.id === 'preview-youtube') {
-                    youtubeEl.classList.toggle('hidden', !showYouTube);
-                } else if (showYouTube && !isLocalFs && docObj !== document) {
+                // En proyector.html el elemento es propiedad de la API oficial YT.Player.
+                // No asignar .src ni recrear el iframe desde la ventana controladora.
+                const isExternalProjection = !isLocalFs && docObj !== document;
+                const apiManagedPlayer = youtubeEl.dataset && youtubeEl.dataset.youtubeApi === '1';
+                if (data.mediaMode === 'youtube' && data.videoUrl && isExternalProjection && !data.youtubeSeparateWindow) {
+                    if (!apiManagedPlayer && youtubeEl.src !== data.videoUrl) youtubeEl.src = data.videoUrl;
                     youtubeEl.classList.remove('hidden');
                 } else {
                     youtubeEl.classList.add('hidden');
+                    if (!apiManagedPlayer && youtubeEl.src) youtubeEl.src = '';
                 }
             }
 
@@ -2853,13 +2876,8 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (stagedStatus) stagedStatus.textContent = 'Video preparado. La proyección actual sigue sin cambios. Abre «Monitor YouTube» para revisar el video y, cuando estés listo, envíalo a proyección.';
                     showToast('Video preparado sin cambiar la proyección actual.', 'success');
                 } else {
-                    stagedYouTubeUrl = '';
-                    const launchButton = document.getElementById('btn-launch-youtube-projection');
-                    if (launchButton) launchButton.disabled = true;
                     const monitorButton = document.getElementById('btn-open-youtube-monitor');
                     if (monitorButton) monitorButton.disabled = true;
-                    const stagedStatus = document.getElementById('youtube-staged-status');
-                    if (stagedStatus) stagedStatus.textContent = 'El enlace no es válido. La proyección actual sigue sin cambios.';
                     showToast("Enlace de YouTube no válido", "error");
                 }
             };

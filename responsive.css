@@ -1,0 +1,156 @@
+/* Ajustes compartidos para Safari/iPad y pantallas táctiles. */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body.operator-page,
+body.projection-page,
+body.youtube-page {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+}
+
+body.operator-page {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+#operator-interface,
+#operator-interface main,
+#workspace-control {
+    min-width: 0;
+    min-height: 0;
+}
+
+#workspace-navigation {
+    flex-shrink: 0;
+    padding-bottom: max(9px, env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+}
+
+.workspace-nav-item,
+#operator-interface button,
+.youtube-page button {
+    touch-action: manipulation;
+}
+
+.projection-page #proj-fullscreen-prompt {
+    top: max(1rem, env(safe-area-inset-top));
+}
+
+.youtube-page #player-shell {
+    min-height: 0;
+}
+
+.youtube-page .top,
+.youtube-page .controls {
+    flex-shrink: 0;
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+}
+
+@media (max-width: 700px) {
+    #operator-interface > header {
+        height: auto !important;
+        min-height: 64px;
+        flex-wrap: wrap;
+        padding: 8px max(10px, env(safe-area-inset-left));
+    }
+
+    #operator-interface > header > div:first-child {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    #operator-interface > header > div:last-child {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding: 2px 2px 4px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #operator-interface > header > div:last-child::-webkit-scrollbar {
+        display: none;
+    }
+
+    #operator-interface > header > div:last-child > button,
+    #operator-interface > header > div:last-child > label {
+        flex: 0 0 auto;
+        min-width: 44px;
+        min-height: 44px;
+        justify-content: center;
+    }
+
+    .workspace-nav {
+        grid-template-columns: repeat(6, minmax(48px, 1fr));
+        gap: 2px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .workspace-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .workspace-nav-item {
+        min-height: 56px;
+        padding: 8px 2px 6px;
+    }
+
+    .workspace-nav-item span {
+        line-height: 1.15;
+        text-align: center;
+        overflow-wrap: anywhere;
+    }
+
+    .youtube-page .top {
+        gap: 8px;
+        padding-top: max(8px, env(safe-area-inset-top));
+        padding-bottom: 8px;
+    }
+
+    .youtube-page .controls {
+        gap: 6px;
+        padding-top: 8px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+
+    .youtube-page .controls button {
+        min-height: 44px;
+    }
+
+    .youtube-page .note {
+        flex-basis: 100%;
+        min-width: 0;
+        line-height: 1.4;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    #operator-interface input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    #operator-interface select,
+    #operator-interface textarea {
+        font-size: 16px !important;
+    }
+
+    #operator-interface button {
+        min-height: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

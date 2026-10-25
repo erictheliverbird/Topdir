@@ -48,6 +48,9 @@
         <dt>Captura de pantalla</dt><dd id="capture-value">—</dd>
         <dt>WebRTC</dt><dd id="webrtc-value">—</dd>
         <dt>Dispositivo y navegador</dt><dd id="device-value">—</dd>
+        <dt>Plataforma reportada</dt><dd id="platform-value">—</dd>
+        <dt>Puntos táctiles</dt><dd id="touch-value">—</dd>
+        <dt>Modo de apertura</dt><dd id="display-value">—</dd>
         <dt>Fuente seleccionada</dt><dd id="surface-value">Aún no probada</dd>
         <dt>Resolución y cuadros</dt><dd id="video-value">Aún no probada</dd>
         <dt>Pistas de audio</dt><dd id="audio-value">Aún no probadas</dd>
@@ -75,6 +78,9 @@
       const captureSupported = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
       const secure = window.isSecureContext === true;
       const webRtcSupported = typeof RTCPeerConnection === 'function' && typeof MediaStream === 'function';
+      const platform = navigator.platform || 'no informada';
+      const touchPoints = Number(navigator.maxTouchPoints) || 0;
+      const isStandalone = !!((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
       let activeStream = null;
       let lastError = '';
       let captureMode = '';
@@ -83,6 +89,9 @@
       byId('capture-value').textContent = captureSupported ? 'Disponible' : 'No disponible';
       byId('webrtc-value').textContent = webRtcSupported ? 'Disponible' : 'No disponible';
       byId('device-value').textContent = navigator.userAgent || 'No informado';
+      byId('platform-value').textContent = platform;
+      byId('touch-value').textContent = `${touchPoints} punto(s)`;
+      byId('display-value').textContent = isStandalone ? 'Aplicación instalada' : 'Pestaña del navegador';
 
       function surfaceLabel(value) {
         return ({ browser: 'Pestaña del navegador', window: 'Ventana', monitor: 'Pantalla completa' })[value] || (value ? String(value) : 'El navegador no informó el tipo');
@@ -96,6 +105,9 @@
           'getDisplayMedia: ' + (captureSupported ? 'disponible' : 'no disponible'),
           'RTCPeerConnection/MediaStream: ' + (webRtcSupported ? 'disponible' : 'no disponible'),
           'User-Agent: ' + (navigator.userAgent || 'no informado'),
+          'Plataforma: ' + platform,
+          'Puntos táctiles: ' + touchPoints,
+          'Modo de apertura: ' + (isStandalone ? 'aplicación instalada' : 'pestaña del navegador'),
           'Modo probado: ' + (captureMode || 'sin iniciar'),
           'Fuente: ' + byId('surface-value').textContent,
           'Resolución/fps: ' + byId('video-value').textContent,
@@ -150,6 +162,9 @@
         startButton.disabled = true;
         retryButton.disabled = true;
         lastError = '';
+        byId('surface-value').textContent = 'Aún no probada';
+        byId('video-value').textContent = 'Aún no probada';
+        byId('audio-value').textContent = 'Aún no probadas';
         let capturedStream = null;
         captureMode = includeAudio ? 'video y audio solicitados' : 'solo video';
         setStatus('Elige una ventana, pestaña o pantalla en el selector del sistema…');
@@ -181,11 +196,7 @@
         retryButton.hidden = true;
         retryButton.disabled = false;
         stopButton.hidden = true;
-        captureMode = '';
-        byId('surface-value').textContent = 'Aún no probada';
-        byId('video-value').textContent = 'Aún no probada';
-        byId('audio-value').textContent = 'Aún no probadas';
-        setStatus('Prueba detenida. No se modificó ninguna sala de proyección.', '');
+        setStatus('Captura detenida. Se conservaron los resultados de esta prueba.', '');
       }
 
       startButton.addEventListener('click', () => startCapture(true));

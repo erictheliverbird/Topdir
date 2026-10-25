@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <title>Diagnóstico de captura · Proyector Bíblico</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #080d18; color: #e5e7eb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; min-height: 100dvh; padding: max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); background: radial-gradient(ellipse at top, #142238 0, #080d18 52rem); }
+    main { width: min(100%, 760px); margin: 0 auto; }
+    .eyebrow { color: #60a5fa; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 8px 0; color: #fff; font-size: clamp(26px, 6vw, 38px); line-height: 1.1; }
+    p { line-height: 1.55; }
+    .intro { color: #cbd5e1; max-width: 64ch; }
+    .card { margin-top: 18px; padding: 18px; border: 1px solid #26354c; border-radius: 18px; background: rgba(15, 23, 42, .9); box-shadow: 0 18px 50px rgba(0, 0, 0, .22); }
+    .status { padding: 12px 14px; border: 1px solid #334155; border-radius: 12px; background: #111c2e; color: #dbeafe; font-size: 14px; }
+    .status[data-kind="ok"] { border-color: #166534; background: #092819; color: #bbf7d0; }
+    .status[data-kind="warn"] { border-color: #854d0e; background: #2b1e08; color: #fde68a; }
+    .status[data-kind="error"] { border-color: #991b1b; background: #2a1115; color: #fecaca; }
+    dl { display: grid; grid-template-columns: minmax(130px, .7fr) minmax(0, 1.3fr); gap: 0; margin: 12px 0 0; }
+    dt, dd { margin: 0; padding: 10px 0; border-bottom: 1px solid #253247; overflow-wrap: anywhere; }
+    dt { color: #94a3b8; font-size: 13px; }
+    dd { color: #f8fafc; font-size: 13px; font-weight: 650; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    button { min-height: 48px; flex: 1 1 180px; padding: 12px 16px; border: 1px solid transparent; border-radius: 12px; color: #fff; background: #2563eb; font: inherit; font-size: 15px; font-weight: 750; cursor: pointer; touch-action: manipulation; }
+    button.secondary { border-color: #475569; background: #263449; }
+    button.stop { border-color: #7f1d1d; background: #4c171a; }
+    button:disabled { opacity: .48; cursor: not-allowed; }
+    button[hidden] { display: none; }
+    .small { color: #94a3b8; font-size: 12px; }
+    textarea { width: 100%; min-height: 122px; margin-top: 12px; padding: 12px; resize: vertical; border: 1px solid #334155; border-radius: 12px; color: #cbd5e1; background: #070b12; font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    @media (max-width: 480px) { dl { grid-template-columns: 1fr; } dt { border-bottom: 0; padding-bottom: 2px; } dd { padding-top: 2px; } .card { padding: 15px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Proyector Bíblico · herramienta de soporte</div>
+    <h1>Diagnóstico de captura</h1>
+    <p class="intro">Comprueba desde el dispositivo del culto si Safari permite iniciar una captura y qué tipo de fuente ofrece. Esta página no usa Firebase, no cambia la proyección y no transmite ni graba la pantalla.</p>
+
+    <section class="card" aria-labelledby="environment-title">
+      <h2 id="environment-title">Compatibilidad del navegador</h2>
+      <div id="status" class="status" role="status" aria-live="polite">Preparando diagnóstico…</div>
+      <dl>
+        <dt>Conexión segura (HTTPS)</dt><dd id="secure-value">—</dd>
+        <dt>Captura de pantalla</dt><dd id="capture-value">—</dd>
+        <dt>WebRTC</dt><dd id="webrtc-value">—</dd>
+        <dt>Dispositivo y navegador</dt><dd id="device-value">—</dd>
+        <dt>Fuente seleccionada</dt><dd id="surface-value">Aún no probada</dd>
+        <dt>Resolución y cuadros</dt><dd id="video-value">Aún no probada</dd>
+        <dt>Pistas de audio</dt><dd id="audio-value">Aún no probadas</dd>
+      </dl>
+      <div class="actions">
+        <button id="start-test" type="button">Probar selector con audio</button>
+        <button id="retry-video-only" class="secondary" type="button" hidden>Reintentar solo video</button>
+        <button id="stop-test" class="stop" type="button" hidden>Detener prueba</button>
+        <button id="copy-report" class="secondary" type="button">Copiar diagnóstico</button>
+      </div>
+      <p class="small">Al iniciar, el sistema abrirá su selector nativo. La prueba solo lee las propiedades de las pistas capturadas. Detén la prueba antes de salir de esta página.</p>
+      <label class="small" for="report">Informe para compartir con soporte</label>
+      <textarea id="report" readonly spellcheck="false" aria-label="Informe de diagnóstico"></textarea>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const byId = id => document.getElementById(id);
+      const statusEl = byId('status');
+      const startButton = byId('start-test');
+      const retryButton = byId('retry-video-only');
+      const stopButton = byId('stop-test');
+      const reportEl = byId('report');
+      const captureSupported = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+      const secure = window.isSecureContext === true;
+      const webRtcSupported = typeof RTCPeerConnection === 'function' && typeof MediaStream === 'function';
+      let activeStream = null;
+      let lastError = '';
+      let captureMode = '';
+
+      byId('secure-value').textContent = secure ? 'Sí' : 'No';
+      byId('capture-value').textContent = captureSupported ? 'Disponible' : 'No disponible';
+      byId('webrtc-value').textContent = webRtcSupported ? 'Disponible' : 'No disponible';
+      byId('device-value').textContent = navigator.userAgent || 'No informado';
+
+      function surfaceLabel(value) {
+        return ({ browser: 'Pestaña del navegador', window: 'Ventana', monitor: 'Pantalla completa' })[value] || (value ? String(value) : 'El navegador no informó el tipo');
+      }
+
+      function updateReport() {
+        const lines = [
+          'Diagnóstico de captura del Proyector Bíblico',
+          'Fecha: ' + new Date().toISOString(),
+          'HTTPS/secure context: ' + (secure ? 'sí' : 'no'),
+          'getDisplayMedia: ' + (captureSupported ? 'disponible' : 'no disponible'),
+          'RTCPeerConnection/MediaStream: ' + (webRtcSupported ? 'disponible' : 'no disponible'),
+          'User-Agent: ' + (navigator.userAgent || 'no informado'),
+          'Modo probado: ' + (captureMode || 'sin iniciar'),
+          'Fuente: ' + byId('surface-value').textContent,
+          'Resolución/fps: ' + byId('video-value').textContent,
+          'Audio: ' + byId('audio-value').textContent,
+          'Resultado: ' + statusEl.textContent,
+          'Error: ' + (lastError || 'ninguno')
+        ];
+        reportEl.value = lines.join('\n');
+      }
+
+      function setStatus(message, kind = '') {
+        statusEl.textContent = message;
+        statusEl.dataset.kind = kind;
+        updateReport();
+      }
+
+      function describeStream(stream) {
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack && typeof videoTrack.getSettings === 'function' ? videoTrack.getSettings() : {};
+        byId('surface-value').textContent = surfaceLabel(settings.displaySurface);
+        byId('video-value').textContent = [settings.width && settings.height ? `${settings.width} × ${settings.height}` : '', settings.frameRate ? `${settings.frameRate} fps` : ''].filter(Boolean).join(' · ') || 'El navegador no informó resolución/fps';
+        const audioTracks = stream.getAudioTracks();
+        byId('audio-value').textContent = audioTracks.length ? `${audioTracks.length} pista(s) de audio (${audioTracks.map(track => track.readyState).join(', ')})` : 'Safari no entregó audio de pantalla';
+        if (videoTrack) {
+          videoTrack.addEventListener('ended', () => {
+            if (activeStream !== stream) return;
+            activeStream = null;
+            startButton.hidden = false;
+            startButton.disabled = false;
+            stopButton.hidden = true;
+            retryButton.hidden = true;
+            setStatus('La fuente seleccionada terminó la captura.', 'warn');
+          }, { once: true });
+        }
+        for (const audioTrack of audioTracks) {
+          audioTrack.addEventListener('ended', () => {
+            byId('audio-value').textContent = 'La pista de audio terminó';
+            updateReport();
+          }, { once: true });
+        }
+      }
+
+      async function startCapture(includeAudio) {
+        if (!secure) {
+          setStatus('Abre esta página desde HTTPS para probar captura web.', 'error');
+          return;
+        }
+        if (!captureSupported) {
+          setStatus('Este navegador no ofrece getDisplayMedia. La captura de ventana no puede iniciarse desde esta página.', 'error');
+          return;
+        }
+        startButton.disabled = true;
+        retryButton.disabled = true;
+        lastError = '';
+        let capturedStream = null;
+        captureMode = includeAudio ? 'video y audio solicitados' : 'solo video';
+        setStatus('Elige una ventana, pestaña o pantalla en el selector del sistema…');
+        try {
+          capturedStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: includeAudio });
+          if (!capturedStream.getVideoTracks().some(track => track.readyState === 'live')) throw new Error('El navegador no devolvió una pista de video activa.');
+          activeStream = capturedStream;
+          describeStream(capturedStream);
+          startButton.hidden = true;
+          stopButton.hidden = false;
+          retryButton.hidden = true;
+          setStatus('Captura activa solo para diagnóstico. No está conectada al proyector.', 'ok');
+        } catch (error) {
+          if (capturedStream) capturedStream.getTracks().forEach(track => track.stop());
+          lastError = `${error && error.name ? error.name + ': ' : ''}${error && error.message ? error.message : String(error)}`;
+          startButton.disabled = false;
+          retryButton.hidden = !includeAudio;
+          retryButton.disabled = false;
+          setStatus(error && error.name === 'NotAllowedError' ? 'La solicitud se canceló o Safari no autorizó esta captura. Puedes probar solo video.' : 'No se pudo iniciar la captura. Revisa el error del informe o reintenta solo video.', 'error');
+        }
+        updateReport();
+      }
+
+      function stopCapture() {
+        if (activeStream) activeStream.getTracks().forEach(track => track.stop());
+        activeStream = null;
+        startButton.hidden = false;
+        startButton.disabled = false;
+        retryButton.hidden = true;
+        retryButton.disabled = false;
+        stopButton.hidden = true;
+        captureMode = '';
+        byId('surface-value').textContent = 'Aún no probada';
+        byId('video-value').textContent = 'Aún no probada';
+        byId('audio-value').textContent = 'Aún no probadas';
+        setStatus('Prueba detenida. No se modificó ninguna sala de proyección.', '');
+      }
+
+      startButton.addEventListener('click', () => startCapture(true));
+      retryButton.addEventListener('click', () => startCapture(false));
+      stopButton.addEventListener('click', stopCapture);
+      byId('copy-report').addEventListener('click', async () => {
+        updateReport();
+        try {
+          await navigator.clipboard.writeText(reportEl.value);
+          setStatus('Diagnóstico copiado. Puedes pegarlo para compartir el resultado.', 'ok');
+        } catch (_) {
+          reportEl.focus();
+          reportEl.select();
+          setStatus('Seleccioné el informe. Mantén pulsado y elige Copiar.', 'warn');
+        }
+      });
+
+      if (!secure) setStatus('Esta dirección no es HTTPS; la captura web requiere una conexión segura.', 'warn');
+      else if (!captureSupported) setStatus('Safari no ofrece getDisplayMedia en este contexto. El flujo OBS de captura de ventana no estará disponible aquí.', 'error');
+      else setStatus('Listo para probar. La página no se conectará al proyector ni a Firebase.', 'ok');
+      startButton.disabled = !secure || !captureSupported;
+      updateReport();
+    })();
+  </script>
+</body>
+</html>

@@ -7,10 +7,6 @@
                             <meta name="apple-mobile-web-app-capable" content="yes">
                             <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
                             <title>Proyección en Vivo - Pantalla Externa</title>
-                            <!-- Firebase compat SDK para recibir estado remoto -->
-                            <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-                            <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-                            <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
                             <script src="https://cdn.tailwindcss.com"></script>
                             <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Cinzel:wght@500;700;900&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Montserrat:wght@400;600;800&family=Open+Sans:wght@300;400;600;700&family=Oswald:wght@400;700&family=Playfair+Display:ital,wght@0,600;0,800;1,400&family=Poppins:wght@300;400;600;700&family=Quicksand:wght@400;600;700&family=Raleway:wght@300;400;600;700&family=Roboto+Slab:wght@400;700&family=Ubuntu:wght@400;700&family=Fira+Sans:wght@400;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@400;600;700&family=Spectral:ital,wght@0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=Cardo:wght@400;700&family=Josefin+Sans:wght@400;600;700&family=Nunito+Sans:wght@400;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Archivo+Black&display=swap" rel="stylesheet">
                             <style>
@@ -46,6 +42,7 @@
                                 (() => {
                                     const CHANNEL_NAME = 'biblical-projector-channel';
                                     const STORAGE_KEY = 'biblical_projector_data';
+                                    const projectorInstanceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
                                     let channel = null;
 
                                     // Pantalla completa: Safari solo permite solicitarla de forma fiable
@@ -86,7 +83,6 @@
                                     let ytSeparateWindowMode = false; // YouTube comparte la ventana del proyector con los versículos.
                                     let ytLastStatus = '';
                                     let ytPendingTarget = null;
-                                    let ytCloudStatusRef = null;
 
                                     function getYouTubeId(value) {
                                         try {
@@ -101,13 +97,13 @@
                                             return /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : '';
                                         } catch (_) { return ''; }
                                     }
-                                    function publishYouTubePlaybackStatus() {
-                                        if (!ytCloudStatusRef || !ytPlayerReady || !ytPlayer || !ytDesiredVideoId) return;
+                                    function publishYouTubePlaybackStatus(extra = {}) {
+                                        if (!ytPlayerReady || !ytPlayer || !ytDesiredVideoId) return;
                                         let currentTime = 0, duration = 0, playerState = ytPlayerState;
                                         try { currentTime = Number(ytPlayer.getCurrentTime()) || 0; } catch (_) {}
                                         try { duration = Number(ytPlayer.getDuration()) || 0; } catch (_) {}
                                         try { playerState = Number(ytPlayer.getPlayerState()); } catch (_) {}
-                                        ytCloudStatusRef.set({
+                                        const status = {
                                             videoId: ytDesiredVideoId,
                                             status: ytLastStatus,
                                             currentTime: Math.max(0, currentTime),
@@ -115,14 +111,17 @@
                                             playerState,
                                             playing: playerState === 1,
                                             paused: playerState === 2,
-                                            timestamp: Date.now()
-                                        }).catch(error => console.warn('No se pudo publicar el estado de YouTube:', error));
+                                            timestamp: Date.now(),
+                                            ...extra
+                                        };
+                                        try { if (channel) channel.postMessage({ type: '__youtube_status', ...status }); } catch (_) {}
                                     }
                                     function sendYouTubeStatus(status, extra = {}) {
                                         if (status === ytLastStatus && !extra.force) { publishYouTubePlaybackStatus(); return; }
                                         ytLastStatus = status;
-                                        try { if (channel) channel.postMessage({ type: '__youtube_status', status, timestamp: Date.now(), ...extra }); } catch (_) {}
-                                        publishYouTubePlaybackStatus();
+                                        const details = { ...extra };
+                                        delete details.force;
+                                        publishYouTubePlaybackStatus(details);
                                     }
                                     function executeYouTubeCommand(command, target = null) {
                                         if (!ytPlayerReady || !ytPlayer || !command) { ytPendingCommand = command || ytPendingCommand; ytPendingTarget = target; return; }
@@ -225,6 +224,23 @@
                                                     [180, 500, 950].forEach(delay => setTimeout(() => handleYouTubeCommand(data.command, data.target), delay));
                                                     return;
                                                 }
+                                                if (data && data.type === '__video_transfer_offer') {
+                                                    handleVideoOffer(data);
+                                                    return;
+                                                }
+                                                if (data && data.type === '__screen_capture_offer') {
+                                                    handleScreenOffer(data);
+                                                    return;
+                                                }
+                                                if (data && data.type === '__screen_capture_candidate') {
+                                                    receiveProjectorScreenCandidate(data);
+                                                    return;
+                                                }
+                                                if (data && data.type === '__screen_capture_stop') {
+                                                    if (data.projectorId === projectorInstanceId && data.sessionId === projectorScreenSessionId) closeProjectorScreenPeer();
+                                                    return;
+                                                }
+                                                if (data && (data.type === '__video_transfer_answer' || data.type === '__screen_capture_answer')) return;
                                                 if (data && data.type === '__controller_hello') {
                                                     sendProjectorHeartbeat();
                                                     return;
@@ -236,7 +252,7 @@
 
                                     function sendProjectorHeartbeat() {
                                         try {
-                                            if (channel) channel.postMessage({ type: '__projector_heartbeat', timestamp: Date.now(), page: location.pathname });
+                                            if (channel) channel.postMessage({ type: '__projector_heartbeat', timestamp: Date.now(), page: location.pathname, projectorId: projectorInstanceId });
                                         } catch (_) {}
                                     }
                                     // Latido periódico: el controlador sabe que esta página sigue viva
@@ -434,9 +450,18 @@
                                             video.pause(); video.classList.add('hidden');
                                             if (screenVideo && screenVideo.srcObject) {
                                                 screenVideo.classList.remove('hidden');
-                                                screenVideo.play().catch(() => {});
+                                                screenVideo.muted = false;
+                                                screenVideo.volume = 1;
+                                                screenVideo.play().then(() => {
+                                                    const prompt = document.getElementById('proj-enable-audio');
+                                                    if (prompt) prompt.classList.add('hidden');
+                                                }).catch(error => {
+                                                    console.warn('Safari requiere activar la captura desde la ventana de proyección:', error);
+                                                    const prompt = document.getElementById('proj-enable-audio');
+                                                    if (prompt) { prompt.textContent = '▶ Toca para activar el audio de la captura'; prompt.classList.remove('hidden'); }
+                                                });
                                             } else {
-                                                // Espera la pista WebRTC; el vídeo no pasa por Firebase.
+                                                // Espera la pista WebRTC recibida desde la consola.
                                                 if (screenVideo) screenVideo.classList.add('hidden');
                                             }
                                         } else if (screenVideo) {
@@ -506,7 +531,7 @@
                                                 }
                                                 const sourceChanged = video.getAttribute('src') !== usableUrl;
                                                 if (sourceChanged) {
-                                                    // Firebase actualiza texto/estilos, no controla el transporte multimedia.
+                                                    // El estado visual llega por el canal local; WebRTC controla el video.
                                                     // El reproductor solo se inicializa al recibir un archivo nuevo.
                                                     video.setAttribute('src', usableUrl);
                                                     video.load();
@@ -529,9 +554,7 @@
                                         }
                                     }
 
-                                    // Recibe el archivo desde Safari por WebRTC. El archivo nunca se sube a Firebase;
-                                    // la base de datos solo transporta la oferta/respuesta de conexión.
-                                    const CLOUD_TRANSFER_PATH = 'rooms/casa-bendiciones/transfer';
+                                    // Recibe el archivo desde la consola por WebRTC; el archivo no se sube a un servidor.
                                     let projectorTransferPeer = null;
                                     let projectorTransferSessionId = '';
                                     let projectorReceiveChannel = null;
@@ -542,8 +565,6 @@
                                     let incomingVideoTransfer = null;
                                     let lastProjectorStatusAt = 0;
                                     let pendingProjectorVideoCommand = null;
-                                    let projectorTransferDatabase = null;
-                                    const projectorInstanceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 
                                     function waitForIceGathering(pc, timeoutMs = 12000) {
                                         return new Promise(resolve => {
@@ -701,38 +722,68 @@
                                             const answer = await pc.createAnswer();
                                             await pc.setLocalDescription(answer);
                                             await waitForIceGathering(pc);
-                                            await projectorTransferDatabase.ref(CLOUD_TRANSFER_PATH + '/answer').set({ sessionId: offer.sessionId, type: 'answer', sdp: pc.localDescription.sdp, timestamp: Date.now() });
+                                            const answerPayload = { sessionId: offer.sessionId, type: 'answer', sdp: pc.localDescription.sdp, timestamp: Date.now(), projectorId: projectorInstanceId };
+                                            channel.postMessage({ type: '__video_transfer_answer', ...answerPayload });
                                         } catch (error) { console.error('No se pudo aceptar la conexión de video:', error); }
                                     }
 
                                     let projectorScreenPeer = null;
                                     let projectorScreenSessionId = '';
+                                    let projectorScreenRemoteDescriptionApplied = false;
+                                    let projectorScreenPendingOfferCandidates = [];
+                                    const projectorPendingScreenCandidates = new Map();
                                     function closeProjectorScreenPeer() {
+                                        if (projectorScreenSessionId) projectorPendingScreenCandidates.delete(projectorScreenSessionId);
                                         try { if (projectorScreenPeer) projectorScreenPeer.close(); } catch (_) {}
                                         projectorScreenPeer = null;
                                         projectorScreenSessionId = '';
+                                        projectorScreenRemoteDescriptionApplied = false;
+                                        projectorScreenPendingOfferCandidates = [];
                                         const screenVideo = document.getElementById('proj-screen-video');
                                         if (screenVideo) {
                                             try { if (screenVideo.srcObject) screenVideo.srcObject.getTracks().forEach(track => track.stop()); } catch (_) {}
                                             screenVideo.pause(); screenVideo.srcObject = null; screenVideo.classList.add('hidden');
                                         }
                                     }
+                                    function receiveProjectorScreenCandidate(message) {
+                                        if (!message || message.projectorId !== projectorInstanceId || message.direction !== 'offer' || !message.sessionId || !message.candidate) return;
+                                        if (!projectorScreenPeer || message.sessionId !== projectorScreenSessionId) {
+                                            const pending = projectorPendingScreenCandidates.get(message.sessionId) || [];
+                                            if (pending.length < 32) pending.push(message.candidate);
+                                            projectorPendingScreenCandidates.set(message.sessionId, pending);
+                                            while (projectorPendingScreenCandidates.size > 5) projectorPendingScreenCandidates.delete(projectorPendingScreenCandidates.keys().next().value);
+                                            return;
+                                        }
+                                        const candidate = new RTCIceCandidate(message.candidate);
+                                        if (!projectorScreenRemoteDescriptionApplied) projectorScreenPendingOfferCandidates.push(candidate);
+                                        else projectorScreenPeer.addIceCandidate(candidate).catch(error => console.warn('No se pudo añadir un candidato ICE de la consola:', error));
+                                    }
                                     async function handleScreenOffer(offer) {
                                         if (!offer || !offer.sessionId || !offer.sdp || offer.projectorId !== projectorInstanceId) return;
                                         if (offer.sessionId === projectorScreenSessionId) return;
+                                        const earlyCandidates = projectorPendingScreenCandidates.get(offer.sessionId) || [];
+                                        projectorPendingScreenCandidates.delete(offer.sessionId);
                                         closeProjectorScreenPeer();
                                         projectorScreenSessionId = offer.sessionId;
+                                        projectorScreenPendingOfferCandidates = earlyCandidates.map(candidate => new RTCIceCandidate(candidate));
                                         try {
                                             const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
                                             projectorScreenPeer = pc;
+                                            pc.onicecandidate = event => {
+                                                if (!event.candidate || projectorScreenSessionId !== offer.sessionId || projectorScreenPeer !== pc) return;
+                                                const candidate = typeof event.candidate.toJSON === 'function' ? event.candidate.toJSON() : event.candidate;
+                                                channel.postMessage({ type: '__screen_capture_candidate', direction: 'answer', sessionId: offer.sessionId, projectorId: projectorInstanceId, candidate, timestamp: Date.now() });
+                                            };
                                             pc.ontrack = event => {
                                                 const screenVideo = document.getElementById('proj-screen-video');
                                                 if (!screenVideo) return;
                                                 screenVideo.srcObject = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
-                                                screenVideo.muted = false;
+                                                const isLiveProjection = !!(latestProjectionData && latestProjectionData.mediaMode === 'screen');
+                                                screenVideo.muted = !isLiveProjection;
                                                 screenVideo.volume = 1;
-                                                if (latestProjectionData && latestProjectionData.mediaMode === 'screen') screenVideo.classList.remove('hidden');
-                                                screenVideo.play().then(() => {
+                                                if (isLiveProjection) screenVideo.classList.remove('hidden');
+                                                else screenVideo.classList.add('hidden');
+                                                if (isLiveProjection) screenVideo.play().then(() => {
                                                     const prompt = document.getElementById('proj-enable-audio');
                                                     if (prompt) prompt.classList.add('hidden');
                                                 }).catch(error => {
@@ -748,26 +799,13 @@
                                                 }
                                             };
                                             await pc.setRemoteDescription({ type: 'offer', sdp: offer.sdp });
+                                            projectorScreenRemoteDescriptionApplied = true;
+                                            for (const candidate of projectorScreenPendingOfferCandidates.splice(0)) await pc.addIceCandidate(candidate);
                                             const answer = await pc.createAnswer();
                                             await pc.setLocalDescription(answer);
-                                            await waitForIceGathering(pc);
-                                            await projectorTransferDatabase.ref(CLOUD_TRANSFER_PATH + '/screenAnswer').set({ sessionId: offer.sessionId, type: 'answer', sdp: pc.localDescription.sdp, timestamp: Date.now() });
+                                            const screenAnswer = { sessionId: offer.sessionId, type: 'answer', sdp: pc.localDescription.sdp, timestamp: Date.now(), projectorId: projectorInstanceId };
+                                            channel.postMessage({ type: '__screen_capture_answer', ...screenAnswer });
                                         } catch (error) { console.error('No se pudo recibir el vídeo de pantalla por WebRTC:', error); closeProjectorScreenPeer(); }
-                                    }
-
-                                    function setupProjectorVideoTransfer(database) {
-                                        projectorTransferDatabase = database;
-                                        const transferRef = database.ref(CLOUD_TRANSFER_PATH);
-                                        transferRef.child('projectorReady').set({ id: projectorInstanceId, timestamp: Date.now() });
-                                        try { transferRef.child('projectorReady').onDisconnect().remove(); } catch (_) {}
-                                        transferRef.child('offer').on('value', snapshot => {
-                                            const offer = snapshot.val();
-                                            if (offer) handleVideoOffer(offer);
-                                        }, error => console.error('No se pudo escuchar la oferta de video:', error));
-                                        transferRef.child('screenOffer').on('value', snapshot => {
-                                            const offer = snapshot.val();
-                                            if (offer) handleScreenOffer(offer);
-                                        }, error => console.error('No se pudo escuchar la oferta de captura de pantalla:', error));
                                     }
 
                                     const projectedVideoElement = document.getElementById('proj-video');
@@ -787,50 +825,6 @@
                                         video.muted = false; video.volume = 1;
                                         video.play().then(() => audioPrompt.classList.add('hidden')).catch(() => { audioPrompt.textContent = 'No se pudo iniciar el audio'; });
                                     });
-
-                                    // Canal remoto independiente del almacenamiento local y BroadcastChannel.
-                                    // Permite que la app instalada y Safari se comuniquen aunque iPadOS los aísle.
-                                    const FIREBASE_CONFIG = {
-                                        apiKey: 'AIzaSyAhEPSlcD45NiePlqC8tws4QGkEEeawwRM',
-                                        authDomain: 'proyector-iglesia.firebaseapp.com',
-                                        databaseURL: 'https://proyector-iglesia-default-rtdb.firebaseio.com',
-                                        projectId: 'proyector-iglesia',
-                                        storageBucket: 'proyector-iglesia.firebasestorage.app',
-                                        messagingSenderId: '373203685730',
-                                        appId: '1:373203685730:web:c6ec20d684b6771b9edc3b'
-                                    };
-                                    const CLOUD_PROJECTION_PATH = 'rooms/casa-bendiciones/state';
-                                    const CLOUD_YOUTUBE_COMMAND_PATH = 'rooms/casa-bendiciones/youtubeCommands';
-                                    const CLOUD_YOUTUBE_STATUS_PATH = 'rooms/casa-bendiciones/youtubeStatus';
-                                    let lastCloudYouTubeCommandId = '';
-                                    try {
-                                        if (window.firebase && firebase.database && firebase.auth) {
-                                            if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-                                            firebase.auth().signInAnonymously().then(() => {
-                                                const transferDatabase = firebase.database();
-                                                ytCloudStatusRef = transferDatabase.ref(CLOUD_YOUTUBE_STATUS_PATH);
-                                                setupProjectorVideoTransfer(transferDatabase);
-                                                transferDatabase.ref(CLOUD_PROJECTION_PATH).on('value', snapshot => {
-                                                    const cloudData = snapshot.val();
-                                                    if (cloudData && typeof cloudData === 'object') applyProjection(cloudData);
-                                                }, error => console.error('Firebase no pudo recibir la proyección:', error));
-                                                // Canal de comandos separado: play/pause no reescriben el estado visual
-                                                // ni reinicializan el video. Los comandos viejos se descartan.
-                                                transferDatabase.ref(CLOUD_YOUTUBE_COMMAND_PATH).on('child_added', snapshot => {
-                                                    const item = snapshot.val();
-                                                    if (!item || !item.commandId || !item.command) { snapshot.ref.remove(); return; }
-                                                    const age = Date.now() - Number(item.timestamp || 0);
-                                                    if (item.commandId !== lastCloudYouTubeCommandId && age >= 0 && age < 15000) {
-                                                        lastCloudYouTubeCommandId = item.commandId;
-                                                        handleYouTubeCommand(item.command, item.target);
-                                                    }
-                                                    snapshot.ref.remove().catch(error => console.warn('No se pudo limpiar un comando de YouTube:', error));
-                                                }, error => console.error('Firebase no pudo recibir los comandos de YouTube:', error));
-                                            }).catch(error => console.error('Firebase Auth anónimo no disponible:', error));
-                                        } else {
-                                            console.warn('Firebase SDK no disponible; se mantiene sincronización local.');
-                                        }
-                                    } catch (error) { console.error('No se pudo iniciar la sincronización remota:', error); }
 
                                     // Recupera el último estado al abrir o recargar la ventana de proyección.
                                     try {

@@ -22,7 +22,7 @@ body.presentation #exit-presentation:focus,body.presentation #exit-presentation:
 <main id="player-shell"><div id="player"></div><div id="empty">Carga un enlace de YouTube desde los controles principales.<br>Cuando el video esté listo, puedes usar aquí los controles originales para reproducir y saltar anuncios cuando YouTube lo permita.</div></main>
 <button id="exit-presentation" type="button" aria-label="Volver al monitor">↩ Volver al monitor</button>
 <footer class="controls">
-<button id="play">▶ Reproducir</button><button id="pause" class="secondary">Ⅱ Pausar</button><button id="reload" class="secondary">↻ Recargar video</button><button id="present" class="secondary" type="button">⛶ Usar esta ventana para proyección</button>
+<button id="play">▶ Reproducir</button><button id="pause" class="secondary">Ⅱ Pausar</button><button id="reload" class="secondary">↻ Recargar video</button><button id="present" class="secondary" type="button">⛶ Vista limpia para capturar</button>
 <div class="note">YouTube controla los anuncios. Si aparece la opción, usa «Saltar anuncio» en el reproductor. Para evitar pausas por anuncios, utiliza un video local con permiso de reproducción.</div>
 </footer>
 <script>
@@ -32,9 +32,17 @@ body.presentation #exit-presentation:focus,body.presentation #exit-presentation:
  const pageParams=new URLSearchParams(location.search);
  const monitorMode=pageParams.get('monitor')==='1';
  const monitorVideoUrl=monitorMode?(pageParams.get('video')||''):'';
- let channel=null, player=null, apiReady=false, playerReady=false, desiredId='', loopEnabled=false, pendingCommand='';
+  let channel=null, player=null, apiReady=false, playerReady=false, monitorHasVideo=false, desiredId='', loopEnabled=false, pendingCommand=null, statusCode='loading';
+  const handledCommandIds=new Set();
  const statusEl=document.getElementById('status'), emptyEl=document.getElementById('empty');
- function status(s){statusEl.textContent=s;}
+  function status(s,code){statusEl.textContent=s;if(code)statusCode=code;}
+  function sendMonitorHeartbeat(){
+    let playerState=-1,currentTime=0,duration=0;
+    if(playerReady&&player){try{playerState=player.getPlayerState();currentTime=player.getCurrentTime()||0;duration=player.getDuration()||0;}catch(_){}}
+    const message={type:'__youtube_window_heartbeat',timestamp:Date.now(),monitorMode,videoId:desiredId,playerReady:playerReady&&(!monitorMode||monitorHasVideo),status:statusCode,playerState,currentTime,duration};
+    try{channel&&channel.postMessage(message);}catch(_){}
+    try{if(window.opener&&!window.opener.closed)window.opener.postMessage(message,location.origin);}catch(_){}
+  }
  function extractId(value){
    try { const u=new URL(value,location.href); const host=u.hostname.toLowerCase().replace(/^www\./,''); let id='';
      if(host==='youtu.be') id=u.pathname.split('/').filter(Boolean)[0]||'';
@@ -48,44 +56,58 @@ body.presentation #exit-presentation:focus,body.presentation #exit-presentation:
  function stateFromStorage(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(_){return null}}
  function loadState(data){
    if(!data||data.mediaMode!=='youtube'||!data.videoUrl)return;
-   const id=extractId(data.videoUrl); if(!id){status('El enlace de YouTube no es válido');return;}
+    const id=extractId(data.videoUrl); if(!id){status('El enlace de YouTube no es válido','invalid-url');sendMonitorHeartbeat();return;}
    loopEnabled=!!data.videoLoop;
-   if(id===desiredId){emptyEl.classList.add('hidden');status(playerReady?'Video listo · controles de YouTube activos':'Preparando reproductor…');return;}
+    if(id===desiredId){emptyEl.classList.add('hidden');status(playerReady?'Video listo · controles de YouTube activos':'Preparando reproductor…',playerReady?'ready':'loading');sendMonitorHeartbeat();return;}
    desiredId=id; emptyEl.classList.add('hidden');
-   if(playerReady&&player){try{player.cueVideoById({videoId:id,startSeconds:0});status('Video cargado · pulsa Reproducir aquí');}catch(e){status('No se pudo cargar el video');}}
-   else status('Enlace recibido · preparando reproductor…');
+    if(playerReady&&player){try{player.cueVideoById({videoId:id,startSeconds:0});status('Video cargado · pulsa Reproducir aquí','video-cued');}catch(e){status('No se pudo cargar el video','player-error');}}
+    else status('Enlace recibido · preparando reproductor…','loading');
+    sendMonitorHeartbeat();
  }
- function runCommand(command){
-   if(!playerReady||!player){pendingCommand=command;status('Esperando que YouTube esté listo…');return;}
+ function runCommand(command,target){
+    if(!playerReady||!player){pendingCommand={command,target};status('Esperando que YouTube esté listo…','loading');return;}
    try{
-     if(command==='playVideo'){player.playVideo();status('Orden de reproducción enviada');}
-     else if(command==='pauseVideo'){player.pauseVideo();status('Video en pausa');}
-     else if(command==='stopVideo'){player.stopVideo();status('Video detenido');}
-   }catch(_){pendingCommand=command;status('Usa el botón Reproducir de esta ventana');}
+      if(command==='playVideo'){player.playVideo();status('Orden de reproducción enviada','play-requested');}
+      else if(command==='pauseVideo'){player.pauseVideo();status('Video en pausa','pause-requested');}
+      else if(command==='stopVideo'){player.stopVideo();status('Video detenido','stopped');}
+      else if(command==='seekTo'&&Number.isFinite(Number(target))&&Number(target)>=0){player.seekTo(Number(target),true);status('Posición del video actualizada','seeking');}
+    }catch(_){pendingCommand={command,target};status('Usa los controles de esta ventana','player-error');}
+    sendMonitorHeartbeat();
  }
+  function handleCommandOnce(data){
+    if(!data||typeof data!=='object')return;
+    const id=typeof data.commandId==='string'?data.commandId:'';
+    if(id&&handledCommandIds.has(id))return;
+    if(id){handledCommandIds.add(id);if(handledCommandIds.size>64)handledCommandIds.delete(handledCommandIds.values().next().value);}
+    runCommand(data.command,data.target);
+  }
  window.onYouTubeIframeAPIReady=()=>{
    apiReady=true;
-   player=new YT.Player('player',{width:'100%',height:'100%',videoId:desiredId||undefined,playerVars:{autoplay:0,controls:1,playsinline:1,rel:0,fs:1,enablejsapi:1},events:{
+  player=new YT.Player('player',{width:'100%',height:'100%',videoId:desiredId||undefined,playerVars:{autoplay:0,controls:1,playsinline:1,rel:0,fs:1,enablejsapi:1,...(location.origin&&location.origin!=='null'?{origin:location.origin}:{})},events:{
      onReady:e=>{playerReady=true;try{const f=e.target.getIframe();f.setAttribute('allow','autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');f.setAttribute('allowfullscreen','');f.setAttribute('referrerpolicy','strict-origin-when-cross-origin');f.style.width='100%';f.style.height='100%';f.style.border='0';}catch(_){}
-       const saved=stateFromStorage();if(!monitorMode&&saved)loadState(saved);status(desiredId?'Video listo · toca Reproducir o el control del reproductor':'Esperando enlace de YouTube…');if(pendingCommand){const c=pendingCommand;pendingCommand='';runCommand(c);}},
-     onStateChange:e=>{if(e.data===1)status('Reproduciendo');else if(e.data===2)status('En pausa');else if(e.data===5)status('Video listo · controles de YouTube activos');else if(e.data===0&&loopEnabled){try{player.seekTo(0,true);player.playVideo();}catch(_){}}},
-     onError:e=>status('YouTube no permite reproducir este video (código '+e.data+').'),
-     onAutoplayBlocked:()=>status('Safari bloqueó la reproducción automática. Toca Reproducir en esta pantalla.')
+         const saved=stateFromStorage();if(!monitorMode&&saved)loadState(saved);if(monitorMode&&desiredId){try{player.cueVideoById({videoId:desiredId,startSeconds:0});}catch(_){}}status(desiredId?'Video listo · toca Reproducir o el control del reproductor':'Esperando enlace de YouTube…',desiredId?'ready':'empty');sendMonitorHeartbeat();if(pendingCommand){const c=pendingCommand;pendingCommand=null;runCommand(c.command,c.target);}},
+      onStateChange:e=>{if([1,2,3,5].includes(e.data))monitorHasVideo=true;if(e.data===1)status('Reproduciendo','playing');else if(e.data===2)status('En pausa','paused');else if(e.data===3)status('Cargando video…','buffering');else if(e.data===5)status('Video listo · controles de YouTube activos','video-cued');else if(e.data===0){status('Video finalizado','ended');if(loopEnabled){try{player.seekTo(0,true);player.playVideo();}catch(_){}}}sendMonitorHeartbeat();},
+      onError:e=>{monitorHasVideo=false;status('YouTube no permite reproducir este video (código '+e.data+').','player-error');sendMonitorHeartbeat();},
+      onAutoplayBlocked:()=>{status('Safari bloqueó la reproducción automática. Toca Reproducir en esta pantalla.','autoplay-blocked');sendMonitorHeartbeat();}
    }});
  };
  if(monitorMode){
    document.querySelector('.brand').textContent='▶ YouTube · Monitor de preparación';
    const monitorId=extractId(monitorVideoUrl);
-   if(monitorId){desiredId=monitorId;emptyEl.classList.add('hidden');status('Video preparado en monitor · espera los anuncios y usa los controles de YouTube');}
-   else status('El enlace preparado no es válido');
+    if(monitorId){desiredId=monitorId;emptyEl.classList.add('hidden');status('Video preparado en monitor · espera los anuncios y usa los controles de YouTube','preparing');}
+    else status('El enlace preparado no es válido','invalid-url');
  }
- const script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.onerror=()=>status('No se pudo cargar la API de YouTube; comprueba Internet.');document.head.appendChild(script);
- try{channel=new BroadcastChannel(CHANNEL_NAME);channel.addEventListener('message',e=>{const d=e.data;if(!d)return;if(d.type==='__youtube_command'){if(!monitorMode)runCommand(d.command);return;}if(d.type==='__controller_hello'){try{channel.postMessage({type:'__youtube_window_heartbeat',timestamp:Date.now()});}catch(_){}return;}if(!monitorMode&&d.mediaMode==='youtube')loadState(d);else if(d.mediaMode==='none'&&d.youtubeSeparateWindow===false){/* mantener el video abierto hasta que el usuario lo cambie */}});setInterval(()=>{try{channel.postMessage({type:'__youtube_window_heartbeat',timestamp:Date.now()});}catch(_){}},2000);}catch(_){status('Este navegador no admite el canal de sincronización; usa los controles del video.');}
+  const script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.onerror=()=>{status('No se pudo cargar la API de YouTube; comprueba Internet.','api-load-error');sendMonitorHeartbeat();};document.head.appendChild(script);
+  try{channel=new BroadcastChannel(CHANNEL_NAME);channel.addEventListener('message',e=>{const d=e.data;if(!d)return;if(d.type==='__youtube_monitor_command'){if(monitorMode)handleCommandOnce(d);return;}if(d.type==='__youtube_command'){if(!monitorMode)handleCommandOnce(d);return;}if(d.type==='__controller_hello'){sendMonitorHeartbeat();return;}if(!monitorMode&&d.mediaMode==='youtube')loadState(d);else if(d.mediaMode==='none'&&d.youtubeSeparateWindow===false){/* mantener el video abierto hasta que el usuario lo cambie */}});}catch(_){channel=null;status('Monitor abierto. La consola usará el enlace directo entre ventanas si está disponible.');}
+  sendMonitorHeartbeat();setInterval(sendMonitorHeartbeat,2000);
+  window.addEventListener('pageshow',sendMonitorHeartbeat);
+  window.addEventListener('focus',sendMonitorHeartbeat);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)sendMonitorHeartbeat();});
+  window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==window.opener)return;const d=e.data;if(monitorMode&&d&&d.type==='__youtube_monitor_command')handleCommandOnce(d);});
  if(!monitorMode)window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){const d=stateFromStorage();if(d)loadState(d);}});
  document.getElementById('present').addEventListener('click',()=>{
    document.body.classList.add('presentation');
-   status('Proyección activa: se conserva este mismo reproductor. No se ha abierto una segunda reproducción.');
-   try{channel&&channel.postMessage({type:'__youtube_monitor_promoted',timestamp:Date.now(),videoId:desiredId});}catch(_){}
+    status('Vista lista para capturar. Vuelve a la consola y elige esta ventana; el video seguirá en este punto.');
    try{if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});}catch(_){}
  });
  document.getElementById('exit-presentation').addEventListener('click',()=>{

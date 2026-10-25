@@ -61,7 +61,7 @@
                                             if (target.requestFullscreen) await target.requestFullscreen();
                                             else if (document.body.requestFullscreen) await document.body.requestFullscreen();
                                         } catch (error) {
-                                            fullscreenPrompt.textContent = 'Safari no permite pantalla completa aquí. Añade la app a Inicio.';
+                                            fullscreenPrompt.textContent = 'No se pudo activar pantalla completa en esta ventana. Usa los controles del navegador o abre la app desde Inicio.';
                                         }
                                         updateFullscreenPrompt();
                                     });
@@ -119,6 +119,15 @@
                                         try { if (channel) channel.postMessage({ type: '__youtube_status', status, timestamp: Date.now(), ...extra }); } catch (_) {}
                                         publishYouTubePlaybackStatus();
                                     }
+                                    function restoreProjectionAfterYouTubeFailure(videoId) {
+                                        const failedProjection = latestProjectionData;
+                                        if (!videoId || !failedProjection || failedProjection.mediaMode !== 'youtube' ||
+                                            getYouTubeId(failedProjection.videoUrl) !== videoId || !lastNonYouTubeProjectionData) return;
+                                        ytCueIssuedId = '';
+                                        ytPendingVideoId = '';
+                                        ytPlayerState = -1;
+                                        applyProjection(lastNonYouTubeProjectionData, true);
+                                    }
                                     function executeYouTubeCommand(command, target = null) {
                                         if (!ytPlayerReady || !ytPlayer || !command) { ytPendingCommand = command || ytPendingCommand; ytPendingTarget = target; return; }
                                         if (command === 'playVideo') {
@@ -154,13 +163,14 @@
                                             sendYouTubeStatus('video-cued', { videoId });
                                         } catch (error) {
                                             ytPendingVideoId = videoId;
-                                            sendYouTubeStatus('player-error', { message: String(error) });
+                                            sendYouTubeStatus('player-error', { message: String(error), videoId });
+                                            restoreProjectionAfterYouTubeFailure(videoId);
                                         }
                                     }
                                     function initializeYouTubeAPI() {
                                         window.onYouTubeIframeAPIReady = () => {
                                             ytApiReady = true;
-                                            const playerVars = { autoplay: 0, controls: 0, disablekb: 1, enablejsapi: 1, playsinline: 1, rel: 0, fs: 0, modestbranding: 1 };
+                                            const playerVars = { autoplay: 0, controls: 0, disablekb: 1, enablejsapi: 1, playsinline: 1, rel: 0, fs: 0 };
                                             if (location.protocol === 'https:' || location.protocol === 'http:') playerVars.origin = location.origin;
                                             ytPlayer = new YT.Player('proj-youtube-player', {
                                                 width: '100%', height: '100%', playerVars,
@@ -190,9 +200,18 @@
                                                         else if (event.data === 2) sendYouTubeStatus('paused', { videoId: ytDesiredVideoId });
                                                         else if (event.data === 0 && ytLoopEnabled) {
                                                             try { ytPlayer.seekTo(0, true); ytPlayer.playVideo(); } catch (_) {}
-                                                        } else if (event.data === 5) sendYouTubeStatus('video-cued', { videoId: ytDesiredVideoId });
+                                                        } else if (event.data === 5) {
+                                                            sendYouTubeStatus('video-cued', { videoId: ytDesiredVideoId });
+                                                            if (latestProjectionData && latestProjectionData.mediaMode === 'youtube' && getYouTubeId(latestProjectionData.videoUrl) === ytDesiredVideoId) {
+                                                                applyProjection(latestProjectionData, true);
+                                                            }
+                                                        }
                                                     },
-                                                    onError: event => sendYouTubeStatus('player-error', { code: event.data, videoId: ytDesiredVideoId }),
+                                                    onError: event => {
+                                                        const failedVideoId = ytDesiredVideoId;
+                                                        sendYouTubeStatus('player-error', { code: event.data, videoId: failedVideoId, force: true });
+                                                        restoreProjectionAfterYouTubeFailure(failedVideoId);
+                                                    },
                                                     onAutoplayBlocked: () => sendYouTubeStatus('autoplay-blocked', { videoId: ytDesiredVideoId, force: true })
                                                 }
                                             });
@@ -293,6 +312,7 @@
                                     }
                                     let latestProjectionTimestamp = 0;
                                     let latestProjectionData = null;
+                                    let lastNonYouTubeProjectionData = null;
                                     // Un URL blob: solo existe en la página que seleccionó el archivo.
                                     // El archivo se recibe en esta ventana; la pantalla de proyección nunca pide al usuario elegirlo.
                                     let pendingRemoteBlobKey = '';
@@ -308,7 +328,25 @@
                                         const incomingTimestamp = Number(data.timestamp || 0);
                                         if (!force && incomingTimestamp && incomingTimestamp <= latestProjectionTimestamp) return;
                                         if (incomingTimestamp && (!force || incomingTimestamp > latestProjectionTimestamp)) latestProjectionTimestamp = incomingTimestamp;
+                                        if (data.mediaMode !== 'youtube') {
+                                            lastNonYouTubeProjectionData = data.mediaMode === 'screen'
+                                                ? { ...data, mediaMode: 'none', videoUrl: '', isVideoPlaying: false }
+                                                : data;
+                                        }
                                         latestProjectionData = data;
+                                        if (data.mediaMode === 'youtube') {
+                                            const requestedVideoId = getYouTubeId(data.videoUrl);
+                                            if (!requestedVideoId) { sendYouTubeStatus('invalid-url', { force: true }); return; }
+                                            const playerHasRequestedVideo = ytPlayerReady && ytPlayer &&
+                                                ytDesiredVideoId === requestedVideoId && ytCueIssuedId === requestedVideoId &&
+                                                [1, 2, 5].includes(ytPlayerState);
+                                            if (!playerHasRequestedVideo) {
+                                                if (ytDesiredVideoId !== requestedVideoId || ytCueIssuedId !== requestedVideoId || ytPlayerState === 0) {
+                                                    cueYouTubeVideo(requestedVideoId);
+                                                }
+                                                return;
+                                            }
+                                        }
                                         const styles = data.styles;
                                         const text = document.getElementById('proj-text');
                                         const citation = document.getElementById('proj-citation');

@@ -14,6 +14,18 @@
                                 :root { color-scheme: dark; }
                                 html, body { width: 100%; height: 100%; min-height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
                                 body { height: 100vh; height: 100dvh; padding: max(2.5vw, env(safe-area-inset-top)) max(2.5vw, env(safe-area-inset-right)) max(2.5vw, env(safe-area-inset-bottom)) max(2.5vw, env(safe-area-inset-left)) !important; box-sizing: border-box; }
+                                /* En Safari/iPad, fija la capa de video al viewport y evita depender
+                                   de las clases remotas de Tailwind para mostrarla sobre fondo negro. */
+                                .projection-page[data-projection-media="video"] #proj-video {
+                                    display: block !important; position: fixed !important; inset: 0 !important;
+                                    width: 100vw !important; height: 100vh !important; height: 100dvh !important;
+                                    max-width: none !important; max-height: none !important; margin: 0 !important;
+                                    object-fit: contain !important; visibility: visible !important; opacity: 1 !important;
+                                    z-index: 10 !important; background: #000 !important;
+                                }
+                                .projection-page[data-projection-media="video"] #proj-backdrop,
+                                .projection-page[data-projection-media="video"] #proj-overlay,
+                                .projection-page[data-projection-media="video"] #proj-karaoke { display: none !important; }
                                 #proj-fullscreen-prompt { font-family: Inter, system-ui, sans-serif; }
                                 .text-projection-shadow { text-shadow: 0 2px 12px rgba(0,0,0,0.95), 0 4px 24px rgba(0,0,0,0.85); }
                             </style>
@@ -339,6 +351,7 @@
                                         if (!force && incomingTimestamp && incomingTimestamp <= latestProjectionTimestamp) return;
                                         if (incomingTimestamp && (!force || incomingTimestamp > latestProjectionTimestamp)) latestProjectionTimestamp = incomingTimestamp;
                                         latestProjectionData = data;
+                                        document.body.dataset.projectionMedia = 'none';
                                         const styles = data.styles;
                                         const text = document.getElementById('proj-text');
                                         const citation = document.getElementById('proj-citation');
@@ -543,6 +556,9 @@
                                                     }
                                                     usableUrl = localProjectionVideoUrl;
                                                 }
+                                                // Safari/iPad dibuja algunos videos decodificados como negro
+                                                // si quedan sujetos al posicionamiento absoluto del layout.
+                                                document.body.dataset.projectionMedia = 'video';
                                                 const sourceChanged = video.getAttribute('src') !== usableUrl;
                                                 if (sourceChanged) {
                                                     // El estado visual llega por el canal local; WebRTC controla el video.

@@ -225,6 +225,12 @@
                                                     [180, 500, 950].forEach(delay => setTimeout(() => handleYouTubeCommand(data.command, data.target), delay));
                                                     return;
                                                 }
+                                                if (data && data.type === '__local_video_control') {
+                                                    if (data.projectorId === projectorInstanceId && data.command) {
+                                                        handleProjectorVideoControl({ data: JSON.stringify(data.command) });
+                                                    }
+                                                    return;
+                                                }
                                                 if (data && data.type === '__video_transfer_offer') {
                                                     handleVideoOffer(data);
                                                     return;
@@ -596,15 +602,18 @@
                                     }
 
                                     function sendProjectorVideoStatus(force = false) {
-                                        const channel = projectorControlChannel;
                                         const video = document.getElementById('proj-video');
-                                        if (!channel || channel.readyState !== 'open' || !video) return;
+                                        if (!video) return;
                                         const now = Date.now();
                                         if (!force && now - lastProjectorStatusAt < 450) return;
                                         lastProjectorStatusAt = now;
+                                        const status = { type: 'video-status', sourceKey: mappedRemoteBlobKey, currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0, duration: Number.isFinite(video.duration) ? video.duration : 0, playing: !video.paused && !video.ended, paused: video.paused, ended: video.ended, loop: !!video.loop, videoWidth: video.videoWidth || 0, videoHeight: video.videoHeight || 0, readyState: video.readyState, errorCode: video.error ? video.error.code : 0, timestamp: now };
                                         try {
-                                            channel.send(JSON.stringify({ type: 'video-status', sourceKey: mappedRemoteBlobKey, currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0, duration: Number.isFinite(video.duration) ? video.duration : 0, playing: !video.paused && !video.ended, paused: video.paused, ended: video.ended, loop: !!video.loop, videoWidth: video.videoWidth || 0, videoHeight: video.videoHeight || 0, readyState: video.readyState, errorCode: video.error ? video.error.code : 0, timestamp: now }));
-                                        } catch (error) { console.warn('No se pudo enviar el estado multimedia:', error); }
+                                            if (projectorControlChannel && projectorControlChannel.readyState === 'open') projectorControlChannel.send(JSON.stringify(status));
+                                        } catch (error) { console.warn('No se pudo enviar el estado multimedia por WebRTC:', error); }
+                                        try {
+                                            if (channel) channel.postMessage({ ...status, type: '__local_video_status', projectorId: projectorInstanceId });
+                                        } catch (error) { console.warn('No se pudo enviar el estado multimedia por el canal local:', error); }
                                     }
 
                                     function handleProjectorVideoControl(event) {

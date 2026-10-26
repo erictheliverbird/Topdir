@@ -1153,6 +1153,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let videoMirrorChannel = null;
         let remoteVideoStatus = null;
         let videoSeekInProgress = false;
+        let videoStatusPollTimer = 0;
         let videoTransferSessionId = '';
         let videoTransferLocalAnswerListener = null;
         let videoTransferConnectTimeoutId = 0;
@@ -1227,6 +1228,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         function closeVideoTransferPeer() {
             if (videoTransferConnectTimeoutId) clearTimeout(videoTransferConnectTimeoutId);
             videoTransferConnectTimeoutId = 0;
+            stopVideoStatusPolling();
             videoTransferLocalAnswerListener = null;
             try { if (videoTransferChannel) videoTransferChannel.close(); } catch (_) {}
             try { if (videoControlChannel) videoControlChannel.close(); } catch (_) {}
@@ -1238,6 +1240,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             remoteVideoStatus = null;
             videoTransferPeer = null;
             videoTransferSessionId = '';
+            refreshVideoControls();
         }
 
         async function waitForDataChannelCapacity(channel, threshold = 512 * 1024) {
@@ -1257,8 +1260,34 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 try { channel.send(JSON.stringify(message)); return true; }
                 catch (error) { console.warn('No se pudo enviar el control multimedia:', error); }
             }
-            // El control multimedia viaja por el canal directo de WebRTC.
+            // Respaldo local: Safari puede reproducir el archivo aunque el datachannel
+            // de controles aún no haya abierto. BroadcastChannel ya sincroniza las ventanas.
+            if (broadcastChannel && localProjectorId) {
+                try {
+                    broadcastChannel.postMessage({ type: '__local_video_control', projectorId: localProjectorId, command: message });
+                    return true;
+                } catch (error) { console.warn('No se pudo enviar el control multimedia por el canal local:', error); }
+            }
             return false;
+        }
+
+        function stopVideoStatusPolling() {
+            if (videoStatusPollTimer) clearInterval(videoStatusPollTimer);
+            videoStatusPollTimer = 0;
+        }
+
+        function startVideoStatusPolling() {
+            stopVideoStatusPolling();
+            const requestStatus = () => {
+                if (mediaMode !== 'video' || !activeVideoUrl) return;
+                if (remoteVideoStatus && remoteVideoStatus.sourceKey === activeVideoUrl) {
+                    stopVideoStatusPolling();
+                    return;
+                }
+                sendVideoControlCommand('get-status');
+            };
+            requestStatus();
+            videoStatusPollTimer = setInterval(requestStatus, 1000);
         }
 
         function handleRemoteVideoStatusMessage(event) {
@@ -1268,8 +1297,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (message.type !== 'video-status') return;
             if (message.sourceKey && activeVideoUrl && message.sourceKey !== activeVideoUrl) return;
             // Única autoridad: el video real de proyector.html. La vista previa NO reproduce,
-            // no busca y no recibe órdenes multimedia; solo muestra fotogramas recibidos por WebRTC.
+            // no busca ni recibe órdenes; el estado puede llegar por WebRTC o el canal local.
             remoteVideoStatus = message;
+            if (message.sourceKey && message.sourceKey === activeVideoUrl) stopVideoStatusPolling();
             isVideoPlaying = !!message.playing;
             if (typeof message.loop === 'boolean') videoLoop = message.loop;
             if (Number.isFinite(message.currentTime)) {
@@ -1304,7 +1334,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (icon) icon.className = `fa-solid ${message.playing ? 'fa-pause' : 'fa-play'} mr-1`;
             if (label) label.textContent = message.playing ? 'Pausar' : 'Reproducir';
             const indicator = document.getElementById('video-sync-indicator');
-            if (indicator) indicator.textContent = playbackProblem ? 'Revisa el formato del archivo' : (videoControlChannel && videoControlChannel.readyState === 'open' ? 'Proyector conectado' : 'Sin enlace directo');
+            if (indicator) indicator.textContent = playbackProblem ? 'Revisa el formato del archivo' : (videoControlChannel && videoControlChannel.readyState === 'open' ? 'Proyector conectado por WebRTC' : (isLocalProjectorReady() ? 'Controles por canal local' : 'Sin enlace al proyector'));
         }
 
         function seekLocalVideoTo(target) {
@@ -1384,11 +1414,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 const controlChannel = pc.createDataChannel('video-control', { ordered: true });
                 videoControlChannel = controlChannel;
                 controlChannel.onopen = () => {
-                    const indicator = document.getElementById('video-sync-indicator');
-                    if (indicator) indicator.textContent = 'Proyector conectado';
-                    try { controlChannel.send(JSON.stringify({ type: 'video-control', action: 'get-status', sourceKey: activeVideoUrl })); } catch (_) {}
+                    startVideoStatusPolling();
+                    refreshVideoControls();
                 };
                 controlChannel.onmessage = handleRemoteVideoStatusMessage;
+                controlChannel.onclose = refreshVideoControls;
                 controlChannel.onerror = error => console.error('Canal de controles multimedia:', error);
                 const mirrorChannel = pc.createDataChannel('preview-mirror', { ordered: false, maxRetransmits: 0 });
                 videoMirrorChannel = mirrorChannel;
@@ -1749,11 +1779,19 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             broadcastChannel.addEventListener('message', event => {
                 const data = event.data;
                 if (!data || typeof data !== 'object') return;
+                if (data.type === '__local_video_status') {
+                    if (!localProjectorId || data.projectorId !== localProjectorId) return;
+                    const statusMessage = { ...data, type: 'video-status' };
+                    delete statusMessage.projectorId;
+                    handleRemoteVideoStatusMessage({ data: JSON.stringify(statusMessage) });
+                    return;
+                }
                 if (data.type === '__projector_heartbeat') {
                     projectorLastHeartbeat = Date.now();
                     const nextProjectorId = typeof data.projectorId === 'string' ? data.projectorId : '';
                     const projectorIdentityChanged = !!(nextProjectorId && nextProjectorId !== localProjectorId);
                     localProjectorId = nextProjectorId;
+                    refreshVideoControls();
                     if (projectorIdentityChanged && activeVideoFile && mediaMode === 'video') {
                         closeVideoTransferPeer();
                         setTimeout(() => {
@@ -2619,7 +2657,8 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         function refreshVideoControls() {
             const video = document.getElementById('preview-video');
             const hasLocalVideo = mediaMode === 'video' && !!activeVideoUrl;
-            const remote = (videoControlChannel && videoControlChannel.readyState === 'open' && remoteVideoStatus && (!remoteVideoStatus.sourceKey || remoteVideoStatus.sourceKey === activeVideoUrl)) ? remoteVideoStatus : null;
+            const controlRelayAvailable = (videoControlChannel && videoControlChannel.readyState === 'open') || isLocalProjectorReady();
+            const remote = (controlRelayAvailable && remoteVideoStatus && (!remoteVideoStatus.sourceKey || remoteVideoStatus.sourceKey === activeVideoUrl)) ? remoteVideoStatus : null;
             const playButton = document.getElementById('btn-video-play-pause');
             const slider = document.getElementById('video-seek-slider');
             const backButton = document.getElementById('btn-video-back');
@@ -2632,7 +2671,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const current = remote && Number.isFinite(remote.currentTime) ? remote.currentTime : 0;
             const playing = remote ? !!remote.playing : false;
             if (slider) slider.disabled = !hasLocalVideo || duration <= 0;
-            if (status && !remote) status.textContent = hasLocalVideo ? 'Esperando al proyector…' : (mediaMode === 'youtube' ? 'Controla en YouTube' : 'Sin video local');
+            if (status && !remote) {
+                if (!hasLocalVideo) status.textContent = mediaMode === 'youtube' ? 'Controla en YouTube' : 'Sin video local';
+                else if (!isLocalProjectorReady()) status.textContent = 'Ventana de proyección no detectada';
+                else if (!videoControlChannel || videoControlChannel.readyState !== 'open') status.textContent = 'Canal local disponible · consultando el video…';
+                else status.textContent = 'Enlace abierto · esperando el estado del video…';
+            }
             const icon = document.getElementById('video-play-pause-icon');
             const label = document.getElementById('video-play-pause-label');
             if (icon) icon.className = `fa-solid ${playing ? 'fa-pause' : 'fa-play'} mr-1`;
@@ -2643,7 +2687,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (durationLabel) durationLabel.textContent = formatVideoTime(duration);
             if (slider && duration > 0 && !videoSeekInProgress) slider.value = String(Math.round(current / duration * 1000));
             const indicator = document.getElementById('video-sync-indicator');
-            if (indicator && !remote) indicator.textContent = videoControlChannel && videoControlChannel.readyState === 'open' ? 'Proyector conectado' : 'Conectando proyector…';
+            if (indicator && !remote) {
+                if (videoControlChannel && videoControlChannel.readyState === 'open') indicator.textContent = 'Canal abierto · consultando';
+                else if (isLocalProjectorReady()) indicator.textContent = 'Canal local de respaldo disponible';
+                else indicator.textContent = 'Ventana no detectada';
+            }
         }
 
         function showToast(msg, type = "info") {
@@ -2871,6 +2919,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         }
 
         function syncToProjector() {
+            if (mediaMode !== 'video') stopVideoStatusPolling();
             const payload = {
                 text: isClearText ? "" : currentText,
                 citation: isClearText ? "" : currentCitation,
@@ -3816,6 +3865,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (activeVideoUrl && activeVideoUrl.startsWith('blob:')) URL.revokeObjectURL(activeVideoUrl);
                     activeVideoUrl = URL.createObjectURL(file);
                     mediaMode = 'video';
+                    startVideoStatusPolling();
                     isVideoPlaying = true;
                     videoSeekTo = 0;
                     // No reproducción local en el panel: el único reproductor real es el del proyector.
@@ -3837,6 +3887,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 activeVideoFile = null;
                 remoteVideoStatus = null;
                 mediaMode = 'none';
+                stopVideoStatusPolling();
                 isVideoPlaying = false;
                 videoSeekTo = null;
                 try { controlVideo.pause(); controlVideo.removeAttribute('src'); controlVideo.srcObject = null; controlVideo.load(); } catch (_) {}

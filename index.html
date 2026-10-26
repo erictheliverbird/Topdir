@@ -9,8 +9,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Proyector Bíblico">
     <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <title>Proyector Bíblico Profesional & Buscador de Imágenes</title>
+    <title>Proyector Bíblico · Consola de culto</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -152,7 +153,6 @@
           body[data-workspace="karaoke"] #karaoke-quick-controls { position:relative; }
           body[data-workspace="karaoke"] #karaoke-quick-controls button { flex:1 1 auto; }
         }
-        #btn-quick-screen-share { display:none !important; }
         body[data-workspace="design"] #workspace-control .flex-1.min-h-0.bg-gray-900 { min-width:0; }
         body[data-workspace="design"] #tab-estilos { display:block !important; }
         @media (max-width: 900px) {
@@ -195,10 +195,8 @@
         #operator-interface header h1 span { background:rgba(214,181,109,.10) !important; color:#dfc88f !important; border-color:rgba(214,181,109,.28) !important; }
         #operator-interface header > div:last-child { gap:8px !important; }
         /* Todos los botones de cabecera comparten una paleta sobria; los estados siguen siendo distinguibles. */
-        #btn-quick-screen-share,
         #btn-toggle-ext-projector,
         #btn-toggle-local-fs,
-        #btn-install-help,
         #operator-interface header label[for],
         #operator-interface header label:has(#json-bible-input) {
           background:linear-gradient(180deg,#202d42,#172236) !important;
@@ -206,17 +204,15 @@
           box-shadow:0 2px 7px rgba(0,0,0,.12) !important; border-radius:11px !important;
           font-weight:650 !important;
         }
-        #btn-quick-screen-share:hover,
         #btn-toggle-ext-projector:hover,
         #btn-toggle-local-fs:hover,
-        #btn-install-help:hover,
         #operator-interface header label:has(#json-bible-input):hover {
           background:linear-gradient(180deg,#2b3d57,#20304a) !important;
           border-color:rgba(126,169,235,.42) !important; color:#fff !important;
           box-shadow:0 4px 12px rgba(0,0,0,.20) !important;
         }
-        #btn-quick-screen-share i, #btn-toggle-ext-projector i, #btn-toggle-local-fs i,
-        #btn-install-help i, #operator-interface header label:has(#json-bible-input) i { color:#9bbce9 !important; }
+        #btn-toggle-ext-projector i, #btn-toggle-local-fs i,
+        #operator-interface header label:has(#json-bible-input) i { color:#9bbce9 !important; }
         #btn-toggle-ext-projector { border-color:rgba(93,151,238,.30) !important; }
         #btn-toggle-local-fs { border-color:rgba(112,164,154,.26) !important; }
         #operator-interface main { gap:14px !important; }
@@ -244,10 +240,20 @@
         /* Los colores de alerta se reservan para estados, no para decorar botones permanentes. */
         #btn-clear-projection { background:rgba(127,45,55,.16) !important; color:#e8a6ad !important; border-color:rgba(190,85,98,.28) !important; }
         #btn-standby { background:rgba(214,181,109,.09) !important; color:#e3cb91 !important; border-color:rgba(214,181,109,.28) !important; }
+        #karaoke-panel .text-fuchsia-200, #karaoke-panel .text-fuchsia-300 { color:#a9ccff !important; }
+        #karaoke-panel .border-fuchsia-400\/20, #karaoke-panel .border-fuchsia-400 { border-color:rgba(110,168,255,.28) !important; }
+        #karaoke-panel .accent-fuchsia-500 { accent-color:#6ea8ff !important; }
+        #karaoke-panel input:focus, #karaoke-panel select:focus, #karaoke-panel textarea:focus { border-color:rgba(110,168,255,.72) !important; }
+        #btn-open-youtube-monitor { background:linear-gradient(180deg,#263b59,#17263b) !important; border:1px solid rgba(110,168,255,.3) !important; box-shadow:none !important; }
+        #btn-open-youtube-monitor i { color:#9bbce9; }
+        #operator-interface .youtube-workflow { border-color:rgba(110,168,255,.25) !important; background:rgba(13,23,40,.78) !important; }
+        #operator-interface .youtube-workflow .youtube-capture-action { background:linear-gradient(135deg,#315d99,#244a7d) !important; }
+        #operator-interface .youtube-workflow .youtube-project-action { background:linear-gradient(135deg,#2563eb,#1d4ed8) !important; }
+        #operator-interface header .app-brand-mark { width:46px; height:46px; object-fit:contain; border-radius:13px; box-shadow:0 5px 16px rgba(0,0,0,.24); }
         @media(max-width:900px) {
           #operator-interface > header { padding-left:12px !important; padding-right:12px !important; gap:8px !important; }
           #operator-interface header > div:last-child { gap:5px !important; }
-          #btn-quick-screen-share, #btn-toggle-ext-projector, #btn-toggle-local-fs, #btn-install-help,
+          #btn-toggle-ext-projector, #btn-toggle-local-fs,
           #operator-interface header label:has(#json-bible-input) { padding:9px 10px !important; border-radius:10px !important; }
         }
 
@@ -286,30 +292,26 @@
 
     <div id="operator-interface" class="h-full flex flex-col min-h-0">
         <!-- CABECERA DE LA CONSOLA -->
-        <header class="bg-gray-900 border-b border-gray-800 h-16 px-4 md:px-6 flex items-center justify-between shrink-0 gap-3">
+        <header class="bg-gray-900 border-b border-gray-800 min-h-16 px-4 md:px-6 flex items-center justify-between shrink-0 gap-3">
             <div class="flex items-center gap-3">
-                <div class="bg-blue-600 text-white p-2.5 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/40 shrink-0">
-                    <i class="fa-solid fa-book-bible text-xl"></i>
-                </div>
+                <img src="icon-192.png" alt="Logo del Proyector Bíblico" class="app-brand-mark shrink-0">
                 <div>
                     <h1 class="font-black text-base md:text-lg leading-none tracking-wide text-white flex items-center gap-2">
                         PROYECTOR BÍBLICO
-                        <span class="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold">PRO v4.0 HD</span>
+                        <span class="text-[10px] bg-blue-500/10 text-blue-200 border border-blue-400/25 px-2 py-0.5 rounded-full font-bold">CONSOLA DE CULTO</span>
                     </h1>
-                    <span class="text-[10px] text-gray-400 font-semibold tracking-wider uppercase hidden sm:inline-block">Con Buscador de Imágenes en Internet por Palabras Clave</span>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[10px] text-gray-400 font-semibold tracking-wider uppercase hidden sm:inline-block">Biblia · multimedia · letras</span>
+                        <span id="session-save-status" class="text-[9px] font-bold text-emerald-300" role="status" aria-live="polite">Guardado local</span>
+                    </div>
                 </div>
             </div>
 
             <!-- Panel de Sincronización y Acciones de Cabecera -->
             <div class="flex items-center gap-2">
-                <button id="btn-quick-screen-share" class="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-red-950/40">
-                    <i class="fa-solid fa-display text-xs"></i>
-                    <span class="hidden md:inline">Capturar Pantalla</span>
-                </button>
-
                 <label class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-lg shadow-amber-950/40">
                     <i class="fa-solid fa-file-import text-xs"></i>
-                    <span class="hidden lg:inline">Cargar Biblia JSON</span>
+                    <span class="hidden lg:inline">Importar Biblia</span>
                     <input type="file" id="json-bible-input" accept=".json" class="hidden">
                 </label>
 
@@ -318,19 +320,14 @@
                     <span id="ext-win-text" class="hidden sm:inline">Proyectar (Ventana)</span>
                 </button>
 
-                <button id="btn-open-youtube-monitor" type="button" disabled title="Prepara primero un enlace de YouTube" class="bg-red-700 hover:bg-red-600 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-red-950/30">
+                <button id="btn-open-youtube-monitor" type="button" disabled title="Prepara primero un enlace de YouTube" class="bg-blue-700 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-950/30">
                     <i class="fa-brands fa-youtube text-xs"></i>
                     <span class="hidden sm:inline">Monitor YouTube</span>
                 </button>
 
                 <button id="btn-toggle-local-fs" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-emerald-950/40">
-                    <i class="fa-solid fa-expand text-xs"></i>
-                    <span class="hidden md:inline">Simular Pantalla</span>
-                </button>
-
-                <button id="btn-install-help" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition" title="Cómo instalar como aplicación en iPad">
-                    <i class="fa-solid fa-mobile-screen-button text-xs"></i>
-                    <span class="hidden xl:inline">Instalar app</span>
+                    <i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i>
+                    <span class="hidden md:inline">Vista ampliada</span>
                 </button>
             </div>
         </header>
@@ -341,6 +338,14 @@
             <!-- Columna 1: Libros y Capítulos -->
             <section id="workspace-bible-books" class="w-full lg:w-72 xl:w-80 h-64 lg:h-full flex flex-col bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-xl shrink-0">
                 <div class="p-3 border-b border-gray-800 bg-gray-900/80">
+                    <div class="flex items-center gap-2 mb-2.5">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Versión</span>
+                        <select id="bible-version-select" aria-label="Versión bíblica" class="min-w-0 flex-1 bg-gray-950 border border-gray-800 rounded-lg px-2 py-1.5 text-[11px] text-gray-200">
+                            <option value="sample">Cargando versiones…</option>
+                        </select>
+                        <span id="bible-version-badge" class="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/5 px-2 py-1 text-[9px] font-extrabold text-amber-200">DEMO</span>
+                    </div>
+                    <p id="bible-version-status" class="mb-2 text-[9px] leading-relaxed text-gray-500" role="status">Cargando la Biblia Reina-Valera 1960…</p>
                     <div class="relative">
                         <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
                         <input type="text" id="search-book" placeholder="Buscar libro..." class="w-full bg-gray-950 border border-gray-800 rounded-xl py-2 pl-8 pr-3 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition">
@@ -436,6 +441,10 @@
                     <button id="btn-standby" type="button" title="Mostrar el logo de la iglesia centrado como pantalla de espera" class="w-full mt-2 bg-amber-950/70 hover:bg-amber-900/80 text-amber-200 border border-amber-800/70 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-church"></i> Pantalla de espera (logo centrado)
                     </button>
+                    <details class="mt-2 rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2 text-[10px] text-gray-400">
+                        <summary class="cursor-pointer font-bold text-gray-300">Atajos de teclado</summary>
+                        <p class="mt-2 leading-relaxed">↑ / ↓ versículo · ← / → estrofa en Letras · L pantalla de espera con logo · B apagar · C ocultar texto · Esc cerrar vista ampliada</p>
+                    </details>
                 </div>
 
                 <div class="control-panel flex-1 min-h-0 bg-gray-900 border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
@@ -488,17 +497,20 @@
                                 </div>
                                 <div class="flex gap-1.5">
                                     <input type="text" id="video-url-input" placeholder="Ej: https://youtube.com/watch?v=..." class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-2.5 py-2 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500">
-                                    <button id="btn-load-youtube" class="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center">
+                                    <button id="btn-load-youtube" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center">
                                         <i class="fa-solid fa-check mr-1"></i> Preparar
                                     </button>
                                 </div>
-                                <div class="rounded-xl border border-amber-800/60 bg-amber-950/30 p-2.5 space-y-2">
+                                <div class="youtube-workflow rounded-xl border border-blue-400/20 bg-gray-950/60 p-2.5 space-y-2">
                                     <p id="youtube-staged-status" class="text-[10px] text-amber-200">Pega un enlace y pulsa Preparar. La proyección actual no cambiará.</p>
                                     <p class="text-[10px] leading-relaxed text-amber-100/80">YouTube decide cuándo muestra anuncios y no ofrece un ajuste oficial para quitarlos. Si necesitas reproducción continua sin anuncios, usa un video local que tengas derecho a proyectar.</p>
-                                    <button id="btn-launch-youtube-projection" type="button" disabled class="w-full disabled:opacity-40 disabled:cursor-not-allowed bg-slate-700 hover:bg-slate-600 text-white px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
-                                        <i class="fa-solid fa-window-restore"></i> Capturar ventana del monitor
+                                    <button id="btn-project-youtube-direct" type="button" disabled class="youtube-project-action w-full disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-play"></i> Proyectar video en la pantalla externa
                                     </button>
-                                    <p class="text-[10px] leading-relaxed text-emerald-100/80">Primero captura la ventana o pestaña de Monitor YouTube. La proyección actual seguirá visible. Cuando la fuente esté lista, pulsa Enviar al proyector para salir en vivo con ese mismo reproductor y su posición actual.</p>
+                                    <button id="btn-launch-youtube-projection" type="button" disabled class="youtube-capture-action w-full disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-window-restore"></i><span id="youtube-capture-action-label">Capturar ventana del monitor</span>
+                                    </button>
+                                    <p id="youtube-capture-help" class="text-[10px] leading-relaxed text-gray-400">En escritorio: abre Monitor YouTube y captura esa ventana. En iPad: usa la proyección directa; Safari comparte toda la pantalla y no entrega audio del sistema.</p>
                                     <button id="btn-send-youtube-monitor-to-projector" type="button" disabled class="hidden w-full disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-2.5 rounded-xl text-xs font-bold transition items-center justify-center gap-2">
                                         <i class="fa-solid fa-tower-broadcast"></i> Enviar al proyector
                                     </button>
@@ -506,7 +518,7 @@
                                         <i class="fa-solid fa-stop"></i> Cancelar captura / detener proyección
                                     </button>
                                     <p id="youtube-monitor-capture-status" class="text-[10px] text-gray-300" role="status" aria-live="polite">Abre el monitor de YouTube para habilitar la captura.</p>
-                                    <a href="diagnostico-captura.html" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center text-[10px] font-semibold text-blue-300 underline decoration-blue-500/50 underline-offset-2">Probar captura de Safari sin cambiar la proyección</a>
+                                    <a href="diagnostico-captura.html" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center text-[10px] font-semibold text-blue-300 underline decoration-blue-500/50 underline-offset-2">Diagnóstico técnico de captura</a>
                                 </div>
                                 <div id="youtube-history-panel" class="rounded-xl border border-gray-800 bg-gray-950/60 p-2.5 space-y-2">
                                     <div class="flex items-center justify-between gap-2">
@@ -539,7 +551,7 @@
                                     <p id="youtube-controls-target" class="text-[10px] text-gray-500">Abre Monitor YouTube o envía un video para habilitar los controles.</p>
                                 </div>
                                 <button id="btn-open-youtube-window" type="button" class="hidden" aria-hidden="true" tabindex="-1">Ventana YouTube independiente desactivada</button>
-                                <p class="text-[10px] text-gray-400">Los botones Reproducir y Pausar controlan el monitor mientras está abierto. La proyección conserva la captura de esa misma ventana; no inicia otro reproductor de YouTube.</p>
+                                <p class="text-[10px] text-gray-400">Los controles siguen el reproductor activo: Monitor YouTube en escritorio o la ventana del proyector en iPad.</p>
                                 <div id="projector-connection-status" class="flex items-center gap-2 text-[10px] text-amber-300" role="status" aria-live="polite">
                                     <span id="projector-connection-dot" class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
                                     <span id="projector-connection-label">Comprobando conexión con el proyector…</span>
@@ -620,7 +632,7 @@ Segunda línea
 
 Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="karaoke-load-manual" class="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-2.5 text-sm font-bold">Usar estas letras</button><button id="karaoke-clear" class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm">Limpiar</button></div><div class="mt-3 rounded-xl border border-gray-700/80 bg-gray-900/60 p-3"><div class="flex items-center justify-between gap-2 mb-2"><h4 class="text-xs font-bold text-fuchsia-200"><i class="fa-solid fa-hand-pointer mr-1"></i>Proyección rápida</h4><span class="text-[10px] text-gray-500">Toca un bloque para proyectarlo</span></div><div id="karaoke-clickable-stanzas" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><p class="text-xs text-gray-500">Carga una letra para seleccionar sus bloques aquí.</p></div></div></section>
                             <section id="karaoke-design-area" class="karaoke-area rounded-xl border border-gray-700/80 bg-gray-950/60 p-3 space-y-4"><div class="flex items-center justify-between gap-3"><h3 class="text-sm font-bold text-gray-200">Diseño de proyección</h3><label class="text-xs flex items-center gap-2"><input id="karaoke-transparent" type="checkbox" checked class="accent-fuchsia-500"> Fondo transparente</label></div>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3"><label class="text-xs text-gray-400">Tamaño (vw)<input id="karaoke-size" type="number" min="1.5" max="12" step="0.5" value="4.5" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"></label><label class="text-xs text-gray-400">Color texto<input id="karaoke-color" type="color" value="#ffffff" class="mt-1 w-full h-10 bg-gray-900 border border-gray-700 rounded-lg p-1"></label><label class="text-xs text-gray-400">Fuente<select id="karaoke-font" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option>Inter</option><option>Montserrat</option><option>Arial</option><option>Georgia</option><option>Roboto Slab</option><option>Playfair Display</option><option>Open Sans</option></select></label><label class="text-xs text-gray-400">Alineación<select id="karaoke-align" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option value="center">Centro</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label></div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3"><label class="text-xs text-gray-400">Tamaño (vw)<input id="karaoke-size" type="number" min="1.5" max="12" step="0.5" value="4.5" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"></label><label class="text-xs text-gray-400">Color texto<input id="karaoke-color" type="color" value="#ffffff" class="mt-1 w-full h-10 bg-gray-900 border border-gray-700 rounded-lg p-1"></label><label class="text-xs text-gray-400">Fuente<select id="karaoke-font" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option>Inter</option><option>Montserrat</option><option>Cinzel</option><option>Playfair Display</option><option>EB Garamond</option><option>Lora</option><option>Merriweather</option><option>Libre Baskerville</option><option>Crimson Text</option><option>Cardo</option><option>Spectral</option><option>PT Serif</option><option>Roboto Slab</option><option>Open Sans</option><option>Source Sans 3</option><option>Fira Sans</option><option>Nunito Sans</option><option>Raleway</option><option>Poppins</option><option>Quicksand</option><option>Josefin Sans</option><option>Ubuntu</option><option>Oswald</option><option>Amatic SC</option><option>Archivo Black</option><option>Arial</option><option>Georgia</option></select></label><label class="text-xs text-gray-400">Alineación<select id="karaoke-align" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option value="center">Centro</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label></div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3"><label class="text-xs text-gray-400">Fondo<select id="karaoke-bg-type" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option value="color">Color sólido</option><option value="gradient">Degradado</option><option value="image">Imagen de internet</option></select></label><label class="text-xs text-gray-400">Color del fondo<input id="karaoke-bg-color" type="color" value="#000000" class="mt-1 w-full h-10 bg-gray-900 border border-gray-700 rounded-lg p-1"></label><label class="text-xs text-gray-400">Degradado<select id="karaoke-bg-gradient" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option value="linear-gradient(135deg,#020617 0%,#1e1b4b 100%)">Azul noche</option><option value="linear-gradient(135deg,#000000 0%,#434343 100%)">Negro y gris</option><option value="linear-gradient(135deg,#052e16 0%,#166534 100%)">Verde</option><option value="linear-gradient(135deg,#450a0a 0%,#991b1b 100%)">Rojo</option><option value="linear-gradient(135deg,#312e81 0%,#7e22ce 100%)">Violeta</option></select></label><label class="text-xs text-gray-400">Opacidad del fondo <span id="karaoke-bg-opacity-label">100%</span><input id="karaoke-bg-opacity" type="range" min="0" max="100" step="5" value="100" class="mt-2 w-full accent-fuchsia-500"></label></div>
                             <label class="flex items-center gap-2 text-xs text-gray-300"><input id="karaoke-shadow" type="checkbox" checked class="accent-fuchsia-500"> Sombreado de las letras</label>
                             <div id="karaoke-image-search-panel" class="hidden space-y-2 border-t border-gray-800 pt-3"><div class="flex gap-2"><input id="karaoke-image-query" class="min-w-0 flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white" placeholder="Buscar imagen: cielo, cruz, montañas..."><button id="karaoke-image-search" type="button" class="bg-blue-600 hover:bg-blue-500 rounded-lg px-3 py-2 text-xs font-bold">Buscar</button></div><p id="karaoke-image-status" class="text-[10px] text-gray-500">Usa la clave Pixabay guardada en la pestaña de personalización.</p><div id="karaoke-image-results" class="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto"></div></div>
@@ -708,7 +720,8 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                 </div>
                                 <div class="space-y-1.5">
                                     <div class="flex justify-between items-center"><label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tamaño de la cita</label><span id="val-citation-size" class="text-xs font-extrabold text-amber-300">1.6vw</span></div>
-                                    <input type="range" id="citation-size" min="0.8" max="3.5" step="0.1" value="1.6" class="w-full accent-amber-500">
+                                    <input type="range" id="citation-size" min="0.8" max="10" step="0.1" value="1.6" class="w-full accent-amber-500">
+                                    <p class="text-[10px] leading-relaxed text-gray-500">El tamaño se adapta a la pantalla y permite letras grandes para auditorios.</p>
                                 </div>
                                 <div class="space-y-1.5">
                                     <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Color de la cita</label>
@@ -958,6 +971,72 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
     </div>
 
     <script>
+        const PROJECTOR_DB_NAME = 'proyector-biblico-local';
+        const RVR1960_BUNDLE_VERSION = 'rvr1960-2026-10-26-verse-cleanup';
+        let projectorDBPromise = null;
+        function openProjectorDB() {
+            if (!('indexedDB' in window)) return Promise.resolve(null);
+            if (projectorDBPromise) return projectorDBPromise;
+            projectorDBPromise = new Promise((resolve, reject) => {
+                const request = indexedDB.open(PROJECTOR_DB_NAME, 1);
+                request.onupgradeneeded = () => {
+                    const db = request.result;
+                    if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
+                    if (!db.objectStoreNames.contains('bibles')) db.createObjectStore('bibles', { keyPath: 'id' });
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error || new Error('No se pudo abrir el almacenamiento local.'));
+            });
+            return projectorDBPromise;
+        }
+        async function readLocalRecord(storeName, key) {
+            try {
+                const db = await openProjectorDB();
+                if (!db) return null;
+                return await new Promise((resolve, reject) => {
+                    const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(key);
+                    request.onsuccess = () => resolve(request.result ?? null);
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) { console.warn('No se pudo leer el almacenamiento local:', error); return null; }
+        }
+        async function writeLocalRecord(storeName, value, key) {
+            const db = await openProjectorDB();
+            if (!db) throw new Error('IndexedDB no está disponible en este navegador.');
+            return new Promise((resolve, reject) => {
+                const store = db.transaction(storeName, 'readwrite').objectStore(storeName);
+                const request = key === undefined ? store.put(value) : store.put(value, key);
+                request.onsuccess = () => resolve(true);
+                request.onerror = () => reject(request.error);
+            });
+        }
+        async function readAllLocalBibles() {
+            try {
+                const savedIndex = await readLocalRecord('settings', 'bible-index');
+                if (Array.isArray(savedIndex)) return savedIndex;
+                const db = await openProjectorDB();
+                if (!db) return [];
+                const records = await new Promise((resolve, reject) => {
+                    const request = db.transaction('bibles', 'readonly').objectStore('bibles').getAll();
+                    request.onsuccess = () => resolve(request.result || []);
+                    request.onerror = () => reject(request.error);
+                });
+                const index = records.map(({ id, name, updatedAt }) => ({ id, name, updatedAt }));
+                if (index.length) await writeLocalRecord('settings', index, 'bible-index');
+                return index;
+            } catch (_) { return []; }
+        }
+        async function storeBibleVersion(record) {
+            await writeLocalRecord('bibles', record);
+            const index = (await readAllLocalBibles()).filter(item => item.id !== record.id);
+            index.push({ id: record.id, name: record.name, updatedAt: record.updatedAt });
+            await writeLocalRecord('settings', index, 'bible-index');
+        }
+        function isAppleTouchDevice() {
+            const platform = String(navigator.platform || '');
+            return /iPad|iPhone|iPod/i.test(platform) || (platform === 'MacIntel' && Number(navigator.maxTouchPoints) > 1);
+        }
+
         // BIBLIOTECA BÍBLICA POR DEFECTO
         let bibleData = {
             "Génesis": {
@@ -1000,6 +1079,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let selectedBook = "Salmos";
         let selectedChapter = "23";
         let selectedVerseIdx = null;
+        let selectedBibleId = 'sample';
+        let selectedBibleName = 'Biblioteca de muestra';
+        let bundledRvrAvailable = false;
+        let savedWorkspace = 'bible';
+        let operatorSaveTimer = 0;
 
         let currentText = "Jehová es mi pastor; nada me faltará.";
         let currentCitation = "Salmos 23:1";
@@ -1034,7 +1118,8 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         };
 
         let mediaMode = 'none';
-        let karaokeStanzas = []; let karaokeIndex = 0; let karaokeActive = false; let karaokeTitle = '';
+        let karaokeStanzas = []; let karaokeOriginalStanzas = []; let karaokeDivisionMode = 'manual';
+        let karaokeIndex = 0; let karaokeActive = false; let karaokeTitle = '';
         let karaokeStyle = { transparent:true, size:4.5, color:'#ffffff', font:'Inter', align:'center', bgType:'color', bgColor:'#000000', bgGradient:'linear-gradient(135deg,#020617 0%,#1e1b4b 100%)', bgImage:'', bgOpacity:100, shadow:true };
         let activeVideoUrl = '';
         // URL preparada: no altera la proyección hasta pulsar el botón de envío.
@@ -1562,15 +1647,27 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const startButton = document.getElementById('btn-launch-youtube-projection');
             const sendButton = document.getElementById('btn-send-youtube-monitor-to-projector');
             const stopButton = document.getElementById('btn-stop-youtube-monitor-capture');
+            const directButton = document.getElementById('btn-project-youtube-direct');
+            const monitorButton = document.getElementById('btn-open-youtube-monitor');
+            const captureHelp = document.getElementById('youtube-capture-help');
             const status = document.getElementById('youtube-monitor-capture-status');
+            const appleTouch = isAppleTouchDevice();
             const monitorCaptureActive = screenCapturePurpose === 'youtube-monitor' && !!window.screenStream;
             const monitorCapturePrepared = monitorCaptureActive && hasLiveScreenCaptureVideo(window.screenStream) && !screenCaptureSending && mediaMode !== 'screen';
             const busy = screenCapturePending || (!!window.screenStream && !monitorCaptureActive);
             const captureSupportMessage = getScreenCaptureSupportMessage();
             if (startButton) {
                 startButton.disabled = busy || monitorCaptureActive || !isYouTubeMonitorReadyForStagedVideo() || !isLocalProjectorReady() || !!captureSupportMessage;
-                startButton.classList.toggle('hidden', monitorCaptureActive);
+                startButton.classList.toggle('hidden', monitorCaptureActive || appleTouch);
             }
+            if (directButton) directButton.disabled = !stagedYouTubeUrl || !isLocalProjectorReady() || monitorCaptureActive;
+            if (monitorButton) {
+                monitorButton.classList.toggle('hidden', appleTouch);
+                monitorButton.disabled = !stagedYouTubeUrl;
+            }
+            if (captureHelp) captureHelp.textContent = appleTouch
+                ? 'En iPad, Safari solo entrega la pantalla completa y no el audio del sistema. Usa “Proyectar video” para cargarlo directamente en la ventana del proyector.'
+                : 'En escritorio: abre Monitor YouTube, reproduce el video y captura esa ventana. La proyección directa está disponible si la captura no funciona.';
             if (sendButton) {
                 // Una vez capturado el monitor, Safari puede suspender su heartbeat en segundo plano.
                 // La pista de captura viva es la señal fiable para conservar el botón Enviar.
@@ -1590,6 +1687,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             else if (monitorCapturePrepared) status.textContent = screenCaptureStatusMessage || 'Fuente lista. La proyección actual sigue activa; pulsa Enviar al proyector cuando quieras salir en vivo.';
             else if (screenCapturePending) status.textContent = 'En el selector, elige la ventana o pestaña del monitor; si solo ofrece pantalla completa, comparte una pantalla donde el monitor permanezca visible…';
             else if (captureSupportMessage) status.textContent = captureSupportMessage;
+            else if (appleTouch && mediaMode === 'youtube' && getYouTubeVideoIdFromUrl(activeVideoUrl)) status.textContent = 'YouTube se está reproduciendo directamente en la ventana local del proyector.';
+            else if (appleTouch && stagedYouTubeUrl && !isLocalProjectorReady()) status.textContent = 'Abre la ventana del proyector; después podrás proyectar el enlace directamente desde Safari.';
+            else if (appleTouch && stagedYouTubeUrl) status.textContent = 'En iPad está lista la proyección directa. No hace falta capturar la pantalla.';
             else if (!stagedYouTubeUrl) status.textContent = 'Prepara un enlace de YouTube primero.';
             else if (!isYouTubeWindowConnected()) status.textContent = 'Abre Monitor YouTube y espera a que aparezca «Video listo».';
             else if (youtubeWindowIsMonitor && youtubeMonitorRemoteStatus && youtubeMonitorRemoteStatus.status === 'api-load-error') status.textContent = 'Monitor YouTube no pudo cargar. Comprueba la conexión a Internet y vuelve a abrirlo.';
@@ -1961,7 +2061,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             });
         }
 
-        function saveOperatorState() {
+        function legacySaveOperatorState() {
             const stateToSave = {
                 selectedBook,
                 selectedChapter,
@@ -1978,7 +2078,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             } catch(e) {}
         }
 
-        function loadOperatorState() {
+        function legacyLoadOperatorState() {
             try {
                 const savedStr = localStorage.getItem('biblical_operator_state');
                 if (savedStr) {
@@ -2040,6 +2140,284 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 }
             } catch(e) {}
         }
+
+        function collectOperatorState() {
+            const value = id => document.getElementById(id)?.value ?? '';
+            const checked = id => !!document.getElementById(id)?.checked;
+            return {
+                selectedBibleId, selectedBook, selectedChapter, selectedVerseIdx,
+                currentText, currentCitation, isBlackout, isClearText, isStandby, cultoList,
+                projectionStyles,
+                workspace: document.body.dataset.workspace || savedWorkspace,
+                karaoke: {
+                    track: value('karaoke-track'), artist: value('karaoke-artist'),
+                    manualText: value('karaoke-manual'),
+                    originalStanzas: karaokeOriginalStanzas, stanzas: karaokeStanzas,
+                    index: karaokeIndex, active: karaokeActive, title: karaokeTitle,
+                    divisionMode: value('karaoke-split-mode') || karaokeDivisionMode,
+                    style: karaokeStyle
+                }
+            };
+        }
+
+        function setPersistenceStatus(message, isError = false) {
+            const status = document.getElementById('session-save-status');
+            if (!status) return;
+            status.textContent = message;
+            status.classList.toggle('text-rose-300', isError);
+            status.classList.toggle('text-emerald-300', !isError);
+        }
+
+        function compactOperatorState(state) {
+            const compact = {
+                ...state,
+                projectionStyles: { ...state.projectionStyles },
+                karaoke: { ...state.karaoke, style: { ...(state.karaoke?.style || {}) } }
+            };
+            if (compact.projectionStyles.bgImage?.startsWith('data:')) compact.projectionStyles.bgImage = '';
+            if (compact.projectionStyles.logoUrl?.startsWith('data:')) compact.projectionStyles.logoUrl = '';
+            if (compact.karaoke.style.bgImage?.startsWith('data:')) compact.karaoke.style.bgImage = '';
+            return compact;
+        }
+
+        function saveOperatorState() {
+            const state = collectOperatorState();
+            try {
+                // Las imágenes locales se guardan completas en IndexedDB, fuera del límite bajo de localStorage.
+                localStorage.setItem('biblical_operator_state', JSON.stringify(compactOperatorState(state)));
+            } catch (_) {}
+            setPersistenceStatus('Guardando…');
+            clearTimeout(operatorSaveTimer);
+            operatorSaveTimer = setTimeout(async () => {
+                try {
+                    await writeLocalRecord('settings', collectOperatorState(), 'operator');
+                    setPersistenceStatus('Guardado en este iPad');
+                } catch (error) {
+                    console.warn('No se pudo guardar la sesión en IndexedDB:', error);
+                    setPersistenceStatus('Guardado limitado', true);
+                }
+            }, 180);
+        }
+
+        function normalizeBibleData(parsed) {
+            const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+            const cleanVerse = value => String(value).trim().replace(/([,;:.!?])(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g, '$1 ');
+            const bookEntries = isPlainObject(parsed) ? Object.entries(parsed).filter(([name]) => !['lang', 'version', 'metadata'].includes(name.toLowerCase())) : [];
+            const valid = bookEntries.length >= 60 && bookEntries.every(([, chapters]) => isPlainObject(chapters)
+                && Object.keys(chapters).length > 0
+                && Object.values(chapters).every(verses => (Array.isArray(verses) && verses.every(verse => typeof verse === 'string'))
+                    || (isPlainObject(verses) && Object.keys(verses).length > 0 && Object.values(verses).every(verse => typeof verse === 'string'))));
+            if (!valid) throw new Error('La Biblia debe contener sus libros, capítulos y versículos en formato JSON.');
+            return Object.fromEntries(bookEntries.map(([book, chapters]) => [book,
+                Object.fromEntries(Object.entries(chapters).map(([chapter, verses]) => [chapter,
+                    Array.isArray(verses) ? verses.map(cleanVerse) : Object.entries(verses)
+                        .sort(([a], [b]) => Number(a) - Number(b))
+                        .map(([, text]) => cleanVerse(text))
+                ]))
+            ]));
+        }
+
+        function bibleVersionDetails(fileName, fixedRvr = false) {
+            const baseName = String(fileName || 'Biblia importada').replace(/\.json$/i, '').replace(/[_-]+/g, ' ').trim();
+            const looksRvr = fixedRvr || /rvr\s*1960|reina[ -]?valera\s*1960/i.test(baseName);
+            const name = looksRvr ? 'Reina-Valera 1960 (RVR1960)' : (/king\s*james/i.test(baseName) ? 'King James en Español' : baseName || 'Biblia importada');
+            const id = looksRvr ? 'rvr1960' : name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'biblia-importada';
+            return { id, name };
+        }
+
+        function updateBibleVersionBadge() {
+            const badge = document.getElementById('bible-version-badge');
+            if (!badge) return;
+            badge.textContent = selectedBibleId === 'sample' ? 'DEMO' : (selectedBibleId === 'rvr1960' ? 'RVR1960' : (/king\s*james/i.test(selectedBibleName) ? 'KJV' : 'LOCAL'));
+            badge.title = selectedBibleName;
+            const status = document.getElementById('bible-version-status');
+            if (status) status.textContent = selectedBibleId === 'sample'
+                ? 'Biblioteca de muestra. Publica biblia.json junto a index.html para cargar la RVR1960 completa.'
+                : (selectedBibleId === 'rvr1960' ? 'Biblia completa cargada · Reina-Valera 1960' : 'Versión guardada en este navegador · ' + selectedBibleName);
+        }
+
+        async function renderBibleVersionOptions() {
+            const select = document.getElementById('bible-version-select');
+            if (!select) return;
+            const records = await readAllLocalBibles();
+            select.innerHTML = '';
+            const hasRvr = bundledRvrAvailable || records.some(record => record.id === 'rvr1960');
+            if (!hasRvr) {
+                const sample = document.createElement('option');
+                sample.value = 'sample'; sample.textContent = 'Biblioteca de muestra'; select.appendChild(sample);
+            }
+            records.sort((a, b) => a.name.localeCompare(b.name, 'es')).forEach(record => {
+                const option = document.createElement('option');
+                option.value = record.id; option.textContent = record.name; select.appendChild(option);
+            });
+            if (bundledRvrAvailable && !records.some(record => record.id === 'rvr1960')) {
+                const option = document.createElement('option'); option.value = 'rvr1960'; option.textContent = 'Reina-Valera 1960 (RVR1960)'; select.appendChild(option);
+            }
+            if (!Array.from(select.options).some(option => option.value === selectedBibleId)) {
+                selectedBibleId = hasRvr ? 'rvr1960' : 'sample';
+                selectedBibleName = hasRvr ? 'Reina-Valera 1960 (RVR1960)' : 'Biblioteca de muestra';
+            }
+            select.value = selectedBibleId;
+            updateBibleVersionBadge();
+        }
+
+        async function loadSelectedBible() {
+            if (selectedBibleId === 'sample') {
+                selectedBibleName = 'Biblioteca de muestra';
+                await renderBibleVersionOptions();
+                return;
+            }
+            const record = await readLocalRecord('bibles', selectedBibleId);
+            if (record && record.data) {
+                bibleData = record.data;
+                selectedBibleName = record.name;
+            } else {
+                selectedBibleId = 'sample';
+                selectedBibleName = 'Biblioteca de muestra';
+            }
+            await renderBibleVersionOptions();
+        }
+
+        async function loadBundledRvr1960() {
+            try {
+                const cached = await readLocalRecord('bibles', 'rvr1960');
+                if (cached && cached.data) {
+                    bundledRvrAvailable = true;
+                    bibleData = cached.data;
+                    if (selectedBibleId === 'sample' || selectedBibleId === 'rvr1960') {
+                        selectedBibleId = 'rvr1960'; selectedBibleName = 'Reina-Valera 1960 (RVR1960)';
+                    }
+                    if (cached.bundleVersion === RVR1960_BUNDLE_VERSION) return true;
+                }
+                const response = await fetch(new URL('biblia.json', window.location.href));
+                if (!response.ok) throw new Error('No se encontró biblia.json junto a index.html.');
+                const data = normalizeBibleData(await response.json());
+                const version = bibleVersionDetails('Reina-Valera 1960', true);
+                bundledRvrAvailable = true;
+                bibleData = data;
+                try { await storeBibleVersion({ ...version, data, bundleVersion: RVR1960_BUNDLE_VERSION, updatedAt: Date.now() }); }
+                catch (storageError) { console.warn('La RVR1960 está disponible en el archivo web, pero no se pudo guardar en este iPad:', storageError); }
+                if (selectedBibleId === 'sample' || selectedBibleId === 'rvr1960') {
+                    selectedBibleId = version.id;
+                    selectedBibleName = version.name;
+                }
+                return true;
+            } catch (error) {
+                console.info('Se usará la Biblia local guardada o la de muestra:', error.message || error);
+                return false;
+            }
+        }
+
+        async function chooseBibleVersion(id) {
+            if (!id || id === selectedBibleId) return;
+            if (id === 'sample') {
+                selectedBibleId = 'sample'; selectedBibleName = 'Biblioteca de muestra'; saveOperatorState();
+                location.reload();
+                return;
+            }
+            const record = await readLocalRecord('bibles', id);
+            if (id === 'rvr1960' && bundledRvrAvailable && !record) {
+                selectedBibleId = 'rvr1960'; selectedBibleName = 'Reina-Valera 1960 (RVR1960)';
+                await renderBibleVersionOptions(); renderBooks(); renderChapters(); renderVerses(); syncToProjector(); return;
+            }
+            if (!record || !record.data) { showToast('No se pudo abrir esa versión bíblica guardada.', 'error'); return; }
+            bibleData = record.data; selectedBibleId = record.id; selectedBibleName = record.name;
+            if (!bibleData[selectedBook] || !bibleData[selectedBook][selectedChapter]) {
+                selectedBook = Object.keys(bibleData)[0];
+                selectedChapter = Object.keys(bibleData[selectedBook] || {})[0] || '1';
+                selectedVerseIdx = null;
+            }
+            const match = /^(.*)\s+(\d+):(\d+)$/.exec(currentCitation || '');
+            if (match && bibleData[match[1]]?.[match[2]]) {
+                selectedBook = match[1]; selectedChapter = match[2]; selectedVerseIdx = Number(match[3]) - 1;
+                currentText = bibleData[selectedBook][selectedChapter][selectedVerseIdx] || currentText;
+            }
+            await renderBibleVersionOptions();
+            renderBooks(); renderChapters(); renderVerses(); syncToProjector();
+            showToast('Versión bíblica cambiada a ' + selectedBibleName, 'success');
+        }
+
+        async function loadOperatorState() {
+            let saved = await readLocalRecord('settings', 'operator');
+            if (!saved) {
+                try { saved = JSON.parse(localStorage.getItem('biblical_operator_state') || 'null'); } catch (_) {}
+            }
+            if (!saved) { await renderBibleVersionOptions(); return; }
+            selectedBibleId = saved.selectedBibleId || 'sample';
+            selectedBook = saved.selectedBook || selectedBook;
+            selectedChapter = saved.selectedChapter || selectedChapter;
+            selectedVerseIdx = saved.selectedVerseIdx !== undefined ? saved.selectedVerseIdx : selectedVerseIdx;
+            currentText = saved.currentText ?? currentText;
+            currentCitation = saved.currentCitation ?? currentCitation;
+            isBlackout = !!saved.isBlackout; isClearText = !!saved.isClearText;
+            isStandby = !!saved.isStandby;
+            if (Array.isArray(saved.cultoList)) cultoList = saved.cultoList;
+            if (saved.projectionStyles) projectionStyles = { ...projectionStyles, ...saved.projectionStyles };
+            if (['bible','local','youtube','capture','karaoke','design'].includes(saved.workspace)) savedWorkspace = saved.workspace;
+
+            const karaoke = saved.karaoke || {};
+            document.getElementById('karaoke-track').value = karaoke.track || '';
+            document.getElementById('karaoke-artist').value = karaoke.artist || '';
+            document.getElementById('karaoke-manual').value = karaoke.manualText || '';
+            karaokeTitle = karaoke.title || '';
+            karaokeOriginalStanzas = Array.isArray(karaoke.originalStanzas) ? karaoke.originalStanzas : String(karaoke.manualText || '').trim().split(/\n\s*\n+/).filter(Boolean);
+            karaokeStanzas = Array.isArray(karaoke.stanzas) ? karaoke.stanzas : karaokeOriginalStanzas.slice();
+            karaokeIndex = Math.max(0, Math.min(Number(karaoke.index) || 0, Math.max(karaokeStanzas.length - 1, 0)));
+            karaokeActive = !!karaoke.active; karaokeDivisionMode = karaoke.divisionMode || 'manual';
+            if (karaoke.style) karaokeStyle = { ...karaokeStyle, ...karaoke.style };
+            document.getElementById('karaoke-split-mode').value = karaokeDivisionMode;
+            document.getElementById('karaoke-transparent').checked = !!karaokeStyle.transparent;
+            document.getElementById('karaoke-size').value = karaokeStyle.size || 4.5;
+            document.getElementById('karaoke-color').value = karaokeStyle.color || '#ffffff';
+            document.getElementById('karaoke-font').value = karaokeStyle.font || 'Inter';
+            document.getElementById('karaoke-align').value = karaokeStyle.align || 'center';
+            document.getElementById('karaoke-bg-type').value = karaokeStyle.bgType || 'color';
+            document.getElementById('karaoke-bg-color').value = karaokeStyle.bgColor || '#000000';
+            document.getElementById('karaoke-bg-gradient').value = karaokeStyle.bgGradient || 'linear-gradient(135deg,#020617 0%,#1e1b4b 100%)';
+            document.getElementById('karaoke-bg-opacity').value = karaokeStyle.bgOpacity ?? 100;
+            document.getElementById('karaoke-shadow').checked = karaokeStyle.shadow !== false;
+
+            document.getElementById('style-font').value = projectionStyles.font;
+            document.getElementById('style-size').value = projectionStyles.size;
+            document.getElementById('val-font-size').innerText = projectionStyles.size + 'vw';
+            document.getElementById('style-overlay-opacity').value = projectionStyles.bgOpacity;
+            document.getElementById('val-overlay-opacity').innerText = projectionStyles.bgOpacity + '%';
+            document.getElementById('style-bgcolor').value = projectionStyles.bgcolor;
+            document.getElementById('style-textcolor').value = projectionStyles.textcolor;
+            projectionStyles.citationSize = String(Math.min(10, Math.max(0.8, Number(projectionStyles.citationSize) || 1.6)));
+            projectionStyles.citationFont = projectionStyles.citationFont || projectionStyles.font || 'Inter';
+            projectionStyles.citationColor = projectionStyles.citationColor || projectionStyles.textcolor || '#ffffff';
+            projectionStyles.citationBold = projectionStyles.citationBold !== false;
+            projectionStyles.citationItalic = !!projectionStyles.citationItalic;
+            projectionStyles.citationShadow = projectionStyles.citationShadow !== false;
+            projectionStyles.citationAlign = projectionStyles.citationAlign || 'center';
+            projectionStyles.citationPosition = projectionStyles.citationPosition || 'bottom-center';
+            document.getElementById('citation-font').value = projectionStyles.citationFont;
+            document.getElementById('citation-size').value = projectionStyles.citationSize;
+            document.getElementById('val-citation-size').innerText = projectionStyles.citationSize + 'vw';
+            document.getElementById('citation-color').value = projectionStyles.citationColor;
+            document.getElementById('citation-bold').checked = projectionStyles.citationBold;
+            document.getElementById('citation-italic').checked = projectionStyles.citationItalic;
+            document.getElementById('citation-shadow').checked = projectionStyles.citationShadow;
+            document.getElementById('citation-position').value = projectionStyles.citationPosition;
+            if (projectionStyles.logoUrl) {
+                document.getElementById('logo-thumbnail-img').src = projectionStyles.logoUrl;
+                document.getElementById('logo-thumbnail-img').classList.remove('hidden');
+                document.getElementById('logo-placeholder-icon').classList.add('hidden');
+                document.getElementById('btn-remove-logo').classList.remove('hidden');
+                document.getElementById('logo-options-box').classList.remove('hidden');
+            }
+            document.getElementById('toggle-logo-corner').checked = projectionStyles.showLogoCorner !== false;
+            if (isBlackout) document.getElementById('btn-blackout').className = 'bg-red-600 hover:bg-red-500 text-white py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/50';
+            if (isClearText) document.getElementById('btn-cleartext').className = 'bg-amber-600 hover:bg-amber-500 text-white py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-950/50';
+            updateCitationAlignButtons(); updateFormatButtons(); updateBgTypeUI(projectionStyles.bgType); updateLogoPositionUI();
+            await renderBibleVersionOptions();
+        }
+
+        window.addEventListener('pagehide', () => {
+            clearTimeout(operatorSaveTimer);
+            try { void writeLocalRecord('settings', collectOperatorState(), 'operator'); } catch (_) {}
+        });
 
         function updateFormatButtons() {
             const btnBold = document.getElementById('btn-format-bold');
@@ -2278,12 +2656,19 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             }, 3000);
         }
 
+        const BIBLE_BOOK_ORDER = ['Génesis','Éxodo','Levítico','Números','Deuteronomio','Josué','Jueces','Rut','1 Samuel','2 Samuel','1 Reyes','2 Reyes','1 Crónicas','2 Crónicas','Esdras','Nehemías','Ester','Job','Salmos','Proverbios','Eclesiastés','Cantares','Isaías','Jeremías','Lamentaciones','Ezequiel','Daniel','Oseas','Joel','Amós','Abdías','Jonás','Miqueas','Nahúm','Habacuc','Sofonías','Hageo','Zacarías','Malaquías','S. Mateo','S. Marcos','S. Lucas','S.Juan','Hechos','Romanos','1 Corintios','2 Corintios','Gálatas','Efesios','Filipenses','Colosenses','1 Tesalonicenses','2 Tesalonicenses','1 Timoteo','2 Timoteo','Tito','Filemón','Hebreos','Santiago','1 Pedro','2 Pedro','1 Juan','2 Juan','3 Juan','Judas','Apocalipsis'];
+        function getBibleBookNames() {
+            const present = Object.keys(bibleData);
+            const canonical = BIBLE_BOOK_ORDER.filter(book => present.includes(book));
+            return canonical.concat(present.filter(book => !canonical.includes(book)).sort((a, b) => a.localeCompare(b, 'es')));
+        }
+
         function renderBooks() {
             const container = document.getElementById('books-container');
             const filter = document.getElementById('search-book').value.toLowerCase().trim();
             container.innerHTML = '';
 
-            const books = Object.keys(bibleData);
+            const books = getBibleBookNames();
             books.forEach(book => {
                 if (filter && !book.toLowerCase().includes(filter)) return;
 
@@ -2395,6 +2780,40 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             showToast(`Proyectando: ${citation}`, "success");
         }
 
+        function moveBibleVerse(delta) {
+            const books = getBibleBookNames();
+            let bookIndex = books.indexOf(selectedBook);
+            if (bookIndex < 0) return false;
+            let chapterNames = Object.keys(bibleData[selectedBook] || {}).sort((a, b) => Number(a) - Number(b));
+            let chapterIndex = chapterNames.indexOf(selectedChapter);
+            let verseIndex = Number.isInteger(selectedVerseIdx) ? selectedVerseIdx : -1;
+            if (verseIndex < 0) {
+                const citation = /^(.*)\s+(\d+):(\d+)$/.exec(currentCitation || '');
+                if (citation && citation[1] === selectedBook && citation[2] === selectedChapter) verseIndex = Number(citation[3]) - 1;
+            }
+            const direction = delta < 0 ? -1 : 1;
+            const verses = bibleData[selectedBook]?.[selectedChapter] || [];
+            let nextVerseIndex = verseIndex + direction;
+            if (nextVerseIndex < 0 || nextVerseIndex >= verses.length) {
+                chapterIndex += direction;
+                if (chapterIndex < 0 || chapterIndex >= chapterNames.length) {
+                    bookIndex += direction;
+                    if (bookIndex < 0 || bookIndex >= books.length) return false;
+                    selectedBook = books[bookIndex];
+                    chapterNames = Object.keys(bibleData[selectedBook] || {}).sort((a, b) => Number(a) - Number(b));
+                    chapterIndex = direction > 0 ? 0 : chapterNames.length - 1;
+                }
+                selectedChapter = chapterNames[chapterIndex];
+                const nextVerses = bibleData[selectedBook]?.[selectedChapter] || [];
+                nextVerseIndex = direction > 0 ? 0 : nextVerses.length - 1;
+            }
+            const nextVerses = bibleData[selectedBook]?.[selectedChapter] || [];
+            if (nextVerseIndex < 0 || !nextVerses[nextVerseIndex]) return false;
+            renderBooks(); renderChapters();
+            projectVerse(nextVerses[nextVerseIndex], `${selectedBook} ${selectedChapter}:${nextVerseIndex + 1}`, nextVerseIndex);
+            return true;
+        }
+
         function addToCultoList(text, citation) {
             cultoList.push({ id: Date.now(), text: text, citation: citation });
             renderCultoList();
@@ -2458,7 +2877,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             };
 
             try { if (broadcastChannel) broadcastChannel.postMessage(payload); } catch (e) {}
-            try { localStorage.setItem('biblical_projector_data', JSON.stringify(payload)); } catch (e) {}
+            try {
+                const storagePayload = { ...payload, styles: { ...payload.styles }, karaoke: { ...payload.karaoke, style: { ...payload.karaoke.style } } };
+                if (storagePayload.styles.bgImage?.startsWith('data:')) storagePayload.styles.bgImage = '';
+                if (storagePayload.styles.logoUrl?.startsWith('data:')) storagePayload.styles.logoUrl = '';
+                if (storagePayload.karaoke.style.bgImage?.startsWith('data:')) storagePayload.karaoke.style.bgImage = '';
+                localStorage.setItem('biblical_projector_data', JSON.stringify(storagePayload));
+            } catch (e) {}
             // Canal directo adicional: útil mientras la referencia de la ventana siga disponible.
             try { if (externalWindow && !externalWindow.closed) externalWindow.postMessage(payload, '*'); } catch (e) {}
             refreshYouTubeControls();
@@ -2837,8 +3262,32 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             showToast("Transmisión de pantalla detenida", "info");
         }
 
+        function projectStagedYouTubeDirectly() {
+            const embedUrl = getYouTubeEmbedUrl(stagedYouTubeUrl);
+            if (!embedUrl) { showToast('Primero prepara un enlace válido de YouTube.', 'warning'); return false; }
+            if (!isLocalProjectorReady()) {
+                showToast('Abre Proyectar (Ventana) y espera a que la ventana se conecte.', 'warning');
+                updateYouTubeMonitorCaptureUI();
+                return false;
+            }
+            if (window.screenStream && screenCapturePurpose === 'youtube-monitor') stopScreenCapture();
+            activeVideoUrl = withYouTubeLoop(embedUrl, videoLoop);
+            mediaMode = 'youtube';
+            isStandby = false;
+            isBlackout = false;
+            isClearText = true;
+            isVideoPlaying = true;
+            youtubeSeparateWindowMode = false;
+            document.getElementById('btn-cleartext').className = 'bg-amber-600 hover:bg-amber-500 text-white py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-950/50';
+            syncToProjector();
+            setTimeout(() => sendYouTubeCommand('playVideo'), 350);
+            setScreenCaptureStatus('YouTube se proyecta directamente en la ventana local. Safari no necesita capturar la pantalla.');
+            showToast('YouTube enviado a la ventana del proyector.', 'success');
+            return true;
+        }
+
         function openInteractiveYouTubeWindow() {
-            showToast('YouTube ahora se proyecta automáticamente en la misma ventana que los versículos. No hace falta abrir otra ventana.', 'info');
+            return projectStagedYouTubeDirectly();
         }
 
         let youtubeMonitorWindow = null;
@@ -2866,6 +3315,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         }
 
         function startYouTubeMonitorCapture() {
+            if (isAppleTouchDevice()) return projectStagedYouTubeDirectly();
             if (!isYouTubeMonitorReadyForStagedVideo()) {
                 updateYouTubeMonitorCaptureUI();
                 showToast('Espera a que Monitor YouTube muestre «Video listo» para el enlace preparado.', 'warning');
@@ -2947,14 +3397,6 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         }
 
         function setupEventListeners() {
-            const installHelp = document.getElementById('install-help-modal');
-            const showInstallHelp = () => { installHelp.classList.remove('hidden'); installHelp.classList.add('flex'); };
-            const hideInstallHelp = () => { installHelp.classList.add('hidden'); installHelp.classList.remove('flex'); };
-            document.getElementById('btn-install-help').onclick = showInstallHelp;
-            document.getElementById('btn-close-install-help').onclick = hideInstallHelp;
-            document.getElementById('btn-close-install-help-bottom').onclick = hideInstallHelp;
-            installHelp.addEventListener('click', event => { if (event.target === installHelp) hideInstallHelp(); });
-
             // Ventana Externa y Simulador
             document.getElementById('btn-toggle-ext-projector').onclick = toggleExternalProjector;
             document.getElementById('btn-open-youtube-monitor').onclick = openYouTubeMonitorWindow;
@@ -2971,56 +3413,36 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
-                    reader.onload = (event) => {
+                    reader.onload = async (event) => {
                         try {
                             const parsed = JSON.parse(event.target.result);
-                            const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-                            // Algunos archivos bíblicos incluyen metadatos, por ejemplo "lang": "SPAN", además de los libros.
-                            const bookEntries = isPlainObject(parsed) ? Object.entries(parsed).filter(([name]) => name.toLowerCase() !== 'lang') : [];
-                            const isValidBible = bookEntries.length > 0
-                                && bookEntries.every(([, chapters]) => isPlainObject(chapters)
-                                    && Object.keys(chapters).length > 0
-                                    && Object.values(chapters).every(verses =>
-                                        (Array.isArray(verses) && verses.every(verse => typeof verse === 'string'))
-                                        || (isPlainObject(verses) && Object.keys(verses).length > 0
-                                            && Object.values(verses).every(verse => typeof verse === 'string'))));
-                            if (isValidBible) {
-                                // Admite biblias con versículos en arreglo y el formato común con claves "1", "2", etc.
-                                // Se normaliza todo a arreglos para que la navegación y la cita funcionen correctamente.
-                                bibleData = Object.fromEntries(bookEntries.map(([book, chapters]) => [
-                                    book,
-                                    Object.fromEntries(Object.entries(chapters).map(([chapter, verses]) => [
-                                        chapter,
-                                        Array.isArray(verses) ? verses : Object.entries(verses)
-                                            .sort(([a], [b]) => {
-                                                const na = Number(a), nb = Number(b);
-                                                return Number.isFinite(na) && Number.isFinite(nb) ? na - nb : a.localeCompare(b, 'es');
-                                            })
-                                            .map(([, text]) => text)
-                                    ]))
-                                ]));
-                                const firstBook = Object.keys(bibleData)[0];
-                                if (firstBook) {
-                                    selectedBook = firstBook;
-                                    selectedChapter = Object.keys(bibleData[firstBook] || {})[0] || "1";
-                                    selectedVerseIdx = null;
-                                    renderBooks();
-                                    renderChapters();
-                                    renderVerses();
-                                    saveOperatorState();
-                                    showToast("Biblia JSON cargada con éxito", "success");
-                                }
+                            const normalized = normalizeBibleData(parsed);
+                            const version = bibleVersionDetails(file.name);
+                            await storeBibleVersion({ ...version, fileName: file.name, data: normalized, updatedAt: Date.now() });
+                            bibleData = normalized; selectedBibleId = version.id; selectedBibleName = version.name;
+                            const cited = /^(.*)\s+(\d+):(\d+)$/.exec(currentCitation || '');
+                            if (cited && bibleData[cited[1]]?.[cited[2]]) {
+                                selectedBook = cited[1]; selectedChapter = cited[2]; selectedVerseIdx = Number(cited[3]) - 1;
+                                currentText = bibleData[selectedBook][selectedChapter][selectedVerseIdx] || currentText;
                             } else {
-                                showToast("Estructura bíblica inválida. Se esperaba libro > capítulo > versículos (arreglo o claves numéricas).", "error");
+                                selectedBook = Object.keys(bibleData)[0];
+                                selectedChapter = Object.keys(bibleData[selectedBook] || {})[0] || '1';
+                                selectedVerseIdx = null;
                             }
+                            await renderBibleVersionOptions();
+                            renderBooks(); renderChapters(); renderVerses(); syncToProjector();
+                            showToast('Biblia guardada en este iPad: ' + version.name, 'success');
                         } catch (err) {
-                            showToast("Formato JSON inválido", "error");
+                            console.error('No se pudo guardar la Biblia JSON:', err);
+                            showToast(err.message || 'No se pudo guardar la Biblia en este navegador.', 'error');
                         }
                     };
                     reader.readAsText(file);
                     e.target.value = '';
                 }
             };
+
+            document.getElementById('bible-version-select').addEventListener('change', event => chooseBibleVersion(event.target.value));
 
             document.getElementById('search-book').oninput = renderBooks;
             document.getElementById('btn-prev-chapter').onclick = () => {
@@ -3060,9 +3482,6 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             };
             document.getElementById('btn-standby').onclick = () => {
                 // Pantalla de espera: fondo + logo centrado, sin texto, cita ni medios.
-                currentText = "";
-                currentCitation = "";
-                selectedVerseIdx = null;
                 isBlackout = false;
                 isClearText = true;
                 isStandby = true;
@@ -3080,7 +3499,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 showToast('Pantalla de espera activada', 'success');
             };
             document.getElementById('btn-clear-projection').onclick = () => {
-                currentText = ""; currentCitation = ""; selectedVerseIdx = null; renderVerses(); syncToProjector(); showToast("Proyección limpiada", "info");
+                currentText = ""; currentCitation = ""; isStandby = false; isClearText = false; renderVerses(); syncToProjector(); showToast("Proyección limpiada", "info");
             };
 
             // Navegación estética principal: los controles originales conservan sus IDs y lógica.
@@ -3100,9 +3519,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     const panel = document.getElementById('workspace-control');
                     if (panel) panel.scrollTop = 0;
                 }
+                saveOperatorState();
             }
             workspaceNavItems.forEach(item => item.addEventListener('click', () => activateWorkspace(item.dataset.workspace)));
-            activateWorkspace('bible');
+            activateWorkspace(savedWorkspace);
 
             // Navegación de Pestañas
             const tabElements = {
@@ -3215,7 +3635,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (launchButton) launchButton.disabled = true;
                     const monitorButton = document.getElementById('btn-open-youtube-monitor');
                     if (monitorButton) monitorButton.disabled = false;
-                    if (stagedStatus) stagedStatus.textContent = 'Enlace preparado sin cambiar la proyección. Abre «Monitor YouTube», reproduce/revisa el video y luego envía esa misma ventana.';
+                    if (stagedStatus) stagedStatus.textContent = isAppleTouchDevice()
+                        ? 'Enlace preparado. En iPad, pulsa «Proyectar video» para enviarlo directamente a la ventana del proyector.'
+                        : 'Enlace preparado sin cambiar la proyección. Abre «Monitor YouTube», revisa el video y elige cómo enviarlo.';
                     updateYouTubeMonitorCaptureUI();
                     showToast('Video preparado sin cambiar la proyección actual.', 'success');
                 } else {
@@ -3227,12 +3649,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 }
             };
             document.getElementById('btn-launch-youtube-projection').onclick = startYouTubeMonitorCapture;
+            document.getElementById('btn-project-youtube-direct').onclick = projectStagedYouTubeDirectly;
             document.getElementById('btn-send-youtube-monitor-to-projector').onclick = sendYouTubeMonitorCaptureToProjector;
             document.getElementById('btn-stop-youtube-monitor-capture').onclick = stopScreenCapture;
             // Karaoke Lyrics: búsqueda de letras y proyección por estrofas.
             const karaokeStatus = document.getElementById('karaoke-status');
-            let karaokeOriginalStanzas = [];
-            let karaokeDivisionMode = 'manual';
             function karaokeSplit(text) { return String(text || '').replace(/\r/g,'').trim().split(/\n\s*\n+/).map(x=>x.trim()).filter(Boolean); }
             function karaokeDivideStanzas(stanzas, mode) {
                 const output = [];
@@ -3270,6 +3691,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 karaokeIndex = keepPosition && karaokeStanzas.length ? Math.min(previousIndex, karaokeStanzas.length - 1) : 0;
                 karaokeRefreshNav();
                 if (karaokeActive && karaokeStanzas.length) syncToProjector();
+                else saveOperatorState();
             }
             const KARAOKE_HISTORY_KEY = 'proyector_karaoke_history_v1';
             function karaokeGetHistory() { try { const data = JSON.parse(localStorage.getItem(KARAOKE_HISTORY_KEY) || '[]'); return Array.isArray(data) ? data : []; } catch (_) { return []; } }
@@ -3367,6 +3789,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             ['karaoke-bg-type','karaoke-bg-color','karaoke-bg-gradient','karaoke-bg-opacity'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{document.getElementById('karaoke-transparent').checked=false;karaokeApplyStyle();}));
             document.getElementById('karaoke-image-search').addEventListener('click',karaokeSearchImages);
             document.getElementById('karaoke-image-query').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();karaokeSearchImages();}});
+            ['karaoke-track','karaoke-artist','karaoke-manual'].forEach(id => document.getElementById(id).addEventListener('input', saveOperatorState));
             karaokeApplyStyle();
             karaokeRefreshNav();
             karaokeRenderHistory();
@@ -3669,24 +4092,48 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 }
             });
 
-            // Atajos de Teclado Globales
+            // Atajos compatibles con el Magic Keyboard: las flechas no interfieren con campos de edición.
             window.onkeydown = (e) => {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-                if (e.key.toLowerCase() === 'b') {
+                if (e.metaKey || e.ctrlKey || e.altKey) return;
+                if (e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+                const key = e.key.toLowerCase();
+                if (e.key.startsWith('Arrow')) {
+                    const delta = (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ? -1 : 1;
+                    if (document.body.dataset.workspace === 'karaoke') {
+                        const button = document.getElementById(delta < 0 ? 'karaoke-prev' : 'karaoke-next');
+                        if (button && !button.disabled) { e.preventDefault(); button.click(); }
+                    } else if (moveBibleVerse(delta)) e.preventDefault();
+                } else if (key === 'l') {
+                    document.getElementById('btn-standby').click();
+                } else if (key === 'b') {
                     document.getElementById('btn-blackout').click();
-                } else if (e.key.toLowerCase() === 'c') {
+                } else if (key === 'c') {
                     document.getElementById('btn-cleartext').click();
+                } else if (e.key === ' ') {
+                    if (mediaMode === 'youtube') {
+                        e.preventDefault(); sendYouTubeCommand(isVideoPlaying ? 'pauseVideo' : 'playVideo');
+                        isVideoPlaying = !isVideoPlaying; saveOperatorState();
+                    } else if (mediaMode === 'video') {
+                        e.preventDefault(); document.getElementById('btn-video-play-pause').click();
+                    }
                 } else if (e.key === 'Escape') {
                     document.getElementById('local-fullscreen-container').classList.add('hidden');
                 }
             };
         }
 
-        window.onload = () => {
-            loadOperatorState();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadOperatorState();
+            const bundledBibleLoaded = await loadBundledRvr1960();
+            if (!bundledBibleLoaded || selectedBibleId !== 'rvr1960') await loadSelectedBible();
+            else await renderBibleVersionOptions();
+            if (!bundledBibleLoaded && selectedBibleId === 'sample') showToast('No se pudo leer biblia.json. Abre la web por HTTPS/servidor local o impórtala una vez.', 'warning');
+            if (!bibleData[selectedBook]) selectedBook = bibleData['Salmos'] ? 'Salmos' : getBibleBookNames()[0];
+            if (!bibleData[selectedBook]?.[selectedChapter]) selectedChapter = Object.keys(bibleData[selectedBook] || {})[0] || '1';
+            if (selectedVerseIdx !== null && (!Number.isInteger(selectedVerseIdx) || selectedVerseIdx < 0 || selectedVerseIdx >= (bibleData[selectedBook]?.[selectedChapter] || []).length)) selectedVerseIdx = null;
             // Sincroniza los controles nuevos incluso si el estado guardado es de una versión anterior.
             projectionStyles.citationFont = projectionStyles.citationFont || projectionStyles.font || 'Inter';
-            projectionStyles.citationSize = projectionStyles.citationSize || '1.6';
+            projectionStyles.citationSize = String(Math.min(10, Math.max(0.8, Number(projectionStyles.citationSize) || 1.6)));
             projectionStyles.citationColor = projectionStyles.citationColor || projectionStyles.textcolor || '#ffffff';
             projectionStyles.citationBold = projectionStyles.citationBold !== undefined ? projectionStyles.citationBold : true;
             projectionStyles.citationItalic = projectionStyles.citationItalic || false;
@@ -3708,25 +4155,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             renderCultoList();
             setupEventListeners();
             syncToProjector();
-        };
+        });
     </script>
-    <div id="install-help-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-labelledby="install-help-title">
-        <div class="w-full max-w-lg rounded-2xl border border-gray-700 bg-gray-900 p-6 shadow-2xl">
-            <div class="mb-3 flex items-center justify-between gap-3">
-                <h2 id="install-help-title" class="text-lg font-extrabold text-white"><i class="fa-solid fa-mobile-screen-button mr-2 text-blue-400"></i>Usar como aplicación en iPad</h2>
-                <button id="btn-close-install-help" class="rounded-lg px-3 py-1 text-gray-300 hover:bg-gray-800" aria-label="Cerrar">✕</button>
-            </div>
-            <p class="mb-4 text-sm leading-6 text-gray-300">Para abrir el panel de control sin la barra de direcciones de Safari, añade esta web a la pantalla de inicio.</p>
-            <ol class="mb-5 list-decimal space-y-2 pl-5 text-sm leading-6 text-gray-200">
-                <li>Abre esta página en <strong>Safari</strong> (no desde una pestaña de otro navegador).</li>
-                <li>Toca <strong>Compartir</strong> y selecciona <strong>Añadir a pantalla de inicio</strong>.</li>
-                <li>Si aparece la opción <strong>Abrir como app web</strong>, actívala y toca <strong>Añadir</strong>.</li>
-                <li>En adelante, inicia el proyector desde el nuevo icono de la pantalla de inicio.</li>
-            </ol>
-            <p class="mb-5 rounded-xl bg-amber-950/50 p-3 text-xs leading-5 text-amber-200">La ventana externa puede seguir mostrando controles de Safari según la versión de iPadOS. En esa ventana, toca «Pantalla completa» si aparece el aviso. iPadOS no permite que una página web fuerce siempre ese modo sin interacción.</p>
-            <button id="btn-close-install-help-bottom" class="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-500">Entendido</button>
-        </div>
-    </div>
-
 </body>
 </html>

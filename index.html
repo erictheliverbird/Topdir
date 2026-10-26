@@ -608,12 +608,13 @@
                                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Subir Archivo Local</label>
                                 <label class="w-full bg-gray-900 hover:bg-gray-850 border border-dashed border-gray-700 p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer transition">
                                     <i class="fa-solid fa-file-video text-emerald-400 text-xl mb-1"></i>
-                                    <span class="text-xs font-bold text-gray-200">Seleccionar video (MP4, WEBM)</span>
+                                    <span class="text-xs font-bold text-gray-200">Seleccionar video (MP4 H.264 recomendado)</span>
                                     <input type="file" id="video-file-input" accept="video/*" class="hidden">
                                 </label>
                                 <button id="btn-remove-video" type="button" class="w-full bg-red-950/70 hover:bg-red-900 border border-red-900 text-red-200 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
                                     <i class="fa-solid fa-eject"></i> Quitar video y mostrar solo versículos
                                 </button>
+                                <p class="text-[10px] text-gray-500">Para iPad/Safari, usa MP4 con video H.264 y audio AAC. Si el archivo tiene audio pero no imagen, revisa el estado del proyector.</p>
                             </div>
                         </div>
 
@@ -1285,13 +1286,25 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 }
             }
             const status = document.getElementById('video-playback-status');
-            if (status) status.textContent = message.playing ? 'Proyectando · reproduciendo' : (message.ended ? 'Video finalizado' : 'Proyectando · en pausa');
+            const errorCode = Number(message.errorCode) || 0;
+            const readyState = Number(message.readyState);
+            const videoWidth = Number(message.videoWidth);
+            const videoHeight = Number(message.videoHeight);
+            const hasNoDecodedPicture = Number.isFinite(readyState) && readyState >= 2 && Number.isFinite(videoWidth) && videoWidth === 0;
+            const videoFormatProblem = errorCode === 3 || errorCode === 4 || hasNoDecodedPicture;
+            const playbackProblem = videoFormatProblem
+                ? 'Sin fotogramas de video: revisa la pista de imagen/códec'
+                : errorCode ? 'No se pudo leer el archivo de video' : '';
+            const playbackState = message.playing ? 'Proyectando · reproduciendo' : (message.ended ? 'Video finalizado' : 'Proyectando · en pausa');
+            const frameSize = Number.isFinite(videoWidth) && videoWidth > 0 && Number.isFinite(videoHeight) && videoHeight > 0
+                ? `${videoWidth} × ${videoHeight}` : '';
+            if (status) status.textContent = playbackProblem || [playbackState, frameSize].filter(Boolean).join(' · ');
             const icon = document.getElementById('video-play-pause-icon');
             const label = document.getElementById('video-play-pause-label');
             if (icon) icon.className = `fa-solid ${message.playing ? 'fa-pause' : 'fa-play'} mr-1`;
             if (label) label.textContent = message.playing ? 'Pausar' : 'Reproducir';
             const indicator = document.getElementById('video-sync-indicator');
-            if (indicator) indicator.textContent = videoControlChannel && videoControlChannel.readyState === 'open' ? 'Proyector conectado' : 'Sin enlace directo';
+            if (indicator) indicator.textContent = playbackProblem ? 'Revisa el formato del archivo' : (videoControlChannel && videoControlChannel.readyState === 'open' ? 'Proyector conectado' : 'Sin enlace directo');
         }
 
         function seekLocalVideoTo(target) {

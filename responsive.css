@@ -142,6 +142,12 @@ body.operator-page {
     #operator-interface button {
         min-height: 44px;
     }
+
+    /* Barra de búsqueda fácil de tocar y arrastrar en el iPad. */
+    #video-seek-slider {
+        min-height: 44px;
+        touch-action: pan-y;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

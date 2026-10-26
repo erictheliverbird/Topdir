@@ -364,7 +364,10 @@
                                             karaokeBox.style.inset=''; karaokeBox.style.padding=''; karaokeBox.style.zIndex='40';
                                             karaokeText.style.maxHeight=''; karaokeText.style.overflow='';
                                         }
-                                        if (karaokeLoaded && !data.isClearText && !data.isStandby && data.mediaMode !== 'screen') {
+                                        // La capa de karaoke puede tener un fondo opaco y un z-index superior al video.
+                                        // Mantenerla oculta durante la reproducción local evita audio con imagen tapada.
+                                        // YouTube conserva su modo de letras en pantalla dividida.
+                                        if (karaokeLoaded && !data.isClearText && !data.isStandby && data.mediaMode !== 'screen' && data.mediaMode !== 'video') {
                                             karaokeBox.classList.remove('hidden'); karaokeText.textContent=karaoke.stanza || '';
                                             karaokeText.style.fontFamily='\"'+(karaokeStyle.font||'Inter')+'\", sans-serif';
                                             if (!youtubeLyricsLayout) karaokeText.style.fontSize=(Number(karaokeStyle.size)||4.5)+'vw';
@@ -514,6 +517,10 @@
                                                 overlay.classList.remove('hidden');
                                             }
                                             if (data.mediaMode === 'video' && data.videoUrl) {
+                                                // La opacidad del fondo de versículos no debe tapar el video local.
+                                                // En iPad, una capa negra al 100 % dejaba oír la pista de audio con la imagen cubierta.
+                                                backdrop.classList.add('hidden');
+                                                overlay.classList.add('hidden');
                                                 const remoteUrl = String(data.videoUrl);
                                                 const isBlobUrl = remoteUrl.startsWith('blob:');
                                                 const audioPrompt = document.getElementById('proj-enable-audio');
@@ -596,7 +603,7 @@
                                         if (!force && now - lastProjectorStatusAt < 450) return;
                                         lastProjectorStatusAt = now;
                                         try {
-                                            channel.send(JSON.stringify({ type: 'video-status', sourceKey: mappedRemoteBlobKey, currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0, duration: Number.isFinite(video.duration) ? video.duration : 0, playing: !video.paused && !video.ended, paused: video.paused, ended: video.ended, loop: !!video.loop, timestamp: now }));
+                                            channel.send(JSON.stringify({ type: 'video-status', sourceKey: mappedRemoteBlobKey, currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0, duration: Number.isFinite(video.duration) ? video.duration : 0, playing: !video.paused && !video.ended, paused: video.paused, ended: video.ended, loop: !!video.loop, videoWidth: video.videoWidth || 0, videoHeight: video.videoHeight || 0, readyState: video.readyState, errorCode: video.error ? video.error.code : 0, timestamp: now }));
                                         } catch (error) { console.warn('No se pudo enviar el estado multimedia:', error); }
                                     }
 
@@ -811,7 +818,7 @@
 
                                     const projectedVideoElement = document.getElementById('proj-video');
                                     if (projectedVideoElement) {
-                                        ['loadedmetadata', 'durationchange', 'play', 'playing', 'pause', 'seeked', 'ended', 'timeupdate', 'waiting'].forEach(eventName => {
+                                        ['loadedmetadata', 'loadeddata', 'durationchange', 'play', 'playing', 'pause', 'seeked', 'ended', 'timeupdate', 'waiting', 'resize', 'error'].forEach(eventName => {
                                             projectedVideoElement.addEventListener(eventName, () => sendProjectorVideoStatus(eventName !== 'timeupdate'));
                                         });
                                     }

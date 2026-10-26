@@ -440,7 +440,10 @@
                                         if (styles.bgType === 'color') { backdrop.style.background = styles.bgcolor || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
                                         else if (styles.bgType === 'gradient') { backdrop.style.background = styles.gradient || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
                                         else if (styles.bgType === 'image') { backdrop.style.background = 'none'; backdrop.style.backgroundImage = 'url("' + String(styles.bgImage || '').replace(/"/g, '%22') + '")'; backdrop.style.backgroundSize = 'cover'; backdrop.style.backgroundPosition = 'center'; }
-                                        overlay.style.backgroundColor = 'rgba(0,0,0,' + (Number(styles.bgOpacity || 0) / 100) + ')';
+                                        const backgroundOverlayOpacity = styles.bgType === 'image'
+                                            ? Math.max(0, Math.min(100, Number(styles.bgOpacity) || 0)) / 100
+                                            : 0;
+                                        overlay.style.backgroundColor = `rgba(0,0,0,${backgroundOverlayOpacity})`;
 
                                         const hasText = (data.text || '').trim().length > 0;
                                         if (data.isStandby === true && styles.logoUrl && data.mediaMode === 'none') { standby.src = styles.logoUrl; standby.classList.remove('hidden'); }

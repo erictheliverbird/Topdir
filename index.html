@@ -1325,7 +1325,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const playbackProblem = videoFormatProblem
                 ? 'Sin fotogramas de video: revisa la pista de imagen/códec'
                 : errorCode ? 'No se pudo leer el archivo de video' : '';
-            const playbackState = message.playing ? 'Proyectando · reproduciendo' : (message.ended ? 'Video finalizado' : 'Proyectando · en pausa');
+            const playbackState = (message.playing ? 'Proyectando · reproduciendo' : (message.ended ? 'Video finalizado' : 'Proyectando · en pausa')) + (isBlackout ? ' · pantalla apagada (Apagar activo)' : '');
             const frameSize = Number.isFinite(videoWidth) && videoWidth > 0 && Number.isFinite(videoHeight) && videoHeight > 0
                 ? `${videoWidth} × ${videoHeight}` : '';
             if (status) status.textContent = playbackProblem || [playbackState, frameSize].filter(Boolean).join(' · ');
@@ -2100,7 +2100,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 btn.onclick = () => {
                     projectionStyles.bgType = 'image';
                     projectionStyles.bgImage = img.full;
-                    updateBgTypeUI('image', { skipSearch: true });
+                    updateBgTypeUI('image', { skipSearch: true, revealProjection: true });
                     syncToProjector();
                     showToast('Imagen aplicada correctamente', 'success');
                     // No volver a buscar al seleccionar: evita recargas innecesarias.
@@ -3130,7 +3130,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             }
 
             if (overlayEl) {
-                overlayEl.style.backgroundColor = `rgba(0, 0, 0, ${data.styles.bgOpacity / 100})`;
+                const backgroundOverlayOpacity = data.styles.bgType === 'image'
+                    ? Math.max(0, Math.min(100, Number(data.styles.bgOpacity) || 0)) / 100
+                    : 0;
+                overlayEl.style.backgroundColor = `rgba(0, 0, 0, ${backgroundOverlayOpacity})`;
             }
 
             const hasText = data.text.trim().length > 0;
@@ -3163,7 +3166,16 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             }
         }
 
+        function clearBlackoutForVisibleContent() {
+            if (!isBlackout) return;
+            isBlackout = false;
+            const blackoutButton = document.getElementById('btn-blackout');
+            if (blackoutButton) blackoutButton.className = 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5';
+            saveOperatorState();
+        }
+
         function updateBgTypeUI(type, options = {}) {
+            if (options.revealProjection) clearBlackoutForVisibleContent();
             projectionStyles.bgType = type;
             const btnColor = document.getElementById('btn-bg-color');
             const btnGrad = document.getElementById('btn-bg-grad');
@@ -3860,6 +3872,8 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             document.getElementById('video-file-input').onchange = (e) => {
                 const file = e.target.files[0];
                 if (file) {
+                    clearBlackoutForVisibleContent();
+                    isStandby = false;
                     activeVideoFile = file;
                     remoteVideoStatus = null;
                     if (activeVideoUrl && activeVideoUrl.startsWith('blob:')) URL.revokeObjectURL(activeVideoUrl);
@@ -4011,16 +4025,18 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 document.getElementById(id).onclick = () => { projectionStyles.citationAlign = align; updateCitationAlignButtons(); syncToProjector(); };
             });
 
-            document.getElementById('btn-bg-color').onclick = () => updateBgTypeUI('color');
-            document.getElementById('btn-bg-grad').onclick = () => updateBgTypeUI('gradient');
-            document.getElementById('btn-bg-img').onclick = () => updateBgTypeUI('image');
+            document.getElementById('btn-bg-color').onclick = () => updateBgTypeUI('color', { revealProjection: true });
+            document.getElementById('btn-bg-grad').onclick = () => updateBgTypeUI('gradient', { revealProjection: true });
+            document.getElementById('btn-bg-img').onclick = () => updateBgTypeUI('image', { revealProjection: true });
 
             document.getElementById('style-bgcolor').oninput = (e) => {
+                clearBlackoutForVisibleContent();
                 projectionStyles.bgcolor = e.target.value;
                 if(projectionStyles.bgType === 'color') syncToProjector();
             };
             document.querySelectorAll('.btn-color-preset').forEach(btn => {
                 btn.onclick = () => {
+                    clearBlackoutForVisibleContent();
                     const col = btn.getAttribute('data-color');
                     document.getElementById('style-bgcolor').value = col;
                     projectionStyles.bgcolor = col;
@@ -4030,6 +4046,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
             document.querySelectorAll('.btn-grad-preset').forEach(btn => {
                 btn.onclick = () => {
+                    clearBlackoutForVisibleContent();
                     projectionStyles.gradient = btn.getAttribute('data-grad');
                     if(projectionStyles.bgType === 'gradient') syncToProjector();
                 };
@@ -4084,7 +4101,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     reader.onload = (event) => {
                         projectionStyles.bgType = 'image';
                         projectionStyles.bgImage = event.target.result;
-                        updateBgTypeUI('image');
+                        updateBgTypeUI('image', { revealProjection: true });
                         syncToProjector();
                         showToast("Imagen local aplicada como fondo", "success");
                     };
@@ -4093,6 +4110,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             };
 
             document.getElementById('style-overlay-opacity').oninput = (e) => {
+                clearBlackoutForVisibleContent();
                 projectionStyles.bgOpacity = e.target.value;
                 document.getElementById('val-overlay-opacity').innerText = e.target.value + "%";
                 syncToProjector();

@@ -403,8 +403,8 @@
                                         text.style.color = styles.textcolor || '#fff';
                                         text.classList.toggle('text-projection-shadow', !!styles.hasShadow);
 
-                                        if (karaoke.active) { text.textContent=''; citation.textContent=''; standby.classList.add('hidden'); corner.classList.add('hidden'); }
-                                        citation.textContent = data.citation || '';
+                                        if (karaokeLoaded) { text.textContent=''; citation.textContent=''; standby.classList.add('hidden'); corner.classList.add('hidden'); }
+                                        citation.textContent = karaokeLoaded ? '' : (data.citation || '');
                                         citation.style.fontFamily = '"' + (styles.citationFont || styles.font || 'Inter') + '", sans-serif';
                                         citation.style.fontSize = (parseFloat(styles.citationSize) || 1.6) + 'vw';
                                         citation.style.fontWeight = styles.citationBold === false ? '400' : '800';

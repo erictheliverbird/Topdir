@@ -417,6 +417,7 @@
                         <iframe id="preview-youtube" referrerpolicy="strict-origin-when-cross-origin" title="Reproductor de YouTube (vista previa)" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>
 
                         <div id="preview-overlay" class="absolute inset-0 bg-black/40 z-20 transition-all duration-300"></div>
+                        <div id="preview-karaoke" class="absolute inset-0 z-40 hidden flex items-center justify-center px-[8%] py-[6%] pointer-events-none"><div id="preview-karaoke-bg" class="absolute inset-0 z-0 pointer-events-none"></div><div id="preview-karaoke-stanza" class="relative z-10 w-full whitespace-pre-line leading-relaxed text-center"></div></div>
                         
                         <img id="preview-logo-standby" class="absolute max-w-[35%] max-h-[50%] object-contain z-30 hidden transition-all" alt="Standby Logo Preview" />
                         <img id="preview-logo-corner" class="absolute max-w-[12%] max-h-[18%] object-contain z-30 hidden transition-all" alt="Corner Logo Preview" />
@@ -947,6 +948,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         <iframe id="local-fs-youtube" referrerpolicy="strict-origin-when-cross-origin" title="Reproductor de YouTube" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>
 
         <div id="local-fs-overlay" class="absolute inset-0 z-20 bg-black/40"></div>
+        <div id="local-fs-karaoke" class="absolute inset-0 z-40 hidden flex items-center justify-center px-[8%] py-[6%] pointer-events-none"><div id="local-fs-karaoke-bg" class="absolute inset-0 z-0 pointer-events-none"></div><div id="local-fs-karaoke-stanza" class="relative z-10 w-full whitespace-pre-line leading-relaxed text-center"></div></div>
 
         <img id="local-fs-logo-standby" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[40%] max-h-[60%] object-contain z-30 hidden" alt="Standby Logo Sim" />
         <img id="local-fs-logo-corner" class="absolute max-w-[12%] max-h-[15%] object-contain z-30 hidden" alt="Corner Logo Sim" />
@@ -3005,7 +3007,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             refreshYouTubeControls();
 
             updateProjectorDOM(document, payload, false);
-            if (externalWindow && !externalWindow.closed) {
+            if (externalWindow && !externalWindow.closed && payload.mediaMode !== 'video') {
+                // El blob: de la consola no existe en la otra ventana. Durante video,
+                // proyector.html conserva su URL local recibida y aplica el estado por canal.
                 try { updateProjectorDOM(externalWindow.document, payload); } catch (e) {}
             }
             updateProjectorDOM(document, payload, true);
@@ -3045,6 +3049,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const youtubeEl = docObj.getElementById(prefix + 'youtube');
             const logoStandbyEl = docObj.getElementById(prefix + 'logo-standby');
             const logoCornerEl = docObj.getElementById(prefix + 'logo-corner');
+            const karaokeBoxEl = docObj.getElementById(prefix + 'karaoke');
+            const karaokeBgEl = docObj.getElementById(prefix + 'karaoke-bg');
+            const karaokeTextEl = docObj.getElementById(prefix + 'karaoke-stanza');
+            const karaoke = data.karaoke || {};
+            const karaokeStyle = karaoke.style || {};
+            const karaokeVisible = !!karaoke.active && !!String(karaoke.stanza || '').trim() && !data.isClearText && !data.isStandby && !data.isBlackout && data.mediaMode !== 'screen';
 
             if (!textEl) return;
 
@@ -3054,6 +3064,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (citationEl) citationEl.innerText = '';
                 if (logoStandbyEl) logoStandbyEl.classList.add('hidden');
                 if (logoCornerEl) logoCornerEl.classList.add('hidden');
+                if (karaokeBoxEl) karaokeBoxEl.classList.add('hidden');
                 if (videoEl) videoEl.classList.add('hidden');
                 if (youtubeEl) youtubeEl.classList.add('hidden');
                 return;
@@ -3125,7 +3136,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             }
 
             if (textEl) {
-                textEl.innerText = data.text;
+                textEl.innerText = karaokeVisible ? '' : (data.text || '');
                 textEl.style.fontFamily = `"${data.styles.font}", sans-serif`;
                 textEl.style.fontSize = isLocalFs ? (parseFloat(data.styles.size) * 1.2) + 'vw' : (docObj === document && !isLocalFs ? '12px' : data.styles.size + 'vw');
                 textEl.style.fontWeight = data.styles.isBold ? '800' : '400';
@@ -3139,7 +3150,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (citationEl) {
                 const citationFont = data.styles.citationFont || data.styles.font || 'Inter';
                 const citationSize = parseFloat(data.styles.citationSize || '1.6');
-                citationEl.innerText = data.citation;
+                citationEl.innerText = karaokeVisible ? '' : (data.citation || '');
                 citationEl.style.fontFamily = `"${citationFont}", sans-serif`;
                 citationEl.style.fontSize = (docObj === document && !isLocalFs) ? Math.max(7, citationSize * 4.5) + 'px' : (isLocalFs ? (citationSize * 1.2) : citationSize) + 'vw';
                 citationEl.style.fontWeight = (data.styles.citationBold !== undefined ? data.styles.citationBold : true) ? '800' : '400';
@@ -3189,7 +3200,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 overlayEl.style.backgroundColor = `rgba(0, 0, 0, ${backgroundOverlayOpacity})`;
             }
 
-            const hasText = data.text.trim().length > 0;
+            const hasText = !karaokeVisible && String(data.text || '').trim().length > 0;
             if (logoStandbyEl) {
                 if (data.isStandby === true && data.styles.logoUrl && data.mediaMode === 'none') {
                     logoStandbyEl.src = data.styles.logoUrl;
@@ -3215,6 +3226,43 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     else logoCornerEl.classList.add('bottom-4', 'right-4');
                 } else {
                     logoCornerEl.classList.add('hidden');
+                }
+            }
+
+            if (karaokeBoxEl) {
+                if (karaokeVisible && karaokeTextEl) {
+                    karaokeBoxEl.classList.remove('hidden');
+                    karaokeTextEl.textContent = String(karaoke.stanza || '');
+                    karaokeTextEl.style.fontFamily = `"${karaokeStyle.font || 'Inter'}", sans-serif`;
+                    karaokeTextEl.style.fontSize = docObj === document && !isLocalFs
+                        ? Math.max(9, (docObj.getElementById('projector-preview-container')?.clientWidth || 480) * (Number(karaokeStyle.size) || 4.5) / 100) + 'px'
+                        : (Number(karaokeStyle.size) || 4.5) + 'vw';
+                    karaokeTextEl.style.color = karaokeStyle.color || '#ffffff';
+                    karaokeTextEl.style.textAlign = karaokeStyle.align || 'center';
+                    karaokeTextEl.style.fontWeight = '700';
+                    karaokeTextEl.style.textShadow = karaokeStyle.shadow === false ? 'none' : '0 2px 12px rgba(0,0,0,.95), 0 4px 24px rgba(0,0,0,.75)';
+                    karaokeTextEl.style.whiteSpace = 'pre-line';
+                    if (karaokeBgEl) {
+                        const opacity = karaokeStyle.bgOpacity === undefined ? 100 : Number(karaokeStyle.bgOpacity);
+                        karaokeBgEl.style.opacity = String(Math.max(0, Math.min(100, Number.isFinite(opacity) ? opacity : 100)) / 100);
+                        if (karaokeStyle.transparent) {
+                            karaokeBgEl.style.background = 'transparent';
+                            karaokeBgEl.style.backgroundImage = 'none';
+                        } else if (karaokeStyle.bgType === 'image' && karaokeStyle.bgImage) {
+                            karaokeBgEl.style.background = 'none';
+                            karaokeBgEl.style.backgroundImage = `url("${String(karaokeStyle.bgImage).replace(/"/g, '%22')}")`;
+                            karaokeBgEl.style.backgroundSize = 'cover';
+                            karaokeBgEl.style.backgroundPosition = 'center';
+                        } else if (karaokeStyle.bgType === 'gradient') {
+                            karaokeBgEl.style.background = karaokeStyle.bgGradient || 'linear-gradient(135deg,#020617,#1e1b4b)';
+                            karaokeBgEl.style.backgroundImage = 'none';
+                        } else {
+                            karaokeBgEl.style.background = karaokeStyle.bgColor || '#000000';
+                            karaokeBgEl.style.backgroundImage = 'none';
+                        }
+                    }
+                } else {
+                    karaokeBoxEl.classList.add('hidden');
                 }
             }
         }

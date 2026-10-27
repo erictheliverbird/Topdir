@@ -376,10 +376,9 @@
                                             karaokeBox.style.inset=''; karaokeBox.style.padding=''; karaokeBox.style.zIndex='40';
                                             karaokeText.style.maxHeight=''; karaokeText.style.overflow='';
                                         }
-                                        // La capa de karaoke puede tener un fondo opaco y un z-index superior al video.
-                                        // Mantenerla oculta durante la reproducción local evita audio con imagen tapada.
-                                        // YouTube conserva su modo de letras en pantalla dividida.
-                                        if (karaokeLoaded && !data.isClearText && !data.isStandby && data.mediaMode !== 'screen' && data.mediaMode !== 'video') {
+                                        // Las letras se dibujan encima del video local como en la versión estable anterior.
+                                        // El fondo del video se oculta por separado, sin ocultar la capa de karaoke.
+                                        if (karaokeLoaded && !data.isClearText && !data.isStandby && data.mediaMode !== 'screen') {
                                             karaokeBox.classList.remove('hidden'); karaokeText.textContent=karaoke.stanza || '';
                                             karaokeText.style.fontFamily='\"'+(karaokeStyle.font||'Inter')+'\", sans-serif';
                                             if (!youtubeLyricsLayout) karaokeText.style.fontSize=(Number(karaokeStyle.size)||4.5)+'vw';

@@ -1159,7 +1159,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let youtubeMonitorRemoteStatus = null;
         let youtubeSeekInProgress = false;
         let youtubeSeekPendingUntil = 0;
-        // Los medios viajan por WebRTC con señalización BroadcastChannel local.
+        // Los videos y su vista espejo viajan por BroadcastChannel local; WebRTC se reserva para captura de pantalla.
         let videoTransferPeer = null;
         let videoTransferChannel = null;
         let videoControlChannel = null;
@@ -1171,6 +1171,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let videoTransferLocalAnswerListener = null;
         let videoTransferConnectTimeoutId = 0;
         let videoTransferInProgress = false;
+        let localVideoTransferSessionId = '';
+        const localVideoTransferAckWaiters = new Map();
+        let localVideoPreviewTimestamp = 0;
         // Captura de pantalla: conexión WebRTC dedicada entre las ventanas locales.
         let screenTransferPeer = null;
         let screenTransferLocalAnswerListener = null;
@@ -1273,8 +1276,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 try { channel.send(JSON.stringify(message)); return true; }
                 catch (error) { console.warn('No se pudo enviar el control multimedia:', error); }
             }
-            // Respaldo local: Safari puede reproducir el archivo aunque el datachannel
-            // de controles aún no haya abierto. BroadcastChannel ya sincroniza las ventanas.
+            // Safari comparte la orden directamente entre las ventanas del mismo origen.
             if (broadcastChannel && localProjectorId) {
                 try {
                     broadcastChannel.postMessage({ type: '__local_video_control', projectorId: localProjectorId, command: message });
@@ -1347,7 +1349,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (icon) icon.className = `fa-solid ${message.playing ? 'fa-pause' : 'fa-play'} mr-1`;
             if (label) label.textContent = message.playing ? 'Pausar' : 'Reproducir';
             const indicator = document.getElementById('video-sync-indicator');
-            if (indicator) indicator.textContent = playbackProblem ? 'Revisa el formato del archivo' : (videoControlChannel && videoControlChannel.readyState === 'open' ? 'Proyector conectado por WebRTC' : (isLocalProjectorReady() ? 'Controles por canal local' : 'Sin enlace al proyector'));
+            if (indicator) indicator.textContent = playbackProblem ? 'Revisa el formato del archivo' : (videoControlChannel && videoControlChannel.readyState === 'open' ? 'Proyector conectado por WebRTC' : (isLocalProjectorReady() ? 'Video y controles por canal local' : 'Sin enlace al proyector'));
         }
 
         function seekLocalVideoTo(target) {
@@ -1366,26 +1368,122 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             refreshVideoControls();
         }
 
-        async function transferVideoFileOverChannel(file, sourceKey) {
-            const channel = videoTransferChannel;
-            if (!channel || channel.readyState !== 'open' || !file) return;
+        function waitForLocalVideoTransferAck(sessionId, ack, timeoutMs = 12000) {
+            const key = `${sessionId}:${ack}`;
+            return new Promise((resolve, reject) => {
+                const waiter = { resolve, reject, timer: 0 };
+                waiter.timer = setTimeout(() => {
+                    if (localVideoTransferAckWaiters.get(key) !== waiter) return;
+                    localVideoTransferAckWaiters.delete(key);
+                    reject(new Error('El proyector no confirmó la recepción del video.'));
+                }, timeoutMs);
+                localVideoTransferAckWaiters.set(key, waiter);
+            });
+        }
+
+        function postLocalVideoTransferMessage(message, ack, timeoutMs = 12000) {
+            if (!broadcastChannel) return Promise.reject(new Error('El navegador no ofrece el canal local entre ventanas.'));
+            const pendingAck = waitForLocalVideoTransferAck(message.sessionId, ack, timeoutMs);
+            try { broadcastChannel.postMessage(message); }
+            catch (error) {
+                const key = `${message.sessionId}:${ack}`;
+                const waiter = localVideoTransferAckWaiters.get(key);
+                if (waiter) { clearTimeout(waiter.timer); localVideoTransferAckWaiters.delete(key); }
+                return Promise.reject(error);
+            }
+            return pendingAck;
+        }
+
+        function handleLocalVideoTransferAck(message) {
+            if (!message || message.projectorId !== localProjectorId || !message.sessionId || !message.ack) return;
+            const key = `${message.sessionId}:${message.ack}`;
+            const waiter = localVideoTransferAckWaiters.get(key);
+            if (!waiter) return;
+            clearTimeout(waiter.timer);
+            localVideoTransferAckWaiters.delete(key);
+            if (message.error) waiter.reject(new Error(message.error));
+            else waiter.resolve(message);
+        }
+
+        function cancelLocalVideoTransfer() {
+            const sessionId = localVideoTransferSessionId;
+            if (!sessionId) return;
+            try {
+                if (broadcastChannel && localProjectorId) broadcastChannel.postMessage({
+                    type: '__local_video_transfer_cancel', sessionId, projectorId: localProjectorId, timestamp: Date.now()
+                });
+            } catch (_) {}
+            localVideoTransferSessionId = '';
+            videoTransferInProgress = false;
+            for (const [key, waiter] of localVideoTransferAckWaiters) {
+                if (!key.startsWith(`${sessionId}:`)) continue;
+                clearTimeout(waiter.timer);
+                localVideoTransferAckWaiters.delete(key);
+                const error = new Error('Se canceló la transferencia porque cambió el video.');
+                error.name = 'AbortError';
+                waiter.reject(error);
+            }
+        }
+
+        function showLocalVideoPreviewFrame(frame, timestamp) {
+            if (mediaMode !== 'video' || typeof frame !== 'string') return;
+            const frameTimestamp = Number(timestamp) || Date.now();
+            if (frameTimestamp <= localVideoPreviewTimestamp) return;
+            localVideoPreviewTimestamp = frameTimestamp;
+            ['preview-video-mirror', 'local-fs-video-mirror'].forEach(id => {
+                const mirror = document.getElementById(id);
+                if (mirror) { if (mirror.src !== frame) mirror.src = frame; mirror.classList.remove('hidden'); }
+            });
+        }
+
+        async function transferVideoFileOverLocalChannel(file, sourceKey) {
+            if (!broadcastChannel || !localProjectorId || !file) throw new Error('No hay una ventana de proyección conectada por el canal local.');
             if (videoTransferInProgress) return;
             videoTransferInProgress = true;
-            const chunkSize = 48 * 1024;
+            const sessionId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+            localVideoTransferSessionId = sessionId;
+            const projectorId = localProjectorId;
+            const chunkSize = 256 * 1024;
             const totalChunks = Math.ceil(file.size / chunkSize);
             try {
-                channel.send(JSON.stringify({ type: 'video-file-meta', sourceKey, name: file.name || 'video', mime: file.type || 'video/mp4', size: file.size, totalChunks, timestamp: Date.now() }));
-                for (let offset = 0; offset < file.size; offset += chunkSize) {
-                    if (channel.readyState !== 'open') throw new Error('Se interrumpió el canal de video.');
-                    await waitForDataChannelCapacity(channel);
-                    const buffer = await file.slice(offset, Math.min(offset + chunkSize, file.size)).arrayBuffer();
-                    channel.send(buffer);
+                await postLocalVideoTransferMessage({
+                    type: '__local_video_transfer_start', sessionId, projectorId, sourceKey,
+                    name: file.name || 'video', mime: file.type || 'video/mp4',
+                    size: file.size, chunkSize, totalChunks, timestamp: Date.now()
+                }, 'ready');
+                for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                    if (localVideoTransferSessionId !== sessionId || activeVideoFile !== file || mediaMode !== 'video') {
+                        const error = new Error('Se canceló la transferencia porque cambió el video.');
+                        error.name = 'AbortError';
+                        throw error;
+                    }
+                    const start = chunkIndex * chunkSize;
+                    const buffer = await file.slice(start, Math.min(start + chunkSize, file.size)).arrayBuffer();
+                    const ack = `chunk:${chunkIndex}`;
+                    await postLocalVideoTransferMessage({
+                        type: '__local_video_transfer_chunk', sessionId, projectorId,
+                        chunkIndex, buffer, timestamp: Date.now()
+                    }, ack);
+                    if (chunkIndex === totalChunks - 1 || chunkIndex % 16 === 15) {
+                        const percent = Math.round((chunkIndex + 1) / totalChunks * 100);
+                        const status = document.getElementById('video-playback-status');
+                        if (status) status.textContent = `Enviando video al proyector · ${percent}%`;
+                    }
                 }
-                showToast('Video enviado al proyector; preparando reproducción…', 'success');
+                if (localVideoTransferSessionId === sessionId) showToast('Video recibido por el proyector; preparando reproducción…', 'success');
             } catch (error) {
-                console.error('Transferencia directa del video fallida:', error);
-                showToast('No se pudo transferir el video. Mantén abiertas ambas ventanas y vuelve a cargarlo.', 'error');
-            } finally { videoTransferInProgress = false; }
+                if (error.name !== 'AbortError') {
+                    try { broadcastChannel.postMessage({ type: '__local_video_transfer_cancel', sessionId, projectorId, timestamp: Date.now() }); } catch (_) {}
+                    console.error('Transferencia local del video fallida:', error);
+                    showToast(error.message || 'No se pudo transferir el video. Mantén abiertas ambas ventanas y vuelve a intentar.', 'error');
+                }
+                throw error;
+            } finally {
+                if (localVideoTransferSessionId === sessionId) {
+                    localVideoTransferSessionId = '';
+                    videoTransferInProgress = false;
+                }
+            }
         }
 
         async function sendLocalVideoToProjection(file, attempt = 0) {
@@ -1402,83 +1500,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 showToast('No se encontró la ventana de proyección. Ábrela y vuelve a cargar el video.', 'warning');
                 return;
             }
-            if (videoTransferChannel && videoTransferChannel.readyState === 'open') {
-                await transferVideoFileOverChannel(file, activeVideoUrl);
-                return;
-            }
-            // Si hay una conexión viva en negociación, no crear otra oferta que la sustituya.
-            // Si la anterior falló o se cerró, limpiarla para permitir un nuevo intento.
-            if (videoTransferPeer && videoTransferSessionId && ['new', 'connecting', 'connected'].includes(videoTransferPeer.connectionState)) return;
             closeVideoTransferPeer();
-            const sessionId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
-            videoTransferSessionId = sessionId;
             try {
-                const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-                videoTransferPeer = pc;
-                const channel = pc.createDataChannel('local-video-transfer', { ordered: true });
-                videoTransferChannel = channel;
-                channel.binaryType = 'arraybuffer';
-                channel.onopen = () => {
-                    if (videoTransferConnectTimeoutId) clearTimeout(videoTransferConnectTimeoutId);
-                    videoTransferConnectTimeoutId = 0;
-                    transferVideoFileOverChannel(file, activeVideoUrl);
-                };
-                channel.onerror = error => console.error('Canal de transferencia de video:', error);
-                const controlChannel = pc.createDataChannel('video-control', { ordered: true });
-                videoControlChannel = controlChannel;
-                controlChannel.onopen = () => {
-                    startVideoStatusPolling();
-                    refreshVideoControls();
-                };
-                controlChannel.onmessage = handleRemoteVideoStatusMessage;
-                controlChannel.onclose = refreshVideoControls;
-                controlChannel.onerror = error => console.error('Canal de controles multimedia:', error);
-                const mirrorChannel = pc.createDataChannel('preview-mirror', { ordered: false, maxRetransmits: 0 });
-                videoMirrorChannel = mirrorChannel;
-                mirrorChannel.onmessage = event => {
-                    if (typeof event.data !== 'string') return;
-                    let frameMessage;
-                    try { frameMessage = JSON.parse(event.data); } catch (_) { return; }
-                    if (frameMessage.type !== 'preview-frame' || typeof frameMessage.frame !== 'string') return;
-                    if (mediaMode === 'video') {
-                        ['preview-video-mirror', 'local-fs-video-mirror'].forEach(id => {
-                            const mirror = document.getElementById(id);
-                            if (mirror) { if (mirror.src !== frameMessage.frame) mirror.src = frameMessage.frame; mirror.classList.remove('hidden'); }
-                        });
-                    }
-                };
-                mirrorChannel.onerror = error => console.error('Canal de vista espejo:', error);
-                pc.onconnectionstatechange = () => {
-                    if (pc.connectionState === 'connected' && videoTransferConnectTimeoutId) {
-                        clearTimeout(videoTransferConnectTimeoutId);
-                        videoTransferConnectTimeoutId = 0;
-                    }
-                    if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) console.warn('Conexión de video:', pc.connectionState);
-                    if (pc.connectionState === 'failed' && videoTransferSessionId === sessionId) {
-                        closeVideoTransferPeer();
-                        showToast('No se pudo conectar el video con el proyector. Vuelve a cargar el archivo.', 'error');
-                    }
-                };
-                videoTransferLocalAnswerListener = answer => {
-                    if (!answer || answer.sessionId !== sessionId || !answer.sdp || pc.signalingState !== 'have-local-offer') return;
-                    if (answer.projectorId !== localProjectorId) return;
-                    pc.setRemoteDescription({ type: 'answer', sdp: answer.sdp }).catch(error => console.error('No se pudo aceptar la respuesta WebRTC:', error));
-                };
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                await waitForIceGathering(pc);
-                if (videoTransferSessionId !== sessionId || !isLocalProjectorKnown()) throw new Error('La ventana local del proyector dejó de responder.');
-                broadcastChannel.postMessage({ type: '__video_transfer_offer', sessionId, sdp: pc.localDescription.sdp, timestamp: Date.now(), projectorId: localProjectorId });
-                videoTransferConnectTimeoutId = setTimeout(() => {
-                    if (videoTransferSessionId !== sessionId || !videoTransferChannel || videoTransferChannel.readyState === 'open') return;
-                    closeVideoTransferPeer();
-                    showToast('El proyector no aceptó el video a tiempo. Vuelve a cargar el archivo.', 'error');
-                }, 30000);
-                showToast('Conectando el video con la pantalla externa…', 'info');
+                startVideoStatusPolling();
+                await transferVideoFileOverLocalChannel(file, activeVideoUrl);
             } catch (error) {
-                console.error('No se pudo iniciar WebRTC para video:', error);
-                if (videoTransferSessionId === sessionId) closeVideoTransferPeer();
-                showToast('No se pudo conectar el video con la ventana local del proyector. Mantén ambas ventanas abiertas y vuelve a cargarlo.', 'error');
+                if (error.name !== 'AbortError') console.error('No se pudo enviar el video al proyector:', error);
             }
         }
 
@@ -1792,6 +1819,14 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             broadcastChannel.addEventListener('message', event => {
                 const data = event.data;
                 if (!data || typeof data !== 'object') return;
+                if (data.type === '__local_video_transfer_ack') {
+                    handleLocalVideoTransferAck(data);
+                    return;
+                }
+                if (data.type === '__local_video_preview_frame') {
+                    if (data.projectorId === localProjectorId) showLocalVideoPreviewFrame(data.frame, data.timestamp);
+                    return;
+                }
                 if (data.type === '__local_video_status') {
                     if (!localProjectorId || data.projectorId !== localProjectorId) return;
                     const statusMessage = { ...data, type: 'video-status' };
@@ -1807,8 +1842,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     projectorLastHeartbeat = heartbeatAt;
                     const projectorIdentityChanged = !!(nextProjectorId && nextProjectorId !== localProjectorId);
                     localProjectorId = nextProjectorId;
+                    if (projectorIdentityChanged) localVideoPreviewTimestamp = 0;
                     refreshVideoControls();
                     if (projectorIdentityChanged && activeVideoFile && mediaMode === 'video') {
+                        cancelLocalVideoTransfer();
                         closeVideoTransferPeer();
                         setTimeout(() => {
                             if (activeVideoFile && mediaMode === 'video') sendLocalVideoToProjection(activeVideoFile);
@@ -3898,6 +3935,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             document.getElementById('video-file-input').onchange = (e) => {
                 const file = e.target.files[0];
                 if (file) {
+                    cancelLocalVideoTransfer();
                     clearBlackoutForVisibleContent();
                     isStandby = false;
                     activeVideoFile = file;
@@ -3921,6 +3959,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
             const controlVideo = document.getElementById('preview-video');
             document.getElementById('btn-remove-video').onclick = () => {
+                cancelLocalVideoTransfer();
                 if (mediaMode === 'screen') stopScreenCapture();
                 if (activeVideoUrl && activeVideoUrl.startsWith('blob:')) URL.revokeObjectURL(activeVideoUrl);
                 activeVideoUrl = '';

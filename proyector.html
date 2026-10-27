@@ -232,6 +232,10 @@
                                                     }
                                                     return;
                                                 }
+                                                if (data && (data.type === '__local_video_transfer_start' || data.type === '__local_video_transfer_chunk' || data.type === '__local_video_transfer_cancel')) {
+                                                    handleLocalVideoTransferMessage(data);
+                                                    return;
+                                                }
                                                 if (data && data.type === '__video_transfer_offer') {
                                                     handleVideoOffer(data);
                                                     return;
@@ -582,6 +586,7 @@
                                     let projectorMirrorTimer = null;
                                     let projectorMirrorCanvas = null;
                                     let incomingVideoTransfer = null;
+                                    let incomingLocalVideoTransfer = null;
                                     let lastProjectorStatusAt = 0;
                                     let pendingProjectorVideoCommand = null;
 
@@ -688,12 +693,102 @@
                                         } catch (error) { console.error('No se pudo preparar el video recibido:', error); }
                                     }
 
+                                    function acknowledgeLocalVideoTransfer(message, ack, error = '') {
+                                        if (!channel || !message || !message.sessionId) return;
+                                        try {
+                                            channel.postMessage({
+                                                type: '__local_video_transfer_ack',
+                                                projectorId: projectorInstanceId,
+                                                sessionId: message.sessionId,
+                                                ack,
+                                                error,
+                                                timestamp: Date.now()
+                                            });
+                                        } catch (sendError) { console.warn('No se pudo confirmar un bloque de video:', sendError); }
+                                    }
+
+                                    function handleLocalVideoTransferMessage(message) {
+                                        if (!message || message.projectorId !== projectorInstanceId || !message.sessionId) return;
+                                        if (message.type === '__local_video_transfer_start') {
+                                            const size = Number(message.size);
+                                            const totalChunks = Number(message.totalChunks);
+                                            const chunkSize = Number(message.chunkSize);
+                                            if (!Number.isSafeInteger(size) || size <= 0 || !Number.isSafeInteger(totalChunks) || totalChunks <= 0 || !Number.isSafeInteger(chunkSize) || chunkSize <= 0 || totalChunks !== Math.ceil(size / chunkSize)) {
+                                                acknowledgeLocalVideoTransfer(message, 'ready', 'El archivo de video tiene datos inválidos.');
+                                                return;
+                                            }
+                                            incomingLocalVideoTransfer = {
+                                                sessionId: message.sessionId,
+                                                sourceKey: String(message.sourceKey || ''),
+                                                mime: String(message.mime || 'video/mp4'),
+                                                size,
+                                                totalChunks,
+                                                chunkSize,
+                                                nextChunk: 0,
+                                                receivedBytes: 0,
+                                                chunks: []
+                                            };
+                                            acknowledgeLocalVideoTransfer(message, 'ready');
+                                            return;
+                                        }
+                                        if (message.type === '__local_video_transfer_cancel') {
+                                            if (incomingLocalVideoTransfer && incomingLocalVideoTransfer.sessionId === message.sessionId) incomingLocalVideoTransfer = null;
+                                            return;
+                                        }
+                                        const transfer = incomingLocalVideoTransfer;
+                                        if (!transfer || transfer.sessionId !== message.sessionId) return;
+                                        const chunkIndex = Number(message.chunkIndex);
+                                        const chunk = message.buffer;
+                                        const ack = `chunk:${chunkIndex}`;
+                                        if (Number.isInteger(chunkIndex) && chunkIndex < transfer.nextChunk) {
+                                            acknowledgeLocalVideoTransfer(message, ack);
+                                            return;
+                                        }
+                                        if (!Number.isInteger(chunkIndex) || chunkIndex !== transfer.nextChunk || !(chunk instanceof ArrayBuffer)) {
+                                            acknowledgeLocalVideoTransfer(message, ack, 'El orden de los bloques de video no coincide.');
+                                            return;
+                                        }
+                                        if (!chunk.byteLength || chunk.byteLength > transfer.chunkSize || transfer.receivedBytes + chunk.byteLength > transfer.size) {
+                                            acknowledgeLocalVideoTransfer(message, ack, 'El tamaño de un bloque de video no es válido.');
+                                            return;
+                                        }
+                                        transfer.chunks.push(chunk);
+                                        transfer.receivedBytes += chunk.byteLength;
+                                        transfer.nextChunk += 1;
+                                        if (transfer.nextChunk === transfer.totalChunks) {
+                                            if (transfer.receivedBytes !== transfer.size) {
+                                                acknowledgeLocalVideoTransfer(message, ack, 'El video llegó incompleto.');
+                                                incomingLocalVideoTransfer = null;
+                                                return;
+                                            }
+                                            try {
+                                                const blob = new Blob(transfer.chunks, { type: transfer.mime });
+                                                if (localProjectionVideoUrl) { try { URL.revokeObjectURL(localProjectionVideoUrl); } catch (_) {} }
+                                                localProjectionVideoUrl = URL.createObjectURL(blob);
+                                                mappedRemoteBlobKey = transfer.sourceKey;
+                                                pendingRemoteBlobKey = '';
+                                                incomingLocalVideoTransfer = null;
+                                                if (latestProjectionData) applyProjection(latestProjectionData, true);
+                                                setTimeout(flushPendingProjectorVideoCommand, 100);
+                                                sendProjectorVideoStatus(true);
+                                                console.info('Video recibido por el canal local:', blob.size, 'bytes');
+                                            } catch (error) {
+                                                incomingLocalVideoTransfer = null;
+                                                acknowledgeLocalVideoTransfer(message, ack, 'No se pudo preparar el archivo de video en el proyector.');
+                                                console.error('No se pudo preparar el video recibido por el canal local:', error);
+                                                return;
+                                            }
+                                        }
+                                        acknowledgeLocalVideoTransfer(message, ack);
+                                    }
+
                                     function sendProjectorMirrorFrame(force = false) {
-                                        const channel = projectorMirrorChannel;
+                                        const mirrorDataChannel = projectorMirrorChannel;
+                                        const webRtcMirrorReady = !!(mirrorDataChannel && mirrorDataChannel.readyState === 'open');
                                         const video = document.getElementById('proj-video');
-                                        if (!channel || channel.readyState !== 'open' || !video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+                                        if ((!webRtcMirrorReady && !channel) || !video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
                                         if (!force && video.paused) return;
-                                        if (channel.bufferedAmount > 180000) return;
+                                        if (webRtcMirrorReady && mirrorDataChannel.bufferedAmount > 180000) return;
                                         try {
                                             if (!projectorMirrorCanvas) projectorMirrorCanvas = document.createElement('canvas');
                                             const negotiatedLimit = Number(projectorTransferPeer && projectorTransferPeer.sctp && projectorTransferPeer.sctp.maxMessageSize) || 0;
@@ -715,7 +810,8 @@
                                                 const frame = projectorMirrorCanvas.toDataURL('image/jpeg', qualities[i]);
                                                 const message = JSON.stringify({ type: 'preview-frame', frame, timestamp: Date.now() });
                                                 if (message.length <= maxMessageBytes) {
-                                                    channel.send(message);
+                                                    if (webRtcMirrorReady) mirrorDataChannel.send(message);
+                                                    else channel.postMessage({ type: '__local_video_preview_frame', projectorId: projectorInstanceId, frame, timestamp: Date.now() });
                                                     return;
                                                 }
                                             }
@@ -723,10 +819,12 @@
                                         } catch (error) { console.warn('No se pudo enviar el fotograma espejo:', error); }
                                     }
                                     function startProjectorMirror() {
-                                        if (projectorMirrorTimer) clearInterval(projectorMirrorTimer);
-                                        projectorMirrorTimer = setInterval(() => sendProjectorMirrorFrame(false), 250);
+                                        if (!projectorMirrorTimer) projectorMirrorTimer = setInterval(() => sendProjectorMirrorFrame(false), 250);
                                         const video = document.getElementById('proj-video');
-                                        if (video) ['loadeddata', 'playing', 'pause', 'seeked', 'timeupdate'].forEach(name => video.addEventListener(name, () => sendProjectorMirrorFrame(true)));
+                                        if (video && video.dataset.mirrorEventsBound !== 'true') {
+                                            video.dataset.mirrorEventsBound = 'true';
+                                            ['loadeddata', 'playing', 'pause', 'seeked', 'timeupdate'].forEach(name => video.addEventListener(name, () => sendProjectorMirrorFrame(true)));
+                                        }
                                         sendProjectorMirrorFrame(true);
                                     }
 
@@ -853,6 +951,7 @@
                                             projectedVideoElement.addEventListener(eventName, () => sendProjectorVideoStatus(eventName !== 'timeupdate'));
                                         });
                                     }
+                                    startProjectorMirror();
 
                                     // Safari puede bloquear audio iniciado desde otra ventana. Si sucede,
                                     // permite activar el video con un gesto dentro de esta ventana.

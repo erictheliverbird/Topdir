@@ -44,6 +44,7 @@
                                     const CHANNEL_NAME = 'biblical-projector-channel';
                                     const STORAGE_KEY = 'biblical_projector_data';
                                     const projectorInstanceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+                                    const projectorControllerId = new URLSearchParams(window.location.search).get('controller') || '';
                                     let channel = null;
 
                                     // Pantalla completa: Safari solo permite solicitarla de forma fiable
@@ -249,7 +250,7 @@
                                                 }
                                                 if (data && (data.type === '__video_transfer_answer' || data.type === '__screen_capture_answer')) return;
                                                 if (data && data.type === '__controller_hello') {
-                                                    sendProjectorHeartbeat();
+                                                    if (data.controllerId === projectorControllerId) sendProjectorHeartbeat();
                                                     return;
                                                 }
                                                 applyProjection(data);
@@ -259,7 +260,7 @@
 
                                     function sendProjectorHeartbeat() {
                                         try {
-                                            if (channel) channel.postMessage({ type: '__projector_heartbeat', timestamp: Date.now(), page: location.pathname, projectorId: projectorInstanceId });
+                                            if (channel) channel.postMessage({ type: '__projector_heartbeat', timestamp: Date.now(), page: location.pathname, projectorId: projectorInstanceId, controllerId: projectorControllerId });
                                         } catch (_) {}
                                     }
                                     // Latido periódico: el controlador sabe que esta página sigue viva
@@ -335,6 +336,7 @@
                                         if (!data || typeof data !== 'object' || !data.styles ||
                                             !Object.prototype.hasOwnProperty.call(data, 'mediaMode') ||
                                             !Number.isFinite(Number(data.timestamp)) || Number(data.timestamp) <= 0) return;
+                                        if (projectorControllerId ? data.controllerId !== projectorControllerId : !!data.controllerId) return;
                                         const incomingTimestamp = Number(data.timestamp || 0);
                                         if (!force && incomingTimestamp && incomingTimestamp <= latestProjectionTimestamp) return;
                                         if (incomingTimestamp && (!force || incomingTimestamp > latestProjectionTimestamp)) latestProjectionTimestamp = incomingTimestamp;
@@ -385,7 +387,7 @@
                                                 karaokeBg.style.opacity=String(Math.max(0,Math.min(100,Number(karaokeStyle.bgOpacity===undefined?100:karaokeStyle.bgOpacity))/100));
                                                 if (karaokeStyle.transparent) { karaokeBg.style.background='transparent'; karaokeBg.style.backgroundImage='none'; }
                                                 else if (karaokeStyle.bgType==='image' && karaokeStyle.bgImage) { karaokeBg.style.background='none'; karaokeBg.style.backgroundImage='url(\"'+String(karaokeStyle.bgImage).replace(/\"/g,'%22')+'\")'; karaokeBg.style.backgroundSize='cover'; karaokeBg.style.backgroundPosition='center'; }
-                                                else if (karaokeStyle.bgType==='gradient') { karaokeBg.style.background=karaokeStyle.bgGradient||'linear-gradient(135deg,#020617,#1e1b4b)'; karaokeBg.style.backgroundImage='none'; }
+                                                else if (karaokeStyle.bgType==='gradient') { karaokeBg.style.background=karaokeStyle.bgGradient||'linear-gradient(135deg,#020617,#1e1b4b)'; }
                                                 else { karaokeBg.style.background=karaokeStyle.bgColor||'#000000'; karaokeBg.style.backgroundImage='none'; }
                                             }
                                         } else { karaokeBox.classList.add('hidden'); }
@@ -438,7 +440,7 @@
                                         citation.classList.toggle('text-projection-shadow', styles.citationShadow !== false);
 
                                         if (styles.bgType === 'color') { backdrop.style.background = styles.bgcolor || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
-                                        else if (styles.bgType === 'gradient') { backdrop.style.background = styles.gradient || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
+                                        else if (styles.bgType === 'gradient') { backdrop.style.background = styles.gradient || '#0f172a'; }
                                         else if (styles.bgType === 'image') { backdrop.style.background = 'none'; backdrop.style.backgroundImage = 'url("' + String(styles.bgImage || '').replace(/"/g, '%22') + '")'; backdrop.style.backgroundSize = 'cover'; backdrop.style.backgroundPosition = 'center'; }
                                         const backgroundOverlayOpacity = styles.bgType === 'image'
                                             ? Math.max(0, Math.min(100, Number(styles.bgOpacity) || 0)) / 100
@@ -694,13 +696,30 @@
                                         if (channel.bufferedAmount > 180000) return;
                                         try {
                                             if (!projectorMirrorCanvas) projectorMirrorCanvas = document.createElement('canvas');
-                                            const scale = Math.min(1, 640 / video.videoWidth, 360 / video.videoHeight);
-                                            projectorMirrorCanvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-                                            projectorMirrorCanvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+                                            const negotiatedLimit = Number(projectorTransferPeer && projectorTransferPeer.sctp && projectorTransferPeer.sctp.maxMessageSize) || 0;
+                                            // Los canales SCTP de Safari suelen tener un límite de mensaje. Enviar
+                                            // el data URL JPEG completo sin medirlo deja la vista espejo vacía.
+                                            const maxMessageBytes = negotiatedLimit > 0
+                                                ? Math.min(48 * 1024, Math.max(8 * 1024, negotiatedLimit - 1024))
+                                                : 24 * 1024;
                                             const ctx = projectorMirrorCanvas.getContext('2d', { alpha: false });
                                             if (!ctx) return;
-                                            ctx.drawImage(video, 0, 0, projectorMirrorCanvas.width, projectorMirrorCanvas.height);
-                                            channel.send(JSON.stringify({ type: 'preview-frame', frame: projectorMirrorCanvas.toDataURL('image/jpeg', 0.48), timestamp: Date.now() }));
+                                            const baseScale = Math.min(1, 640 / video.videoWidth, 360 / video.videoHeight);
+                                            const scales = [baseScale, baseScale * 0.75, baseScale * 0.5, baseScale * 0.35];
+                                            const qualities = [0.34, 0.24, 0.17, 0.12];
+                                            for (let i = 0; i < scales.length; i++) {
+                                                const scale = scales[i];
+                                                projectorMirrorCanvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+                                                projectorMirrorCanvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+                                                ctx.drawImage(video, 0, 0, projectorMirrorCanvas.width, projectorMirrorCanvas.height);
+                                                const frame = projectorMirrorCanvas.toDataURL('image/jpeg', qualities[i]);
+                                                const message = JSON.stringify({ type: 'preview-frame', frame, timestamp: Date.now() });
+                                                if (message.length <= maxMessageBytes) {
+                                                    channel.send(message);
+                                                    return;
+                                                }
+                                            }
+                                            console.warn('Fotograma espejo descartado: supera el límite seguro del canal de datos.');
                                         } catch (error) { console.warn('No se pudo enviar el fotograma espejo:', error); }
                                     }
                                     function startProjectorMirror() {

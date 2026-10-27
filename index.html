@@ -1140,6 +1140,19 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let youtubeWindowHeartbeatTimestamp = 0;
         let broadcastChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('biblical-projector-channel') : null;
         let localProjectorId = '';
+        const projectorControllerId = (() => {
+            const key = 'biblical_projector_controller_id';
+            try {
+                let id = sessionStorage.getItem(key);
+                if (!id) {
+                    id = 'controller-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+                    sessionStorage.setItem(key, id);
+                }
+                return id;
+            } catch (_) {
+                return 'controller-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+            }
+        })();
 
         let youtubeCommandCounter = 0;
         let youtubeRemoteStatus = null;
@@ -1635,7 +1648,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         }
 
         function isLocalProjectorKnown() {
-            return !!(broadcastChannel && localProjectorId);
+            return !!(broadcastChannel && localProjectorId && Date.now() - projectorLastHeartbeat < 9000);
         }
 
         function isYouTubeWindowConnected() {
@@ -1787,8 +1800,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     return;
                 }
                 if (data.type === '__projector_heartbeat') {
-                    projectorLastHeartbeat = Date.now();
+                    if (data.controllerId !== projectorControllerId) return;
                     const nextProjectorId = typeof data.projectorId === 'string' ? data.projectorId : '';
+                    const heartbeatAt = Date.now();
+                    if (localProjectorId && nextProjectorId && nextProjectorId !== localProjectorId && heartbeatAt - projectorLastHeartbeat < 9000) return;
+                    projectorLastHeartbeat = heartbeatAt;
                     const projectorIdentityChanged = !!(nextProjectorId && nextProjectorId !== localProjectorId);
                     localProjectorId = nextProjectorId;
                     refreshVideoControls();
@@ -1838,7 +1854,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 // La respuesta no depende de externalWindow: BroadcastChannel sigue funcionando
                 // cuando Safari separa la pestaña del proyector en otra ventana.
             });
-            try { broadcastChannel.postMessage({ type: '__controller_hello', timestamp: Date.now() }); } catch (_) {}
+            try { broadcastChannel.postMessage({ type: '__controller_hello', controllerId: projectorControllerId, timestamp: Date.now() }); } catch (_) {}
         }
         window.addEventListener('message', event => {
             if (event.origin !== location.origin || !event.data || event.data.type !== '__youtube_window_heartbeat') return;
@@ -1847,7 +1863,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         });
         projectorConnectionCheckTimer = setInterval(updateProjectorConnectionStatus, 1500);
         window.addEventListener('focus', () => {
-            try { if (broadcastChannel) broadcastChannel.postMessage({ type: '__controller_hello', timestamp: Date.now() }); } catch (_) {}
+            try { if (broadcastChannel) broadcastChannel.postMessage({ type: '__controller_hello', controllerId: projectorControllerId, timestamp: Date.now() }); } catch (_) {}
             updateProjectorConnectionStatus();
         });
         
@@ -2935,6 +2951,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 videoSeekTo: videoSeekTo,
                 videoSeekId: videoSeekId,
                 youtubeSeparateWindow: youtubeSeparateWindowMode,
+                controllerId: projectorControllerId,
                 timestamp: Date.now()
             };
 
@@ -3120,7 +3137,6 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     backdropEl.style.backgroundImage = 'none';
                 } else if (data.styles.bgType === 'gradient') {
                     backdropEl.style.background = data.styles.gradient;
-                    backdropEl.style.backgroundImage = 'none';
                 } else if (data.styles.bgType === 'image') {
                     backdropEl.style.background = 'none';
                     backdropEl.style.backgroundImage = `url("${data.styles.bgImage}")`;
@@ -3440,16 +3456,23 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         function toggleExternalProjector() {
             // Si la ventana fue separada manualmente y Safari perdió la referencia,
             // el heartbeat permite evitar abrir una segunda proyección duplicada.
-            if ((!externalWindow || externalWindow.closed) && isProjectorConnected()) {
+            if (!externalWindow && isProjectorConnected()) {
                 showToast('La ventana de proyección ya está abierta. Busca la ventana “Proyección en Vivo” y muévela al monitor externo; no abras otra.', 'info');
                 return;
             }
             if (externalWindow && !externalWindow.closed) {
                 externalWindow.close();
                 externalWindow = null;
+                localProjectorId = '';
+                projectorLastHeartbeat = 0;
                 document.getElementById('ext-win-text').innerText = "Proyectar (Ventana)";
                 showToast("Ventana externa cerrada", "info");
                 return;
+            }
+            if (externalWindow && externalWindow.closed) {
+                externalWindow = null;
+                localProjectorId = '';
+                projectorLastHeartbeat = 0;
             }
 
             // Abrir una página real e independiente alojada junto a index.html.
@@ -3457,6 +3480,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             // de forma distinta cuando Safari mueve la ventana a una pantalla externa.
             const projectorUrl = new URL('proyector.html', window.location.href);
             projectorUrl.searchParams.set('projection', '1');
+            projectorUrl.searchParams.set('controller', projectorControllerId);
+            localProjectorId = '';
+            projectorLastHeartbeat = 0;
             externalWindow = window.open(projectorUrl.href, 'BiblicalProjectorWindow', 'width=1280,height=720');
             if (externalWindow) {
                 document.getElementById('ext-win-text').innerText = "Cerrar Ventana";

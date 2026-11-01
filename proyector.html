@@ -22,6 +22,7 @@
                         <body class="projection-page h-screen w-screen overflow-hidden relative flex flex-col justify-between p-16 select-none bg-black">
                             <button id="proj-fullscreen-prompt" type="button" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-xl border border-white/30 bg-black/85 px-5 py-3 text-sm font-bold text-white shadow-2xl" style="display:none">⛶ Activar pantalla completa</button>
                             <div id="proj-backdrop" class="absolute inset-0 z-0 bg-cover bg-center transition-all duration-300"></div>
+                            <video id="proj-background-video" class="absolute inset-0 z-[1] w-full h-full object-cover hidden pointer-events-none" muted playsinline loop autoplay preload="auto" aria-hidden="true"></video>
                             <video id="proj-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline autoplay></video>
                             <button id="proj-enable-audio" type="button" class="absolute z-50 hidden left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-black/85 border border-white/40 px-6 py-4 text-white text-lg font-bold shadow-2xl" style="pointer-events:auto">▶ Toca para reproducir con sonido</button>
 
@@ -31,6 +32,9 @@
                             <img id="proj-logo-standby" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[40%] max-h-[60%] object-contain z-30 hidden" alt="Standby Logo" />
                             <img id="proj-logo-corner" class="absolute max-w-[12%] max-h-[15%] object-contain z-30 hidden" alt="Corner Logo" />
                             <div id="proj-karaoke" class="absolute inset-0 z-40 hidden flex items-center justify-center px-[8%] py-[6%] pointer-events-none"><div id="proj-karaoke-bg" class="absolute inset-0 z-0 pointer-events-none"></div><div id="proj-karaoke-stanza" class="relative z-10 w-full whitespace-pre-line leading-relaxed text-center"></div></div>
+                            <div id="proj-transition-curtain" class="projection-transition-curtain" aria-hidden="true"></div>
+                            <video id="proj-transition-video" class="projection-transition-video" muted playsinline preload="auto" aria-hidden="true"></video>
+                            <div id="proj-transition-logo" class="projection-logo-transition" aria-hidden="true"><img id="proj-transition-logo-image" alt="Logo de la iglesia" /></div>
                             <div class="z-30 text-center w-full my-auto px-12">
                                 <p id="proj-text" class="text-white leading-relaxed"></p>
                             </div>
@@ -46,6 +50,288 @@
                                     const projectorInstanceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
                                     const projectorControllerId = new URLSearchParams(window.location.search).get('controller') || '';
                                     let channel = null;
+                                    const PROJECTOR_DB_NAME = 'proyector-biblico-local';
+                                    const PROJECTION_MEDIA_RECORD_PREFIX = 'projection-media:';
+                                    let projectorMediaDbPromise = null;
+                                    const projectorMediaUrls = new Map();
+                                    function openProjectorMediaDb() {
+                                        if (projectorMediaDbPromise) return projectorMediaDbPromise;
+                                        projectorMediaDbPromise = new Promise((resolve, reject) => {
+                                            const request = indexedDB.open(PROJECTOR_DB_NAME, 1);
+                                            request.onupgradeneeded = () => {
+                                                const db = request.result;
+                                                if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
+                                                if (!db.objectStoreNames.contains('bibles')) db.createObjectStore('bibles', { keyPath: 'id' });
+                                            };
+                                            request.onsuccess = () => resolve(request.result);
+                                            request.onerror = () => reject(request.error || new Error('No se pudo abrir el almacenamiento local.'));
+                                        });
+                                        return projectorMediaDbPromise;
+                                    }
+                                    async function getProjectorMediaUrl(assetId) {
+                                        if (projectorMediaUrls.has(assetId)) return projectorMediaUrls.get(assetId);
+                                        const db = await openProjectorMediaDb();
+                                        const record = await new Promise((resolve, reject) => {
+                                            const request = db.transaction('settings', 'readonly').objectStore('settings').get(PROJECTION_MEDIA_RECORD_PREFIX + assetId);
+                                            request.onsuccess = () => resolve(request.result || null);
+                                            request.onerror = () => reject(request.error);
+                                        });
+                                        const blob = record && record.blob instanceof Blob ? record.blob : null;
+                                        if (!blob) throw new Error('No se encontró el archivo multimedia en este dispositivo.');
+                                        const url = URL.createObjectURL(blob);
+                                        projectorMediaUrls.set(assetId, url);
+                                        return url;
+                                    }
+                                    function sendProjectionAssetStatus(kind, assetId, message) {
+                                        try { if (channel) channel.postMessage({ type: '__projection_asset_status', controllerId: projectorControllerId, kind, assetId: assetId || '', message: String(message || ''), timestamp: Date.now() }); } catch (_) {}
+                                    }
+                                    function stopBackgroundVideoLoopGuard(video) {
+                                        const guard = video && video._projectionLoopGuard;
+                                        if (!guard) return;
+                                        clearInterval(guard.timer);
+                                        video._projectionLoopGuard = null;
+                                    }
+                                    function ensureBackgroundVideoLoopGuard(video, assetId, onBlocked) {
+                                        let guard = video._projectionLoopGuard;
+                                        if (guard) { guard.assetId = assetId; guard.onBlocked = onBlocked; return; }
+                                        guard = { assetId, onBlocked, playPending: false, lastFailureAt: 0, lastTime: null, lastProgressAt: Date.now(), timer: 0 };
+                                        guard.timer = setInterval(() => {
+                                            const activeAsset = video.dataset.shouldPlay;
+                                            if (!activeAsset || !video.isConnected) { stopBackgroundVideoLoopGuard(video); return; }
+                                            if (document.hidden || activeAsset !== guard.assetId || video.dataset.assetId !== activeAsset || video.readyState < 2 || guard.playPending) return;
+                                            const now = Date.now();
+                                            const currentTime = Number(video.currentTime) || 0;
+                                            if (guard.lastTime === null || currentTime > guard.lastTime + 0.02 || currentTime < guard.lastTime - 0.1) {
+                                                guard.lastTime = currentTime;
+                                                guard.lastProgressAt = now;
+                                            } else if (!video.paused && !video.seeking && video.readyState >= 3 && now - guard.lastProgressAt > 5000) {
+                                                if (Number.isFinite(video.duration) && video.duration > 0 && video.duration - currentTime < 0.5) {
+                                                    try { video.currentTime = 0; } catch (_) {}
+                                                }
+                                                video.pause();
+                                                guard.lastProgressAt = now;
+                                            }
+                                            const stoppedAtEnd = Number.isFinite(video.duration) && video.duration > 0 && video.duration - currentTime <= 0.25;
+                                            if (video.ended || (video.paused && stoppedAtEnd)) { try { video.currentTime = 0; } catch (_) {} }
+                                            if (!video.paused) return;
+                                            guard.playPending = true;
+                                            Promise.resolve().then(() => video.play()).then(() => {
+                                                if (video.dataset.shouldPlay === activeAsset) video.classList.remove('hidden');
+                                            }).catch(error => {
+                                                if (video.dataset.shouldPlay !== activeAsset || Date.now() - guard.lastFailureAt < 5000) return;
+                                                guard.lastFailureAt = Date.now();
+                                                if (typeof guard.onBlocked === 'function') guard.onBlocked(error);
+                                            }).finally(() => { guard.playPending = false; });
+                                        }, 1000);
+                                        video._projectionLoopGuard = guard;
+                                    }
+                                    function updateProjectedBackground(data, video) {
+                                        if (!video) return;
+                                        const styles = data.styles || {};
+                                        const assetId = String(styles.backgroundVideoId || '');
+                                        const visible = styles.bgType === 'video' && !!assetId && data.mediaMode === 'none' && !data.isBlackout;
+                                        video.muted = true; video.defaultMuted = true; video.loop = true; video.playsInline = true; video.preload = 'auto';
+                                        video.setAttribute('muted', ''); video.setAttribute('playsinline', ''); video.setAttribute('loop', ''); video.setAttribute('autoplay', '');
+                                        if (!visible) { video.dataset.shouldPlay = ''; stopBackgroundVideoLoopGuard(video); video.pause(); video.classList.add('hidden'); return; }
+                                        video.dataset.shouldPlay = assetId;
+                                        video.classList.remove('hidden');
+                                        ensureBackgroundVideoLoopGuard(video, assetId, error => {
+                                            if (video.dataset.shouldPlay !== assetId) return;
+                                            video.classList.add('hidden');
+                                            sendProjectionAssetStatus('background', assetId, 'Safari pausó el fondo; se intentará reanudar automáticamente.');
+                                            console.warn('No se pudo reanudar automáticamente el video de fondo:', error);
+                                        });
+                                        video.onended = () => {
+                                            if (video.dataset.shouldPlay !== assetId) return;
+                                            try { video.currentTime = 0; } catch (_) {}
+                                            video.play().catch(() => reportFailure('Safari detuvo el bucle; se muestra el fondo de respaldo.'));
+                                        };
+                                        const reportFailure = message => {
+                                            if (video.dataset.shouldPlay !== assetId) return;
+                                            video.pause(); video.classList.add('hidden');
+                                            sendProjectionAssetStatus('background', assetId, message);
+                                        };
+                                        if (video.dataset.assetId !== assetId || !video.getAttribute('src')) {
+                                            if (video.dataset.loadingAsset === assetId) return;
+                                            video.pause(); video.dataset.loadingAsset = assetId;
+                                            video.removeAttribute('src'); video.load();
+                                            getProjectorMediaUrl(assetId).then(url => {
+                                                if (video.dataset.loadingAsset === assetId) video.dataset.loadingAsset = '';
+                                                if (video.dataset.shouldPlay !== assetId || !video.isConnected) return;
+                                                video.dataset.assetId = assetId;
+                                                video.src = url;
+                                                video.onerror = () => reportFailure('No se pudo reproducir el fondo; se muestra el fondo de respaldo.');
+                                                video.onloadeddata = () => {
+                                                    if (video.dataset.shouldPlay === assetId) sendProjectionAssetStatus('background', assetId, 'Fondo de video listo');
+                                                };
+                                                video.load();
+                                                video.play().catch(() => reportFailure('Safari bloqueó el inicio del fondo; toca la proyección y vuelve a activarlo.'));
+                                            }).catch(() => {
+                                                if (video.dataset.loadingAsset === assetId) video.dataset.loadingAsset = '';
+                                                if (video.dataset.shouldPlay === assetId) reportFailure('No se encontró el fondo guardado en este dispositivo; se muestra el fondo de respaldo.');
+                                            });
+                                            return;
+                                        }
+                                        if (video.paused) video.play().catch(() => reportFailure('Safari bloqueó la reanudación del fondo; se muestra el fondo de respaldo.'));
+                                    }
+                                    function animateProjectedText(element, contentKey, animation, reducedMotion, durationMs = 350) {
+                                        if (!element) return;
+                                        const key = String(contentKey || '');
+                                        const previous = element.dataset.projectionContentKey;
+                                        element.dataset.projectionContentKey = key;
+                                        if (previous === undefined || previous === key) return;
+                                        const target = element.parentElement || element;
+                                        const classes = ['projection-enter-fade','projection-enter-slide-up','projection-enter-slide-left','projection-enter-slide-down','projection-enter-slide-right','projection-enter-zoom','projection-enter-blur','projection-enter-reveal'];
+                                        target.classList.remove(...classes);
+                                        const animationClass = 'projection-enter-' + animation;
+                                        if (animation === 'none' || reducedMotion || !classes.includes(animationClass)) return;
+                                        target.style.animationDuration = Math.min(1400, Math.max(100, Number(durationMs) || 350)) + 'ms';
+                                        void target.offsetWidth;
+                                        target.classList.add(animationClass);
+                                    }
+                                    let lastAcceptedProjection = null;
+                                    let mediaTransitionSequence = 0;
+                                    let activeMediaTransition = null;
+                                    function isMediaTransitionBoundary(from, to) {
+                                        const mediaModes = ['video','youtube'];
+                                        return (from === 'none' && mediaModes.includes(to)) || (to === 'none' && mediaModes.includes(from));
+                                    }
+                                    function mediaTransitionTargetReady(pending) {
+                                        if (!pending || pending.targetMode === 'none') return true;
+                                        if (pending.targetMode === 'video') {
+                                            const video = document.getElementById('proj-video');
+                                            return !!video && !!video.getAttribute('src') && video.readyState >= 2;
+                                        }
+                                        if (pending.targetMode === 'youtube') return ytPlayerReady && ytPlayerState !== -1;
+                                        return false;
+                                    }
+                                    function finishMediaTransition(token, force = false) {
+                                        const pending = activeMediaTransition;
+                                        if (!pending || pending.token !== token || (!force && (!pending.visualComplete || !mediaTransitionTargetReady(pending)))) return;
+                                        activeMediaTransition = null;
+                                        clearTimeout(pending.timeout);
+                                        clearTimeout(pending.visualTimer);
+                                        const curtain = document.getElementById('proj-transition-curtain');
+                                        const clip = document.getElementById('proj-transition-video');
+                                        const logoLayer = document.getElementById('proj-transition-logo');
+                                        if (curtain) { curtain.onanimationend = null; curtain.className = 'projection-transition-curtain'; }
+                                        if (clip) { clip.onended = null; clip.onerror = null; clip.onloadedmetadata = null; clip.pause(); clip.classList.remove('is-active'); }
+                                        if (logoLayer) { logoLayer.onanimationend = null; logoLayer.className = 'projection-logo-transition'; }
+                                    }
+                                    function maybeFinishMediaTransition() {
+                                        if (activeMediaTransition) finishMediaTransition(activeMediaTransition.token);
+                                    }
+                                    function runBuiltInMediaTransition(pending, effect, logoUrl = '', durationMs = 700) {
+                                        const curtain = document.getElementById('proj-transition-curtain');
+                                        const clip = document.getElementById('proj-transition-video');
+                                        const logoLayer = document.getElementById('proj-transition-logo');
+                                        const logoImage = document.getElementById('proj-transition-logo-image');
+                                        if (!curtain || !pending || activeMediaTransition !== pending) return;
+                                        if (clip) { clip.onended = null; clip.onerror = null; clip.onloadedmetadata = null; clip.pause(); clip.classList.remove('is-active'); }
+                                        if (logoLayer) { logoLayer.onanimationend = null; logoLayer.className = 'projection-logo-transition'; }
+                                        const safeDuration = Math.min(2000, Math.max(300, Number(durationMs) || 700));
+                                        if (effect === 'logo' && logoUrl && logoLayer && logoImage) {
+                                            curtain.className = 'projection-transition-curtain';
+                                            logoImage.src = logoUrl;
+                                            logoLayer.style.animationDuration = safeDuration + 'ms';
+                                            logoImage.style.animationDuration = safeDuration + 'ms';
+                                            logoLayer.className = 'projection-logo-transition is-active';
+                                            void logoLayer.offsetWidth;
+                                            logoLayer.classList.add('is-playing');
+                                            logoLayer.onanimationend = event => {
+                                                if (event.target !== logoLayer) return;
+                                                if (activeMediaTransition !== pending) return;
+                                                pending.visualComplete = true;
+                                                logoLayer.className = 'projection-logo-transition';
+                                                if (!mediaTransitionTargetReady(pending)) curtain.className = 'projection-transition-curtain is-active is-held';
+                                                maybeFinishMediaTransition();
+                                            };
+                                            pending.visualTimer = setTimeout(() => {
+                                                if (activeMediaTransition !== pending || pending.visualComplete) return;
+                                                pending.visualComplete = true;
+                                                logoLayer.className = 'projection-logo-transition';
+                                                if (!mediaTransitionTargetReady(pending)) curtain.className = 'projection-transition-curtain is-active is-held';
+                                                maybeFinishMediaTransition();
+                                            }, safeDuration + 120);
+                                            return;
+                                        }
+                                        if (effect === 'logo') sendProjectionAssetStatus('transition', '', 'No hay logo de iglesia cargado; se usó el fundido a negro.');
+                                        const safeEffect = ['fade','wipe','zoom'].includes(effect) ? effect : 'fade';
+                                        curtain.style.animationDuration = safeDuration + 'ms';
+                                        curtain.className = 'projection-transition-curtain is-active is-held';
+                                        void curtain.offsetWidth;
+                                        curtain.classList.remove('is-held');
+                                        curtain.classList.add('effect-' + safeEffect);
+                                        curtain.onanimationend = () => {
+                                            if (activeMediaTransition !== pending) return;
+                                            pending.visualComplete = true;
+                                            curtain.className = 'projection-transition-curtain is-active is-held';
+                                            maybeFinishMediaTransition();
+                                        };
+                                        pending.visualTimer = setTimeout(() => {
+                                            if (activeMediaTransition !== pending || pending.visualComplete) return;
+                                            pending.visualComplete = true;
+                                            curtain.className = 'projection-transition-curtain is-active is-held';
+                                            maybeFinishMediaTransition();
+                                        }, safeDuration + 150);
+                                    }
+                                    async function startMediaTransition(data) {
+                                        const effect = data.styles && data.styles.mediaTransition || 'fade';
+                                        if (effect === 'none') return;
+                                        const durationMs = Math.min(2000, Math.max(300, Number(data.styles.mediaTransitionDurationMs) || 700));
+                                        const logoUrl = String(data.styles.logoUrl || '');
+                                        const token = ++mediaTransitionSequence;
+                                        if (activeMediaTransition) {
+                                            clearTimeout(activeMediaTransition.timeout);
+                                            clearTimeout(activeMediaTransition.visualTimer);
+                                        }
+                                        const pending = { token, targetMode: data.mediaMode, visualComplete: false, timeout: 0, visualTimer: 0, durationMs };
+                                        activeMediaTransition = pending;
+                                        const curtain = document.getElementById('proj-transition-curtain');
+                                        const clip = document.getElementById('proj-transition-video');
+                                        const logoLayer = document.getElementById('proj-transition-logo');
+                                        const assetId = String(data.styles.transitionVideoId || '');
+                                        const logoOnly = effect === 'logo' && !assetId && !!logoUrl;
+                                        if (curtain) curtain.className = logoOnly ? 'projection-transition-curtain' : 'projection-transition-curtain is-active is-held';
+                                        if (clip) { clip.pause(); clip.classList.remove('is-active'); clip.onended = null; clip.onerror = null; clip.onloadedmetadata = null; }
+                                        if (logoLayer) { logoLayer.onanimationend = null; logoLayer.className = 'projection-logo-transition'; }
+                                        pending.timeout = setTimeout(() => finishMediaTransition(token, true), 10000);
+                                        if (assetId && clip) {
+                                            try {
+                                                const url = await getProjectorMediaUrl(assetId);
+                                                if (activeMediaTransition !== pending) return;
+                                                clip.src = url; clip.muted = true; clip.defaultMuted = true; clip.playsInline = true;
+                                                clip.setAttribute('muted', ''); clip.setAttribute('playsinline', '');
+                                                clip.onloadedmetadata = () => {
+                                                    try {
+                                                        const targetSeconds = durationMs / 1000;
+                                                        if (Number.isFinite(clip.duration) && clip.duration > 0 && targetSeconds > 0) {
+                                                            clip.playbackRate = Math.min(2, Math.max(.5, clip.duration / targetSeconds));
+                                                        }
+                                                    } catch (_) {}
+                                                };
+                                                clip.load();
+                                                clip.onended = () => {
+                                                    pending.visualComplete = true;
+                                                    clip.classList.remove('is-active');
+                                                    if (curtain) curtain.className = 'projection-transition-curtain is-active is-held';
+                                                    sendProjectionAssetStatus('transition', assetId, 'Transición personalizada reproducida');
+                                                    maybeFinishMediaTransition();
+                                                };
+                                                clip.onerror = () => {
+                                                    sendProjectionAssetStatus('transition', assetId, 'No se pudo reproducir el clip; se usó la transición integrada.');
+                                                    runBuiltInMediaTransition(pending, effect, logoUrl, durationMs);
+                                                };
+                                                clip.classList.add('is-active');
+                                                await clip.play();
+                                                sendProjectionAssetStatus('transition', assetId, 'Reproduciendo transición personalizada');
+                                                return;
+                                            } catch (_) {
+                                                sendProjectionAssetStatus('transition', assetId, 'Safari no pudo iniciar el clip; se usó la transición integrada.');
+                                            }
+                                        }
+                                        runBuiltInMediaTransition(pending, effect, logoUrl, durationMs);
+                                    }
 
                                     // Pantalla completa: Safari solo permite solicitarla de forma fiable
                                     // tras un gesto del usuario. En modo app instalado, no hace falta el aviso.
@@ -183,9 +469,11 @@
                                                         } catch (_) {}
                                                         if (ytPendingVideoId || ytDesiredVideoId) cueYouTubeVideo(ytPendingVideoId || ytDesiredVideoId);
                                                         sendYouTubeStatus('player-ready', { force: true });
+                                                        maybeFinishMediaTransition();
                                                     },
                                                     onStateChange: event => {
                                                         ytPlayerState = event.data;
+                                                        maybeFinishMediaTransition();
                                                         // 5 = CUED: ahora sí se puede ejecutar el Play que llegó antes.
                                                         if (event.data === 5 && ytPendingCommand) {
                                                             const queued = ytPendingCommand;
@@ -295,6 +583,12 @@
                                             try { applyProjection(JSON.parse(event.newValue)); } catch (_) {}
                                         }
                                     });
+                                    const resumeBackgroundVideo = () => {
+                                        if (document.hidden || !latestProjectionData) return;
+                                        updateProjectedBackground(latestProjectionData, document.getElementById('proj-background-video'));
+                                    };
+                                    window.addEventListener('pageshow', resumeBackgroundVideo);
+                                    document.addEventListener('visibilitychange', resumeBackgroundVideo);
 
                                     function queueProjectionSeek(video, target) {
                                         if (!video || !Number.isFinite(target) || target < 0) return;
@@ -334,6 +628,22 @@
                                     let mappedRemoteBlobKey = '';
                                     let localProjectionVideoUrl = '';
                                     function applyProjection(data, force = false) {
+                                        if (!data || typeof data !== 'object' || !data.styles ||
+                                            !Object.prototype.hasOwnProperty.call(data, 'mediaMode') ||
+                                            !Number.isFinite(Number(data.timestamp)) || Number(data.timestamp) <= 0) return;
+                                        if (projectorControllerId ? data.controllerId !== projectorControllerId : !!data.controllerId) return;
+                                        const incomingTimestamp = Number(data.timestamp || 0);
+                                        if (!force && incomingTimestamp && incomingTimestamp <= latestProjectionTimestamp) return;
+                                        const previous = lastAcceptedProjection;
+                                        const shouldTransition = !!previous && !force &&
+                                            isMediaTransitionBoundary(previous.mediaMode, data.mediaMode) &&
+                                            !previous.isBlackout && !previous.isStandby && !data.isBlackout && !data.isStandby;
+                                        applyProjectionContent(data, force);
+                                        lastAcceptedProjection = data;
+                                        if (shouldTransition) startMediaTransition(data);
+                                    }
+
+                                    function applyProjectionContent(data, force = false) {
                                         // Ignorar mensajes ajenos al estado de proyección. El iframe de YouTube
                                         // también emite mensajes window.postMessage; tratarlos como estado
                                         // visual reiniciaba el diseño y volvía a pantalla completa.
@@ -349,6 +659,7 @@
                                         const text = document.getElementById('proj-text');
                                         const citation = document.getElementById('proj-citation');
                                         const backdrop = document.getElementById('proj-backdrop');
+                                        const backgroundVideo = document.getElementById('proj-background-video');
                                         const overlay = document.getElementById('proj-overlay');
                                         const video = document.getElementById('proj-video');
                                         const youtube = document.getElementById('proj-youtube');
@@ -357,10 +668,12 @@
                                         const karaokeBox = document.getElementById('proj-karaoke'); const karaokeText = document.getElementById('proj-karaoke-stanza');
                                         const karaoke = data.karaoke || {}; const karaokeStyle = karaoke.style || {};
                                         const karaokeLoaded = !!karaoke.active && !!String(karaoke.stanza || '').trim();
+                                        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
                                         const youtubeLyricsLayout = data.mediaMode === 'youtube' && karaokeLoaded;
                                         // La API de YouTube reemplaza el nodo objetivo por un iframe. Por eso el tamaño
                                         // se aplica al contenedor estable, no al iframe que controla YouTube.
                                         const karaokeBg = document.getElementById('proj-karaoke-bg');
+                                        updateProjectedBackground(data, backgroundVideo);
                                         if (youtubeLyricsLayout) {
                                             youtube.style.top='0'; youtube.style.left='0'; youtube.style.right='0'; youtube.style.bottom='auto';
                                             youtube.style.width='100%'; youtube.style.height='76%'; youtube.style.overflow='hidden';
@@ -380,6 +693,7 @@
                                         // El fondo del video se oculta por separado, sin ocultar la capa de karaoke.
                                         if (karaokeLoaded && !data.isClearText && !data.isStandby && data.mediaMode !== 'screen') {
                                             karaokeBox.classList.remove('hidden'); karaokeText.textContent=karaoke.stanza || '';
+                                            animateProjectedText(karaokeText, karaoke.stanza || '', styles.textAnimation || 'fade', reducedMotion, styles.textAnimationDurationMs);
                                             karaokeText.style.fontFamily='\"'+(karaokeStyle.font||'Inter')+'\", sans-serif';
                                             if (!youtubeLyricsLayout) karaokeText.style.fontSize=(Number(karaokeStyle.size)||4.5)+'vw';
                                             karaokeText.style.color=karaokeStyle.color||'#fff'; karaokeText.style.textAlign=karaokeStyle.align||'center';
@@ -399,6 +713,7 @@
                                         if (data.isBlackout) {
                                             if (ytPlayerReady && ytPlayer) { try { ytPlayer.pauseVideo(); } catch (_) {} }
                                             backdrop.style.background = '#000';
+                                            if (backgroundVideo) { backgroundVideo.pause(); backgroundVideo.classList.add('hidden'); }
                                             text.textContent = '';
                                             citation.textContent = '';
                                             standby.classList.add('hidden'); corner.classList.add('hidden'); const karaokeLayer = document.getElementById('proj-karaoke'); if (karaokeLayer) karaokeLayer.classList.add('hidden');
@@ -416,6 +731,7 @@
                                         text.style.textAlign = styles.align || 'center';
                                         text.style.color = styles.textcolor || '#fff';
                                         text.classList.toggle('text-projection-shadow', !!styles.hasShadow);
+                                        if (!karaokeLoaded) animateProjectedText(text, JSON.stringify([data.citation || '', data.text || '']), styles.textAnimation || 'fade', reducedMotion, styles.textAnimationDurationMs);
 
                                         if (karaokeLoaded) { text.textContent=''; citation.textContent=''; standby.classList.add('hidden'); corner.classList.add('hidden'); }
                                         citation.textContent = karaokeLoaded ? '' : (data.citation || '');
@@ -442,10 +758,11 @@
                                         if (pos.startsWith('middle-')) citation.style.transform = (pos.endsWith('-left') || pos.endsWith('-right')) ? 'translateY(-50%)' : 'translate(-50%, -50%)';
                                         citation.classList.toggle('text-projection-shadow', styles.citationShadow !== false);
 
-                                        if (styles.bgType === 'color') { backdrop.style.background = styles.bgcolor || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
-                                        else if (styles.bgType === 'gradient') { backdrop.style.background = styles.gradient || '#0f172a'; }
-                                        else if (styles.bgType === 'image') { backdrop.style.background = 'none'; backdrop.style.backgroundImage = 'url("' + String(styles.bgImage || '').replace(/"/g, '%22') + '")'; backdrop.style.backgroundSize = 'cover'; backdrop.style.backgroundPosition = 'center'; }
-                                        const backgroundOverlayOpacity = styles.bgType === 'image'
+                                        const backgroundType = styles.bgType === 'video' ? (styles.bgVideoFallbackType || 'color') : styles.bgType;
+                                        if (backgroundType === 'color') { backdrop.style.background = styles.bgcolor || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
+                                        else if (backgroundType === 'gradient') { backdrop.style.background = styles.gradient || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
+                                        else if (backgroundType === 'image') { backdrop.style.background = 'none'; backdrop.style.backgroundImage = styles.bgImage ? 'url("' + String(styles.bgImage).replace(/"/g, '%22') + '")' : 'none'; backdrop.style.backgroundSize = 'cover'; backdrop.style.backgroundPosition = 'center'; }
+                                        const backgroundOverlayOpacity = ['image','video'].includes(styles.bgType)
                                             ? Math.max(0, Math.min(100, Number(styles.bgOpacity) || 0)) / 100
                                             : 0;
                                         overlay.style.backgroundColor = `rgba(0,0,0,${backgroundOverlayOpacity})`;
@@ -949,6 +1266,7 @@
                                         ['loadedmetadata', 'loadeddata', 'durationchange', 'play', 'playing', 'pause', 'seeked', 'ended', 'timeupdate', 'waiting', 'resize', 'error'].forEach(eventName => {
                                             projectedVideoElement.addEventListener(eventName, () => sendProjectorVideoStatus(eventName !== 'timeupdate'));
                                         });
+                                        ['loadeddata','canplay','playing'].forEach(eventName => projectedVideoElement.addEventListener(eventName, maybeFinishMediaTransition));
                                     }
                                     startProjectorMirror();
 
@@ -968,6 +1286,11 @@
                                         const saved = localStorage.getItem(STORAGE_KEY);
                                         if (saved) applyProjection(JSON.parse(saved));
                                     } catch (error) { console.warn('No se pudo recuperar el estado guardado', error); }
+                                    window.addEventListener('pagehide', event => {
+                                        if (event.persisted) return;
+                                        for (const url of projectorMediaUrls.values()) { try { URL.revokeObjectURL(url); } catch (_) {} }
+                                        projectorMediaUrls.clear();
+                                    });
                                 })();
                             </script>
                         </body>

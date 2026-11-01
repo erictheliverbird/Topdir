@@ -19,6 +19,13 @@ Aplicación web estática para controlar versículos, letras y videos durante el
 - Atajos del Magic Keyboard: flechas para avanzar o retroceder versículos; en **Letras**, flechas para cambiar de estrofa; `L` pantalla de espera con logo; `B` apagar; `C` ocultar texto; `Esc` cerrar la vista ampliada.
 - Para probar desde la carpeta del computador, usa GitHub Pages o un servidor local HTTPS/HTTP. Abrir `index.html` directamente como `file://` puede impedir que Safari lea automáticamente `biblia.json`.
 
+## Animaciones y videos de diseño
+
+- En **Diseño**, el selector ofrece fundido, deslizamiento en cuatro direcciones, zoom, desenfoque, barrido vertical o ninguna animación. El control de duración cambia la velocidad; los ajustes de fuente, color y posición no vuelven a animar el texto. Se respeta **Reducir movimiento** del dispositivo.
+- **Video en bucle** permite elegir un MP4 H.264 silencioso para el fondo. Se recomienda 5–20 segundos y 720p o menos; la aplicación admite hasta 30 segundos y 30 MB. El fondo continúa durante la espera y cuando se oculta el texto; se pausa únicamente ante otros medios o apagado. Safari usa el bucle nativo y la aplicación revisa periódicamente si el video quedó pausado o congelado para reanudarlo sin interacción. Para que la unión no se note, conviene que el primer y último fotograma del clip coincidan.
+- La transición integrada se ejecuta al entrar o salir de YouTube o video local, y permite fundido, cortinilla, zoom o un zoom expansivo con el logo de la iglesia. El control de duración cambia la velocidad de los efectos y ajusta el clip propio entre 0.5× y 2×. Un MP4 opaco y silencioso opcional sustituye el efecto integrado; se recomienda 1–3 segundos y 720p o menos. Se admiten hasta 8 segundos y 30 MB. Si Safari bloquea el clip, se intenta el efecto elegido con un archivo integrado.
+- Los archivos guardados no se sincronizan entre dispositivos ni se publican en GitHub. En cada iPad hay que seleccionarlos una vez en el mismo Safari que se usará para el culto. Si Safari impide el inicio automático del fondo, el panel muestra el estado y mantiene visible el fondo estático de respaldo.
+
 ## Preparación recomendada para iPad
 
 1. Publica estos archivos juntos bajo una dirección HTTPS. La sincronización entre ventanas usa el canal local del navegador; la captura de pantalla requiere HTTPS.
@@ -28,6 +35,12 @@ Aplicación web estática para controlar versículos, letras y videos durante el
 5. Para una reproducción continua sin anuncios, prepara un archivo de video local que tengas derecho a proyectar. Cárgalo en **Video local** y pruébalo antes del servicio.
 6. Abre `diagnostico-captura.html` desde la dirección HTTPS en el iPad. Pulsa **Probar selector con audio**, elige la fuente que Safari ofrezca y comparte el informe de diagnóstico. La prueba no modifica la proyección.
 7. En iPad, prepara el enlace y pulsa **Proyectar video en la pantalla externa**. El video se carga directamente en la ventana del proyector. No uses captura de pantalla para el monitor: Safari en iPad puede compartir la pantalla completa y no entrega el audio del sistema. En escritorio, puedes abrir **Monitor YouTube**, capturar esa ventana y pulsar **Enviar al proyector**.
+
+## Verificación de animaciones y fondo en Safari
+
+Antes del culto, publica la versión más reciente del ZIP y recarga la consola y la ventana del proyector en el mismo Safari. En **Diseño**, carga el logo y un MP4 H.264 silencioso de fondo. Déjalo reproducir al menos dos ciclos: no debe quedarse congelado al final. Pulsa `C` para ocultar el texto y `L` para mostrar la espera; el fondo debe continuar en ambos estados. Al volver a Biblia o Letras, el texto/estrofa debe usar la animación elegida. Cambiar fuente o color no debe volver a iniciar esa animación.
+
+Después abre un video local, cambia un versículo o una estrofa y confirma que el video sigue en el mismo tiempo. Al salir del video, el fondo debe volver a reproducirse. Cambiar entre texto y video debe mostrar la transición elegida; con **Zoom con logo de la iglesia**, el logo debe cubrir la pantalla y revelar el nuevo contenido. Si algo falla, anota el modelo del iPad, la versión de iPadOS, el formato/duración del MP4 y el estado que muestra el centro multimedia.
 
 ## YouTube y anuncios
 

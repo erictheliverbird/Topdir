@@ -411,6 +411,7 @@
                     <!-- Cuadro de Vista Previa 16:9 -->
                     <div id="projector-preview-container" class="w-full aspect-video rounded-xl relative overflow-hidden flex flex-col items-center justify-center p-3 border border-gray-800 shadow-inner bg-slate-950">
                         <div id="preview-backdrop" class="absolute inset-0 z-0 bg-slate-950 bg-cover bg-center transition-all duration-300"></div>
+                        <video id="preview-background-video" class="absolute inset-0 z-[1] w-full h-full object-cover hidden pointer-events-none" muted playsinline loop autoplay preload="auto" aria-hidden="true"></video>
                         
                         <video id="preview-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline muted></video>
                         <img id="preview-video-mirror" alt="Vista espejo del video proyectado" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" />
@@ -749,10 +750,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                             <!-- Tipo de Fondo -->
                             <div class="space-y-1.5">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Estilo del Fondo</label>
-                                <div class="grid grid-cols-3 gap-1.5 text-xs font-semibold" id="bg-type-selection-container">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-1.5 text-xs font-semibold" id="bg-type-selection-container">
                                     <button id="btn-bg-color" class="transition py-2 rounded-xl border border-gray-800 text-gray-300">Sólido</button>
                                     <button id="btn-bg-grad" class="transition py-2 rounded-xl border border-gray-800 text-gray-300">Degradado</button>
                                     <button id="btn-bg-img" class="transition py-2 rounded-xl border border-gray-800 text-gray-300">Buscador Web</button>
+                                    <button id="btn-bg-video" type="button" class="transition py-2 rounded-xl border border-gray-800 text-gray-300">Video en bucle</button>
                                 </div>
                             </div>
 
@@ -842,10 +844,69 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                 </div>
                             </div>
 
+                            <div id="palette-video-container" class="hidden space-y-2 rounded-xl border border-blue-400/20 bg-gray-950/35 p-3">
+                                <label class="text-[10px] font-bold text-gray-300 uppercase tracking-wider block">Video de fondo en bucle</label>
+                                <label class="w-full bg-gray-900 hover:bg-gray-800 border border-dashed border-gray-700 p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer transition">
+                                    <i class="fa-solid fa-film text-blue-300 text-lg mb-1"></i>
+                                    <span class="text-xs font-bold text-gray-100">Seleccionar MP4 de fondo</span>
+                                    <input type="file" id="background-video-file-input" accept="video/mp4,.mp4,.m4v" class="hidden">
+                                </label>
+                                <div class="flex items-center justify-between gap-2">
+                                    <span id="background-video-status" class="min-w-0 text-[10px] text-gray-400" role="status" aria-live="polite">No hay video de fondo guardado</span>
+                                    <button id="background-video-remove" type="button" class="hidden shrink-0 rounded-lg border border-gray-700 px-2 py-1 text-[10px] font-bold text-gray-300 hover:bg-gray-800">Quitar</button>
+                                </div>
+                                <p class="text-[10px] text-gray-500">MP4 H.264 silencioso, recomendado 5–20 s y 720p. Se guarda en este dispositivo; sigue durante espera y texto oculto, y se pausa solo ante otros medios o apagado.</p>
+                            </div>
+
+                            <div class="space-y-3 rounded-xl border border-gray-700/70 bg-gray-950/30 p-3">
+                                <div class="space-y-1.5">
+                                    <label for="projection-text-animation" class="text-[10px] font-bold text-gray-300 uppercase tracking-wider block">Animación de versículos y karaoke</label>
+                                    <select id="projection-text-animation" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
+                                        <option value="fade">Fundido</option>
+                                        <option value="slide-up">Deslizar vertical</option>
+                                        <option value="slide-left">Deslizar lateral</option>
+                                        <option value="slide-down">Deslizar desde arriba</option>
+                                        <option value="slide-right">Deslizar desde la derecha</option>
+                                        <option value="zoom">Zoom suave</option>
+                                        <option value="blur">Desenfoque</option>
+                                        <option value="reveal">Barrido vertical</option>
+                                        <option value="none">Sin animación</option>
+                                    </select>
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between items-center"><label for="projection-text-duration" class="text-[10px] text-gray-400">Duración de animación</label><span id="val-projection-text-duration" class="text-[10px] font-bold text-blue-300">350 ms</span></div>
+                                        <input id="projection-text-duration" type="range" min="100" max="1400" step="50" value="350" class="w-full accent-blue-500">
+                                    </div>
+                                </div>
+                                <div class="space-y-1.5 border-t border-gray-800 pt-3">
+                                    <label for="projection-media-transition" class="text-[10px] font-bold text-gray-300 uppercase tracking-wider block">Transición entre texto y video</label>
+                                    <select id="projection-media-transition" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
+                                        <option value="fade">Fundido a negro</option>
+                                        <option value="wipe">Cortinilla lateral</option>
+                                        <option value="zoom">Zoom suave</option>
+                                        <option value="logo">Zoom con logo de la iglesia</option>
+                                        <option value="none">Sin transición</option>
+                                    </select>
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between items-center"><label for="projection-transition-duration" class="text-[10px] text-gray-400">Duración de transición</label><span id="val-projection-transition-duration" class="text-[10px] font-bold text-blue-300">680 ms</span></div>
+                                        <input id="projection-transition-duration" type="range" min="300" max="2000" step="50" value="700" class="w-full accent-blue-500">
+                                    </div>
+                                    <label class="w-full bg-gray-900 hover:bg-gray-800 border border-dashed border-gray-700 p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer transition">
+                                        <i class="fa-solid fa-clapperboard text-blue-300 text-lg mb-1"></i>
+                                        <span class="text-xs font-bold text-gray-100">Cargar transición MP4 opcional</span>
+                                        <input type="file" id="transition-video-file-input" accept="video/mp4,.mp4,.m4v" class="hidden">
+                                    </label>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span id="transition-video-status" class="min-w-0 text-[10px] text-gray-400" role="status" aria-live="polite">Se usará el efecto integrado</span>
+                                        <button id="transition-video-remove" type="button" class="hidden shrink-0 rounded-lg border border-gray-700 px-2 py-1 text-[10px] font-bold text-gray-300 hover:bg-gray-800">Quitar</button>
+                                    </div>
+                                    <p class="text-[10px] text-gray-500">Clip opaco y silencioso, recomendado 1–3 s y 720p. La duración elegida ajusta también su velocidad, entre 0.5× y 2×.</p>
+                                </div>
+                            </div>
+
                             <!-- Filtro Oscuro de Imagen -->
                             <div id="overlay-opacity-container" class="space-y-1.5 hidden">
                                 <div class="flex justify-between items-center">
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Filtro Oscuro de Imagen</label>
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Filtro oscuro del fondo</label>
                                     <span id="val-overlay-opacity" class="text-xs font-bold text-blue-400">40%</span>
                                 </div>
                                 <input type="range" id="style-overlay-opacity" min="0" max="90" step="5" value="40" class="w-full accent-blue-500">
@@ -942,6 +1003,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
     <!-- Modal Pantalla Completa Local -->
     <div id="local-fullscreen-container" class="fixed inset-0 z-50 hidden flex flex-col justify-between p-12 transition-all duration-300 bg-slate-950">
         <div id="local-fs-backdrop" class="absolute inset-0 z-0 bg-slate-950 bg-cover bg-center"></div>
+        <video id="local-fs-background-video" class="absolute inset-0 z-[1] w-full h-full object-cover hidden pointer-events-none" muted playsinline loop autoplay preload="auto" aria-hidden="true"></video>
         
         <video id="local-fs-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline></video>
         <img id="local-fs-video-mirror" alt="Vista espejo del video proyectado" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" />
@@ -1013,6 +1075,74 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 request.onerror = () => reject(request.error);
             });
         }
+        async function deleteLocalRecord(storeName, key) {
+            const db = await openProjectorDB();
+            if (!db) throw new Error('IndexedDB no está disponible en este navegador.');
+            return new Promise((resolve, reject) => {
+                const request = db.transaction(storeName, 'readwrite').objectStore(storeName).delete(key);
+                request.onsuccess = () => resolve(true);
+                request.onerror = () => reject(request.error);
+            });
+        }
+        const PROJECTION_MEDIA_RECORD_PREFIX = 'projection-media:';
+        const projectionMediaObjectUrls = new Map();
+        let latestOperatorProjectionPayload = null;
+        function stopBackgroundVideoLoopGuard(videoEl) {
+            const guard = videoEl && videoEl._projectionLoopGuard;
+            if (!guard) return;
+            clearInterval(guard.timer);
+            videoEl._projectionLoopGuard = null;
+        }
+        function ensureBackgroundVideoLoopGuard(videoEl, onBlocked) {
+            if (!videoEl) return;
+            let guard = videoEl._projectionLoopGuard;
+            if (guard) { guard.onBlocked = onBlocked; return; }
+            guard = { onBlocked, playPending: false, lastFailureAt: 0, lastTime: null, lastProgressAt: Date.now(), timer: 0 };
+            guard.timer = setInterval(() => {
+                const assetId = videoEl.dataset.shouldPlay;
+                if (!assetId || !videoEl.isConnected) { stopBackgroundVideoLoopGuard(videoEl); return; }
+                if (document.hidden || videoEl.dataset.assetId !== assetId || videoEl.readyState < 2 || guard.playPending) return;
+                const now = Date.now();
+                const currentTime = Number(videoEl.currentTime) || 0;
+                if (guard.lastTime === null || currentTime > guard.lastTime + 0.02 || currentTime < guard.lastTime - 0.1) {
+                    guard.lastTime = currentTime;
+                    guard.lastProgressAt = now;
+                } else if (!videoEl.paused && !videoEl.seeking && videoEl.readyState >= 3 && now - guard.lastProgressAt > 5000) {
+                    if (Number.isFinite(videoEl.duration) && videoEl.duration > 0 && videoEl.duration - currentTime < 0.5) {
+                        try { videoEl.currentTime = 0; } catch (_) {}
+                    }
+                    videoEl.pause();
+                    guard.lastProgressAt = now;
+                }
+                const stoppedAtEnd = Number.isFinite(videoEl.duration) && videoEl.duration > 0 && videoEl.duration - currentTime <= 0.25;
+                if (videoEl.ended || (videoEl.paused && stoppedAtEnd)) { try { videoEl.currentTime = 0; } catch (_) {} }
+                if (!videoEl.paused) return;
+                guard.playPending = true;
+                Promise.resolve().then(() => videoEl.play()).then(() => {
+                    if (videoEl.dataset.shouldPlay === assetId) videoEl.classList.remove('hidden');
+                }).catch(error => {
+                    if (videoEl.dataset.shouldPlay !== assetId || Date.now() - guard.lastFailureAt < 5000) return;
+                    guard.lastFailureAt = Date.now();
+                    if (typeof guard.onBlocked === 'function') guard.onBlocked(error);
+                }).finally(() => { guard.playPending = false; });
+            }, 1000);
+            videoEl._projectionLoopGuard = guard;
+        }
+        async function getProjectionMediaUrl(assetId) {
+            if (!assetId) return '';
+            if (projectionMediaObjectUrls.has(assetId)) return projectionMediaObjectUrls.get(assetId);
+            const record = await readLocalRecord('settings', PROJECTION_MEDIA_RECORD_PREFIX + assetId);
+            const blob = record && record.blob instanceof Blob ? record.blob : (record instanceof Blob ? record : null);
+            if (!blob) throw new Error('No se encontró el archivo multimedia guardado en este dispositivo.');
+            const url = URL.createObjectURL(blob);
+            projectionMediaObjectUrls.set(assetId, url);
+            return url;
+        }
+        window.addEventListener('pagehide', (event) => {
+            if (event.persisted) return;
+            for (const url of projectionMediaObjectUrls.values()) { try { URL.revokeObjectURL(url); } catch (_) {} }
+            projectionMediaObjectUrls.clear();
+        });
         async function readAllLocalBibles() {
             try {
                 const savedIndex = await readLocalRecord('settings', 'bible-index');
@@ -1106,6 +1236,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             gradient: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
             bgImage: 'https://images.unsplash.com/photo-1509021436468-d51030005963?auto=format&fit=crop&w=1920&q=85',
             bgOpacity: '40',
+            bgVideoFallbackType: 'color',
+            backgroundVideoId: '',
+            transitionVideoId: '',
+            textAnimation: 'fade',
+            textAnimationDurationMs: 350,
+            mediaTransition: 'fade',
+            mediaTransitionDurationMs: 700,
             textcolor: '#ffffff',
             citationFont: 'Inter',
             citationSize: '1.6',
@@ -1829,6 +1966,14 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (data.projectorId === localProjectorId) showLocalVideoPreviewFrame(data.frame, data.timestamp);
                     return;
                 }
+                if (data.type === '__projection_asset_status') {
+                    if (data.controllerId !== projectorControllerId) return;
+                    const kind = data.kind === 'background' ? 'background' : 'transition';
+                    const expectedId = kind === 'background' ? projectionStyles.backgroundVideoId : projectionStyles.transitionVideoId;
+                    if (data.assetId && expectedId !== data.assetId) return;
+                    setProjectionAssetStatus(kind, String(data.message || 'Estado multimedia actualizado'), !!expectedId);
+                    return;
+                }
                 if (data.type === '__local_video_status') {
                     if (!localProjectorId || data.projectorId !== localProjectorId) return;
                     const statusMessage = { ...data, type: 'video-status' };
@@ -2459,6 +2604,15 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             isStandby = !!saved.isStandby;
             if (Array.isArray(saved.cultoList)) cultoList = saved.cultoList;
             if (saved.projectionStyles) projectionStyles = { ...projectionStyles, ...saved.projectionStyles };
+            if (!['none','fade','slide-up','slide-left','slide-down','slide-right','zoom','blur','reveal'].includes(projectionStyles.textAnimation)) projectionStyles.textAnimation = 'fade';
+            if (!['none','fade','wipe','zoom','logo'].includes(projectionStyles.mediaTransition)) projectionStyles.mediaTransition = 'fade';
+            const textAnimationDuration = Number(projectionStyles.textAnimationDurationMs);
+            projectionStyles.textAnimationDurationMs = Number.isFinite(textAnimationDuration) ? Math.min(1400, Math.max(100, Math.round(textAnimationDuration / 50) * 50)) : 350;
+            const mediaTransitionDuration = Number(projectionStyles.mediaTransitionDurationMs);
+            projectionStyles.mediaTransitionDurationMs = Number.isFinite(mediaTransitionDuration) ? Math.min(2000, Math.max(300, Math.round(mediaTransitionDuration / 50) * 50)) : 700;
+            projectionStyles.backgroundVideoId = String(projectionStyles.backgroundVideoId || '');
+            projectionStyles.transitionVideoId = String(projectionStyles.transitionVideoId || '');
+            projectionStyles.bgVideoFallbackType = ['color','gradient','image'].includes(projectionStyles.bgVideoFallbackType) ? projectionStyles.bgVideoFallbackType : 'color';
             if (['bible','local','youtube','capture','karaoke','design'].includes(saved.workspace)) savedWorkspace = saved.workspace;
 
             const karaoke = saved.karaoke || {};
@@ -2490,6 +2644,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             document.getElementById('val-overlay-opacity').innerText = projectionStyles.bgOpacity + '%';
             document.getElementById('style-bgcolor').value = projectionStyles.bgcolor;
             document.getElementById('style-textcolor').value = projectionStyles.textcolor;
+            document.getElementById('projection-text-animation').value = projectionStyles.textAnimation;
+            document.getElementById('projection-media-transition').value = projectionStyles.mediaTransition;
+            document.getElementById('projection-text-duration').value = projectionStyles.textAnimationDurationMs;
+            document.getElementById('val-projection-text-duration').textContent = projectionStyles.textAnimationDurationMs + ' ms';
+            document.getElementById('projection-transition-duration').value = projectionStyles.mediaTransitionDurationMs;
+            document.getElementById('val-projection-transition-duration').textContent = projectionStyles.mediaTransitionDurationMs + ' ms';
             projectionStyles.citationSize = String(Math.min(10, Math.max(0.8, Number(projectionStyles.citationSize) || 1.6)));
             projectionStyles.citationFont = projectionStyles.citationFont || projectionStyles.font || 'Inter';
             projectionStyles.citationColor = projectionStyles.citationColor || projectionStyles.textcolor || '#ffffff';
@@ -2993,6 +3153,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 controllerId: projectorControllerId,
                 timestamp: Date.now()
             };
+            latestOperatorProjectionPayload = payload;
 
             try { if (broadcastChannel) broadcastChannel.postMessage(payload); } catch (e) {}
             try {
@@ -3038,12 +3199,114 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             }
         }
 
+        async function updateOperatorBackgroundVideo(videoEl, assetId, shouldShow) {
+            if (!videoEl) return;
+            const id = shouldShow ? String(assetId || '') : '';
+            videoEl.muted = true;
+            videoEl.defaultMuted = true;
+            videoEl.playsInline = true;
+            videoEl.loop = true;
+            videoEl.setAttribute('muted', '');
+            videoEl.setAttribute('playsinline', '');
+            videoEl.setAttribute('loop', '');
+            videoEl.setAttribute('autoplay', '');
+            videoEl.preload = 'auto';
+            if (!id) {
+                videoEl.dataset.shouldPlay = '';
+                stopBackgroundVideoLoopGuard(videoEl);
+                videoEl.pause();
+                videoEl.classList.add('hidden');
+                return;
+            }
+            videoEl.dataset.shouldPlay = id;
+            videoEl.classList.remove('hidden');
+            ensureBackgroundVideoLoopGuard(videoEl, error => {
+                if (videoEl.dataset.shouldPlay !== id) return;
+                videoEl.classList.add('hidden');
+                setProjectionAssetStatus('background', 'Safari pausó el fondo; se intentará reanudar automáticamente', true);
+                console.warn('No se pudo reanudar automáticamente el video de fondo:', error);
+            });
+            videoEl.onended = () => {
+                if (videoEl.dataset.shouldPlay !== id) return;
+                try { videoEl.currentTime = 0; } catch (_) {}
+                videoEl.play().catch(error => {
+                    if (videoEl.dataset.shouldPlay !== id) return;
+                    videoEl.classList.add('hidden');
+                    setProjectionAssetStatus('background', 'Safari detuvo el bucle; activa de nuevo el fondo para reanudarlo', true);
+                    console.warn('No se pudo reanudar el bucle del video de fondo:', error);
+                });
+            };
+            if (videoEl.dataset.assetId !== id || !videoEl.getAttribute('src')) {
+                if (videoEl.dataset.loadingAsset === id) return;
+                videoEl.pause();
+                videoEl.dataset.loadingAsset = id;
+                videoEl.removeAttribute('src');
+                videoEl.load();
+                try {
+                    const url = await getProjectionMediaUrl(id);
+                    if (videoEl.dataset.loadingAsset === id) videoEl.dataset.loadingAsset = '';
+                    if (videoEl.dataset.shouldPlay !== id) return;
+                    videoEl.dataset.assetId = id;
+                    videoEl.src = url;
+                    videoEl.load();
+                    videoEl.play().catch(error => {
+                        if (videoEl.dataset.assetId !== id || videoEl.dataset.shouldPlay !== id) return;
+                        videoEl.classList.add('hidden');
+                        setProjectionAssetStatus('background', 'Safari bloqueó el inicio automático; toca la página y vuelve a activar el fondo', true);
+                        console.warn('No se pudo iniciar el video de fondo:', error);
+                    });
+                } catch (error) {
+                    if (videoEl.dataset.loadingAsset === id) videoEl.dataset.loadingAsset = '';
+                    if (videoEl.dataset.shouldPlay !== id) return;
+                    videoEl.classList.add('hidden');
+                    setProjectionAssetStatus('background', 'El video no está disponible en este dispositivo; se muestra el fondo de respaldo', false);
+                    console.warn('No se pudo cargar el video de fondo:', error);
+                }
+                return;
+            }
+            if (videoEl.paused) videoEl.play().catch(error => {
+                if (videoEl.dataset.shouldPlay !== id) return;
+                videoEl.classList.add('hidden');
+                setProjectionAssetStatus('background', 'Safari bloqueó el inicio automático; se muestra el fondo de respaldo', true);
+                console.warn('No se pudo reanudar el video de fondo:', error);
+            });
+        }
+
+        function resumeOperatorBackgroundVideos() {
+            if (document.hidden || !latestOperatorProjectionPayload) return;
+            const data = latestOperatorProjectionPayload;
+            const visible = data.styles?.bgType === 'video' && data.mediaMode === 'none' && !data.isBlackout;
+            updateOperatorBackgroundVideo(document.getElementById('preview-background-video'), data.styles?.backgroundVideoId, visible);
+            const localFs = document.getElementById('local-fullscreen-container');
+            const localFsVisible = !!localFs && !localFs.classList.contains('hidden');
+            updateOperatorBackgroundVideo(document.getElementById('local-fs-background-video'), data.styles?.backgroundVideoId, visible && localFsVisible);
+        }
+        document.addEventListener('visibilitychange', resumeOperatorBackgroundVideos);
+        window.addEventListener('pageshow', resumeOperatorBackgroundVideos);
+
+        function animateProjectionContent(element, contentKey, animation, reducedMotion, durationMs = 350) {
+            if (!element) return;
+            const key = String(contentKey || '');
+            const previousKey = element.dataset.projectionContentKey;
+            element.dataset.projectionContentKey = key;
+            if (previousKey === undefined || previousKey === key) return;
+            const target = element.parentElement || element;
+            const classes = ['projection-enter-fade','projection-enter-slide-up','projection-enter-slide-left','projection-enter-slide-down','projection-enter-slide-right','projection-enter-zoom','projection-enter-blur','projection-enter-reveal'];
+            target.classList.remove(...classes);
+            if (!animation || animation === 'none' || reducedMotion || !classes.includes(`projection-enter-${animation}`)) return;
+            const duration = Math.min(1400, Math.max(100, Number(durationMs) || 350));
+            target.style.animationDuration = duration + 'ms';
+            void target.offsetWidth;
+            target.classList.add(`projection-enter-${animation}`);
+        }
+
         function updateProjectorDOM(docObj, data, isLocalFs = false) {
             const prefix = isLocalFs ? 'local-fs-' : (docObj === document ? 'preview-' : 'proj-');
 
             const textEl = docObj.getElementById(prefix + 'text');
             const citationEl = docObj.getElementById(prefix + 'citation');
             const backdropEl = docObj.getElementById(prefix + 'backdrop');
+            const backgroundVideoEl = docObj.getElementById(prefix + 'background-video');
             const overlayEl = docObj.getElementById(prefix + 'overlay');
             const videoEl = docObj.getElementById(prefix + 'video');
             const youtubeEl = docObj.getElementById(prefix + 'youtube');
@@ -3060,6 +3323,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
             if (data.isBlackout) {
                 if (backdropEl) backdropEl.style.background = '#000000';
+                if (backgroundVideoEl) { backgroundVideoEl.dataset.shouldPlay = ''; backgroundVideoEl.pause(); backgroundVideoEl.classList.add('hidden'); }
                 if (textEl) textEl.innerText = '';
                 if (citationEl) citationEl.innerText = '';
                 if (logoStandbyEl) logoStandbyEl.classList.add('hidden');
@@ -3145,6 +3409,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 textEl.style.color = data.styles.textcolor;
                 if (data.styles.hasShadow) textEl.classList.add('text-projection-shadow');
                 else textEl.classList.remove('text-projection-shadow');
+                const verseKey = JSON.stringify([data.citation || '', data.text || '', !!karaokeVisible]);
+                const reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+                animateProjectionContent(textEl, verseKey, data.styles.textAnimation || 'fade', reducedMotion, data.styles.textAnimationDurationMs);
             }
 
             if (citationEl) {
@@ -3180,21 +3447,29 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             }
 
             if (backdropEl) {
-                if (data.styles.bgType === 'color') {
-                    backdropEl.style.background = data.styles.bgcolor;
+                const fallbackType = data.styles.bgType === 'video' ? (data.styles.bgVideoFallbackType || 'color') : data.styles.bgType;
+                if (fallbackType === 'color') {
+                    backdropEl.style.background = data.styles.bgcolor || '#0f172a';
                     backdropEl.style.backgroundImage = 'none';
-                } else if (data.styles.bgType === 'gradient') {
-                    backdropEl.style.background = data.styles.gradient;
-                } else if (data.styles.bgType === 'image') {
+                } else if (fallbackType === 'gradient') {
+                    backdropEl.style.background = data.styles.gradient || '#0f172a';
+                    backdropEl.style.backgroundImage = 'none';
+                } else if (fallbackType === 'image') {
                     backdropEl.style.background = 'none';
-                    backdropEl.style.backgroundImage = `url("${data.styles.bgImage}")`;
+                    backdropEl.style.backgroundImage = data.styles.bgImage ? `url("${String(data.styles.bgImage).replace(/"/g, '%22')}")` : 'none';
                     backdropEl.style.backgroundSize = 'cover';
                     backdropEl.style.backgroundPosition = 'center';
                 }
             }
 
+            const localFsContainer = isLocalFs ? docObj.getElementById('local-fullscreen-container') : null;
+            const localFsVisible = !isLocalFs || (!!localFsContainer && !localFsContainer.classList.contains('hidden'));
+            const backgroundVideoVisible = data.styles.bgType === 'video' && data.mediaMode === 'none' && !data.isBlackout && localFsVisible;
+            const isExternalProjectorDocument = docObj !== document && !isLocalFs;
+            if (!isExternalProjectorDocument) updateOperatorBackgroundVideo(backgroundVideoEl, data.styles.backgroundVideoId, backgroundVideoVisible);
+
             if (overlayEl) {
-                const backgroundOverlayOpacity = data.styles.bgType === 'image'
+                const backgroundOverlayOpacity = ['image','video'].includes(data.styles.bgType)
                     ? Math.max(0, Math.min(100, Number(data.styles.bgOpacity) || 0)) / 100
                     : 0;
                 overlayEl.style.backgroundColor = `rgba(0, 0, 0, ${backgroundOverlayOpacity})`;
@@ -3233,6 +3508,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (karaokeVisible && karaokeTextEl) {
                     karaokeBoxEl.classList.remove('hidden');
                     karaokeTextEl.textContent = String(karaoke.stanza || '');
+                    animateProjectionContent(karaokeTextEl, karaoke.stanza || '', data.styles.textAnimation || 'fade', !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches), data.styles.textAnimationDurationMs);
                     karaokeTextEl.style.fontFamily = `"${karaokeStyle.font || 'Inter'}", sans-serif`;
                     karaokeTextEl.style.fontSize = docObj === document && !isLocalFs
                         ? Math.max(9, (docObj.getElementById('projector-preview-container')?.clientWidth || 480) * (Number(karaokeStyle.size) || 4.5) / 100) + 'px'
@@ -3275,16 +3551,154 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             saveOperatorState();
         }
 
+        function setProjectionAssetStatus(kind, message, hasAsset = false) {
+            const id = kind === 'background' ? 'background-video-status' : 'transition-video-status';
+            const removeId = kind === 'background' ? 'background-video-remove' : 'transition-video-remove';
+            const status = document.getElementById(id);
+            const remove = document.getElementById(removeId);
+            if (status) status.textContent = message;
+            if (remove) remove.classList.toggle('hidden', !hasAsset);
+        }
+
+        function inspectProjectionVideoFile(file) {
+            return new Promise((resolve, reject) => {
+                const probe = document.createElement('video');
+                const objectUrl = URL.createObjectURL(file);
+                let settled = false;
+                const finish = (error, metadata) => {
+                    if (settled) return;
+                    settled = true;
+                    probe.removeAttribute('src');
+                    probe.load();
+                    URL.revokeObjectURL(objectUrl);
+                    if (error) reject(error); else resolve(metadata);
+                };
+                probe.preload = 'metadata';
+                probe.muted = true;
+                probe.onloadedmetadata = () => finish(null, {
+                    duration: Number(probe.duration),
+                    width: Number(probe.videoWidth),
+                    height: Number(probe.videoHeight)
+                });
+                probe.onerror = () => finish(new Error('Safari no pudo leer este video. Exporta un MP4 H.264 y vuelve a intentarlo.'));
+                probe.src = objectUrl;
+            });
+        }
+
+        function projectionMediaAssetId(kind) {
+            const now = Date.now().toString(36);
+            const random = (window.crypto && typeof crypto.randomUUID === 'function')
+                ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+                : Math.random().toString(36).slice(2, 14);
+            return `${kind}-${now}-${random}`;
+        }
+
+        function projectionMediaSummary(record) {
+            const sizeMb = Math.max(.1, Number(record.size || record.blob?.size || 0) / (1024 * 1024)).toFixed(1);
+            const duration = Number(record.duration) > 0 ? formatVideoTime(record.duration) : 'duración desconocida';
+            const dimensions = Number(record.width) > 0 && Number(record.height) > 0 ? `${record.width} × ${record.height}` : 'dimensiones desconocidas';
+            return `${record.name || 'Video guardado'} · ${duration} · ${dimensions} · ${sizeMb} MB`;
+        }
+
+        async function hydrateProjectionMediaControls() {
+            for (const kind of ['background','transition']) {
+                const assetId = kind === 'background' ? projectionStyles.backgroundVideoId : projectionStyles.transitionVideoId;
+                if (!assetId) {
+                    setProjectionAssetStatus(kind, kind === 'background' ? 'No hay video de fondo guardado' : 'Se usará el efecto integrado', false);
+                    continue;
+                }
+                const record = await readLocalRecord('settings', PROJECTION_MEDIA_RECORD_PREFIX + assetId);
+                if (!record || !record.blob) {
+                    setProjectionAssetStatus(kind, 'Archivo no encontrado en este dispositivo; vuelve a seleccionarlo', false);
+                    continue;
+                }
+                setProjectionAssetStatus(kind, projectionMediaSummary(record), true);
+            }
+        }
+
+        async function saveProjectionMediaFile(kind, file) {
+            if (!file) return;
+            const background = kind === 'background';
+            const statusKind = background ? 'background' : 'transition';
+            const statusText = background ? 'background-video-status' : 'transition-video-status';
+            const maxDuration = background ? 30 : 8;
+            const maxBytes = 30 * 1024 * 1024;
+            const previousId = background ? projectionStyles.backgroundVideoId : projectionStyles.transitionVideoId;
+            setProjectionAssetStatus(statusKind, 'Validando y guardando el video…', !!previousId);
+            try {
+                const isMp4 = file.type === 'video/mp4' || file.type === 'video/x-m4v' || /\.(mp4|m4v)$/i.test(file.name || '');
+                if (!isMp4) {
+                    throw new Error('Selecciona un archivo MP4 o M4V con video H.264.');
+                }
+                if (!file.size || file.size > maxBytes) throw new Error('El archivo debe pesar menos de 30 MB para cuidar el almacenamiento del iPad.');
+                const metadata = await inspectProjectionVideoFile(file);
+                if (!Number.isFinite(metadata.duration) || metadata.duration <= 0 || metadata.width <= 0 || metadata.height <= 0) {
+                    throw new Error('El archivo no contiene una pista de video legible. Usa MP4 H.264.');
+                }
+                if (metadata.duration > maxDuration) {
+                    throw new Error(`El clip dura ${formatVideoTime(metadata.duration)}; el máximo admitido es ${maxDuration} segundos.`);
+                }
+                const assetId = projectionMediaAssetId(statusKind);
+                const record = {
+                    id: assetId, name: file.name || 'video.mp4', mime: file.type || 'video/mp4',
+                    size: file.size, duration: metadata.duration, width: metadata.width,
+                    height: metadata.height, updatedAt: Date.now(), blob: file
+                };
+                await writeLocalRecord('settings', record, PROJECTION_MEDIA_RECORD_PREFIX + assetId);
+                if (background) {
+                    if (projectionStyles.bgType !== 'video') projectionStyles.bgVideoFallbackType = projectionStyles.bgType;
+                    projectionStyles.backgroundVideoId = assetId;
+                    updateBgTypeUI('video', { revealProjection: true });
+                } else {
+                    projectionStyles.transitionVideoId = assetId;
+                    syncToProjector();
+                    saveOperatorState();
+                }
+                setProjectionAssetStatus(statusKind, projectionMediaSummary(record), true);
+                if (metadata.width > 1280 || metadata.height > 720) showToast('Video guardado. Para un iPad más fluido, conviene exportarlo a 720p o menos.', 'info');
+                if (previousId && previousId !== assetId) {
+                    try { await deleteLocalRecord('settings', PROJECTION_MEDIA_RECORD_PREFIX + previousId); } catch (_) {}
+                }
+            } catch (error) {
+                setProjectionAssetStatus(statusKind, previousId ? 'No se pudo reemplazar; se conserva el video anterior' : 'No se pudo guardar el archivo', !!previousId);
+                showToast(error.message || 'No se pudo guardar el video en este dispositivo.', 'error');
+            }
+            const status = document.getElementById(statusText);
+            if (status && !status.textContent) status.textContent = 'No hay video cargado';
+        }
+
+        async function removeProjectionMedia(kind) {
+            const background = kind === 'background';
+            const assetId = background ? projectionStyles.backgroundVideoId : projectionStyles.transitionVideoId;
+            if (!assetId) return;
+            if (background) {
+                projectionStyles.backgroundVideoId = '';
+                updateBgTypeUI(projectionStyles.bgType === 'video' ? projectionStyles.bgVideoFallbackType : projectionStyles.bgType);
+            } else {
+                projectionStyles.transitionVideoId = '';
+                syncToProjector();
+                saveOperatorState();
+            }
+            try { await deleteLocalRecord('settings', PROJECTION_MEDIA_RECORD_PREFIX + assetId); } catch (error) { console.warn('No se pudo quitar el video guardado:', error); }
+            setProjectionAssetStatus(background ? 'background' : 'transition', background ? 'No hay video de fondo guardado' : 'Se usará el efecto integrado', false);
+        }
+
         function updateBgTypeUI(type, options = {}) {
             if (options.revealProjection) clearBlackoutForVisibleContent();
+            if (type === 'video' && projectionStyles.bgType !== 'video' && ['color','gradient','image'].includes(projectionStyles.bgType)) {
+                projectionStyles.bgVideoFallbackType = projectionStyles.bgType;
+            }
+            if (projectionStyles.bgType === 'video' && type !== 'video' && ['color','gradient','image'].includes(type)) projectionStyles.bgVideoFallbackType = type;
             projectionStyles.bgType = type;
             const btnColor = document.getElementById('btn-bg-color');
             const btnGrad = document.getElementById('btn-bg-grad');
             const btnImg = document.getElementById('btn-bg-img');
+            const btnVideo = document.getElementById('btn-bg-video');
 
             const palColor = document.getElementById('palette-color-container');
             const palGrad = document.getElementById('palette-gradient-container');
             const palImg = document.getElementById('palette-image-container');
+            const palVideo = document.getElementById('palette-video-container');
             const overlayOp = document.getElementById('overlay-opacity-container');
 
             const activeClass = "bg-blue-600 text-white border-blue-500";
@@ -3293,10 +3707,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (btnColor) btnColor.className = `transition py-2 rounded-xl border text-xs font-bold ${type === 'color' ? activeClass : inactiveClass}`;
             if (btnGrad) btnGrad.className = `transition py-2 rounded-xl border text-xs font-bold ${type === 'gradient' ? activeClass : inactiveClass}`;
             if (btnImg) btnImg.className = `transition py-2 rounded-xl border text-xs font-bold ${type === 'image' ? activeClass : inactiveClass}`;
+            if (btnVideo) btnVideo.className = `transition py-2 rounded-xl border text-xs font-bold ${type === 'video' ? activeClass : inactiveClass}`;
 
             palColor.classList.add('hidden');
             palGrad.classList.add('hidden');
             palImg.classList.add('hidden');
+            if (palVideo) palVideo.classList.add('hidden');
             overlayOp.classList.add('hidden');
 
             if (type === 'color') palColor.classList.remove('hidden');
@@ -3308,8 +3724,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     const keywordVal = document.getElementById('internet-keyword-input')?.value || '';
                     if (keywordVal.trim()) searchImagesOnline(keywordVal);
                 }
+            } else if (type === 'video') {
+                if (palVideo) palVideo.classList.remove('hidden');
+                overlayOp.classList.remove('hidden');
             }
             syncToProjector();
+            saveOperatorState();
         }
 
         function updateLogoPositionUI() {
@@ -3591,6 +4011,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             };
             document.getElementById('btn-close-local-fs').onclick = () => {
                 document.getElementById('local-fullscreen-container').classList.add('hidden');
+                syncToProjector();
             };
 
             // Lectura de Archivo JSON Bíblico
@@ -4141,6 +4562,38 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             document.getElementById('btn-bg-color').onclick = () => updateBgTypeUI('color', { revealProjection: true });
             document.getElementById('btn-bg-grad').onclick = () => updateBgTypeUI('gradient', { revealProjection: true });
             document.getElementById('btn-bg-img').onclick = () => updateBgTypeUI('image', { revealProjection: true });
+            document.getElementById('btn-bg-video').onclick = () => updateBgTypeUI('video', { revealProjection: true });
+
+            document.getElementById('projection-text-animation').onchange = (e) => {
+                projectionStyles.textAnimation = e.target.value;
+                syncToProjector();
+            };
+            document.getElementById('projection-text-duration').oninput = (e) => {
+                projectionStyles.textAnimationDurationMs = Number(e.target.value);
+                document.getElementById('val-projection-text-duration').textContent = e.target.value + ' ms';
+                syncToProjector();
+            };
+            document.getElementById('projection-media-transition').onchange = (e) => {
+                projectionStyles.mediaTransition = e.target.value;
+                syncToProjector();
+            };
+            document.getElementById('projection-transition-duration').oninput = (e) => {
+                projectionStyles.mediaTransitionDurationMs = Number(e.target.value);
+                document.getElementById('val-projection-transition-duration').textContent = e.target.value + ' ms';
+                syncToProjector();
+            };
+            document.getElementById('background-video-file-input').onchange = async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) await saveProjectionMediaFile('background', file);
+                e.target.value = '';
+            };
+            document.getElementById('transition-video-file-input').onchange = async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) await saveProjectionMediaFile('transition', file);
+                e.target.value = '';
+            };
+            document.getElementById('background-video-remove').onclick = () => removeProjectionMedia('background');
+            document.getElementById('transition-video-remove').onclick = () => removeProjectionMedia('transition');
 
             document.getElementById('style-bgcolor').oninput = (e) => {
                 clearBlackoutForVisibleContent();
@@ -4313,12 +4766,14 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     }
                 } else if (e.key === 'Escape') {
                     document.getElementById('local-fullscreen-container').classList.add('hidden');
+                    syncToProjector();
                 }
             };
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
             await loadOperatorState();
+            await hydrateProjectionMediaControls();
             const bundledBibleLoaded = await loadBundledRvr1960();
             if (!bundledBibleLoaded || selectedBibleId !== 'rvr1960') await loadSelectedBible();
             else await renderBibleVersionOptions();

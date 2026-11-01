@@ -1936,6 +1936,15 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     setProjectionAssetStatus(kind, String(data.message || 'Estado multimedia actualizado'), !!expectedId);
                     return;
                 }
+                if (data.type === '__projection_background_time') {
+                    if (data.controllerId !== projectorControllerId || data.assetId !== projectionStyles.backgroundVideoId) return;
+                    ['preview-background-video', 'local-fs-background-video'].forEach(id => {
+                        const video = document.getElementById(id);
+                        const loop = video && video._projectionBackgroundLoop;
+                        if (loop && typeof loop.sync === 'function') loop.sync(data.currentTime);
+                    });
+                    return;
+                }
                 if (data.type === '__local_video_status') {
                     if (!localProjectorId || data.projectorId !== localProjectorId) return;
                     const statusMessage = { ...data, type: 'video-status' };
@@ -3359,8 +3368,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     backdropEl.style.background = data.styles.bgcolor || '#0f172a';
                     backdropEl.style.backgroundImage = 'none';
                 } else if (fallbackType === 'gradient') {
-                    backdropEl.style.background = data.styles.gradient || '#0f172a';
-                    backdropEl.style.backgroundImage = 'none';
+                    const gradient = String(data.styles.gradient || '').trim();
+                    backdropEl.style.backgroundColor = '#0f172a';
+                    backdropEl.style.backgroundImage = /^(linear|radial|conic)-gradient\(/i.test(gradient) ? gradient : 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%)';
+                    backdropEl.style.backgroundSize = 'cover';
+                    backdropEl.style.backgroundPosition = 'center';
                 } else if (fallbackType === 'image') {
                     backdropEl.style.background = 'none';
                     backdropEl.style.backgroundImage = data.styles.bgImage ? `url("${String(data.styles.bgImage).replace(/"/g, '%22')}")` : 'none';

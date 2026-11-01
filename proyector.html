@@ -94,6 +94,9 @@
                                         {
                                             getUrl: getProjectorMediaUrl,
                                             onReady: assetId => sendProjectionAssetStatus('background', assetId, 'Fondo de video listo · bucle con fundido'),
+                                            onTime: (assetId, currentTime) => {
+                                                try { if (channel) channel.postMessage({ type: '__projection_background_time', controllerId: projectorControllerId, assetId, currentTime, timestamp: Date.now() }); } catch (_) {}
+                                            },
                                             onError: (message, error) => {
                                                 sendProjectionAssetStatus('background', projectedBackgroundAssetId, message);
                                                 if (error) console.warn('No se pudo reproducir el video de fondo:', error);
@@ -692,7 +695,12 @@
 
                                         const backgroundType = styles.bgType === 'video' ? (styles.bgVideoFallbackType || 'color') : styles.bgType;
                                         if (backgroundType === 'color') { backdrop.style.background = styles.bgcolor || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
-                                        else if (backgroundType === 'gradient') { backdrop.style.background = styles.gradient || '#0f172a'; backdrop.style.backgroundImage = 'none'; }
+                                        else if (backgroundType === 'gradient') {
+                                            const gradient = String(styles.gradient || '').trim();
+                                            backdrop.style.backgroundColor = '#0f172a';
+                                            backdrop.style.backgroundImage = /^(linear|radial|conic)-gradient\(/i.test(gradient) ? gradient : 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%)';
+                                            backdrop.style.backgroundSize = 'cover'; backdrop.style.backgroundPosition = 'center';
+                                        }
                                         else if (backgroundType === 'image') { backdrop.style.background = 'none'; backdrop.style.backgroundImage = styles.bgImage ? 'url("' + String(styles.bgImage).replace(/"/g, '%22') + '")' : 'none'; backdrop.style.backgroundSize = 'cover'; backdrop.style.backgroundPosition = 'center'; }
                                         const backgroundOverlayOpacity = ['image','video'].includes(styles.bgType)
                                             ? Math.max(0, Math.min(100, Number(styles.bgOpacity) || 0)) / 100

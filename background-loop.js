@@ -36,7 +36,9 @@
             lastTime: null,
             retryAt: 0,
             timer: 0,
-            failedAsset: ''
+            failedAsset: '',
+            lastPlayErrorAt: 0,
+            lastSyncAt: 0
         };
 
         function prepareElement(video) {
@@ -94,25 +96,28 @@
         }
 
         function play(video, assetId) {
-            if (!video || !state.visible || document.hidden || state.assetId !== assetId) return;
+            if (!video || !state.visible || state.assetId !== assetId || video._projectionBackgroundPlayPending) return;
             if (!video.paused) return;
+            video._projectionBackgroundPlayPending = true;
             Promise.resolve().then(function () { return video.play(); }).then(function () {
-                if (state.visible && state.assetId === assetId) setVisibleLayers();
+                if (state.visible && state.assetId === assetId) {
+                    state.failedAsset = '';
+                    state.retryAt = 0;
+                    state.lastProgressAt = Date.now();
+                    setVisibleLayers();
+                }
             }).catch(function (error) {
                 if (video !== state.active || state.assetId !== assetId) return;
-                if (state.failedAsset !== assetId) {
-                    state.failedAsset = assetId;
-                    videos.forEach(function (layer) {
-                        layer.pause();
-                        setLayer(layer, false, false);
-                    });
-                    reportError('No se pudo iniciar el video de fondo; se muestra el fondo estático.', error);
+                state.retryAt = Date.now() + 700;
+                if (Date.now() - state.lastPlayErrorAt > 5000) {
+                    state.lastPlayErrorAt = Date.now();
+                    reportError('Safari pausó el fondo; se reintentará automáticamente.', error);
                 }
-            });
+            }).finally(function () { video._projectionBackgroundPlayPending = false; });
         }
 
         function startFade() {
-            if (state.fading || !state.visible || document.hidden) return;
+            if (state.fading || !state.visible) return;
             const outgoing = state.active;
             const incoming = state.standby;
             if (!Number.isFinite(outgoing.duration) || outgoing.duration <= 0) return;
@@ -125,7 +130,7 @@
             incoming.defaultMuted = true;
             incoming.playsInline = true;
             Promise.resolve().then(function () { return incoming.play(); }).then(function () {
-                if (!state.visible || document.hidden || state.assetId !== incoming.dataset.projectionBackgroundAsset) {
+                if (!state.visible || state.assetId !== incoming.dataset.projectionBackgroundAsset) {
                     incoming.pause();
                     return;
                 }
@@ -143,7 +148,7 @@
         }
 
         function tick() {
-            if (!state.visible || document.hidden || state.loadingAsset || !state.assetId || state.failedAsset === state.assetId) return;
+            if (!state.visible || state.loadingAsset || !state.assetId || state.failedAsset === state.assetId) return;
             const now = Date.now();
             if (state.fading) {
                 if (now >= state.fadeEndsAt) resetFade();
@@ -152,16 +157,24 @@
 
             const active = state.active;
             const standby = state.standby;
-            if (active.readyState < 2 || active.dataset.projectionBackgroundAsset !== state.assetId) return;
+            if (active.dataset.projectionBackgroundAsset !== state.assetId) return;
 
             const currentTime = Number(active.currentTime) || 0;
             if (state.lastTime === null || currentTime > state.lastTime + 0.02 || currentTime < state.lastTime - 0.1) {
                 state.lastTime = currentTime;
                 state.lastProgressAt = now;
-            } else if (!active.paused && !active.seeking && active.readyState >= 3 && now - state.lastProgressAt > 5000) {
+            } else if (!active.paused && !active.seeking && now - state.lastProgressAt > 2200) {
+                const remaining = Number.isFinite(active.duration) ? active.duration - currentTime : Infinity;
+                if (remaining <= 2.2 && hasCrossfadeBuffer(standby, fadeDurationFor(active))) {
+                    startFade();
+                    return;
+                }
                 active.pause();
                 state.lastProgressAt = now;
-                state.retryAt = now + 350;
+                state.retryAt = now + 250;
+                if (Number.isFinite(active.duration) && active.duration > 0 && active.duration - currentTime <= 0.4) {
+                    try { active.currentTime = 0; } catch (_) {}
+                }
                 return;
             }
 
@@ -173,9 +186,14 @@
                 return;
             }
 
-            if (now < state.retryAt || !Number.isFinite(active.duration) || active.duration <= 0) return;
+            if (active.readyState < 2 || now < state.retryAt || !Number.isFinite(active.duration) || active.duration <= 0) return;
             const remaining = active.duration - currentTime;
-            if (remaining <= (fadeDurationFor(active) / 1000) + 0.08 && hasCrossfadeBuffer(standby, fadeDurationFor(active))) startFade();
+            if (remaining <= (fadeDurationFor(active) / 1000) + 0.8 && hasCrossfadeBuffer(standby, fadeDurationFor(active))) startFade();
+
+            if (typeof config.onTime === 'function' && now - state.lastSyncAt >= 1200) {
+                state.lastSyncAt = now;
+                config.onTime(state.assetId, currentTime);
+            }
         }
 
         function loadAsset(assetId) {
@@ -205,6 +223,7 @@
                     video.load();
                 });
                 const active = state.active;
+                const standby = state.standby;
                 const startWhenReady = function () {
                     if (state.assetId !== assetId || !state.visible) return;
                     if (active.readyState >= 2) {
@@ -224,10 +243,23 @@
                     setLayer(secondary, false, false);
                     reportError('No se pudo cargar el video de fondo; se muestra el fondo estático.');
                 }, { once: true });
+                const primeStandby = function () {
+                    if (state.assetId !== assetId || !state.visible || standby._projectionBackgroundPriming || standby.readyState >= 3) return;
+                    standby._projectionBackgroundPriming = true;
+                    standby.muted = true;
+                    standby.play().then(function () {
+                        global.setTimeout(function () {
+                            standby.pause();
+                            try { standby.currentTime = 0; } catch (_) {}
+                            standby._projectionBackgroundPriming = false;
+                        }, 300);
+                    }).catch(function () { standby._projectionBackgroundPriming = false; });
+                };
+                standby.addEventListener('loadeddata', primeStandby, { once: true });
+                standby.addEventListener('canplay', primeStandby, { once: true });
                 startWhenReady();
-                // El segundo reproductor puede tardar en preparar sus fotogramas. La capa
-                // actual empieza sin esperar; el fundido se habilita cuando el segundo esté listo.
-                standby.addEventListener('canplay', function () {}, { once: true });
+                // Se decodifica brevemente la copia inactiva desde el comienzo para que
+                // Safari tenga fotogramas y búfer preparados antes del cambio de ciclo.
             }).catch(function (error) {
                 if (state.assetId !== assetId) return;
                 state.loadingAsset = '';
@@ -263,14 +295,27 @@
             } else if (state.failedAsset === id) {
                 return;
             } else if (!state.loadingAsset) {
-                play(state.active, id);
+                if (state.active.paused) play(state.active, id);
+                else if (Date.now() - state.lastProgressAt > 1800) {
+                    state.active.pause();
+                    state.retryAt = Date.now() + 200;
+                }
             }
             if (!state.timer) state.timer = global.setInterval(tick, LOOP_CHECK_INTERVAL_MS);
         }
 
         function resume() {
-            if (!state.visible || document.hidden || !state.assetId || state.failedAsset === state.assetId) return;
+            if (!state.visible || !state.assetId || state.failedAsset === state.assetId) return;
             play(state.active, state.assetId);
+        }
+
+        function sync(time) {
+            const target = Number(time);
+            const active = state.active;
+            if (!state.visible || !Number.isFinite(target) || active.readyState < 1 || !Number.isFinite(active.duration) || active.duration <= 0) return;
+            if (Math.abs(active.currentTime - target) > 1.25 && !state.fading) {
+                try { active.currentTime = Math.max(0, Math.min(target, active.duration - 0.05)); } catch (_) {}
+            }
         }
 
         function destroy() {
@@ -286,9 +331,26 @@
         }
 
         videos.forEach(prepareElement);
+        videos.forEach(function (video) {
+            ['pause', 'waiting', 'stalled', 'ended'].forEach(function (eventName) {
+                video.addEventListener(eventName, function () {
+                    if (!state.visible || state.loadingAsset || video !== state.active || !state.assetId) return;
+                    if (eventName === 'ended' && Number.isFinite(video.duration) && video.duration > 0) {
+                        const standby = state.standby;
+                        if (hasCrossfadeBuffer(standby, fadeDurationFor(video))) { startFade(); return; }
+                        try { video.currentTime = 0; } catch (_) {}
+                    }
+                    state.retryAt = Math.min(state.retryAt || Date.now() + 200, Date.now() + 200);
+                    global.setTimeout(function () {
+                        if (!state.visible || video !== state.active || !state.assetId || state.fading) return;
+                        if (video.paused) play(video, state.assetId);
+                    }, 220);
+                });
+            });
+        });
         global.addEventListener('pageshow', resume);
         document.addEventListener('visibilitychange', resume);
-        return { set: set, destroy: destroy };
+        return { set: set, sync: sync, destroy: destroy };
     }
 
     global.ProjectionBackgroundLoop = { create: createProjectionBackgroundLoop };

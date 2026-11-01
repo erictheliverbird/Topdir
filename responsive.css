@@ -224,6 +224,23 @@ body.operator-page {
 .projection-enter-blur { animation-name: projection-enter-blur; }
 .projection-enter-reveal { animation-name: projection-enter-reveal; }
 
+.projection-background-loop-layer {
+    opacity: 0;
+    visibility: hidden;
+    transition-property: opacity;
+    transition-duration: 950ms;
+    transition-timing-function: linear;
+    will-change: opacity;
+}
+
+.projection-background-loop-layer.projection-background-loop-visible {
+    visibility: visible;
+}
+
+.projection-background-loop-layer.projection-background-loop-active {
+    opacity: 1;
+}
+
 @keyframes projection-transition-fade {
     0%, 22% { opacity: 1; }
     100% { opacity: 0; }

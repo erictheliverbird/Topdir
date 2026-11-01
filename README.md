@@ -10,6 +10,7 @@ Aplicación web estática para controlar versículos, letras y videos durante el
 - `biblia.json`: Biblia completa Reina-Valera 1960 (RVR1960), cargada automáticamente y guardada también en el almacenamiento local del navegador.
 - `diagnostico-captura.html`: comprueba las funciones de captura del navegador sin cambiar la proyección.
 - `responsive.css`: ajustes compartidos para iPad, Safari y controles táctiles.
+- `background-loop.js`: administra el fondo en dos reproductores precargados para cruzar cada ciclo con un fundido.
 
 ## Sesión, Biblia y controles
 
@@ -22,7 +23,7 @@ Aplicación web estática para controlar versículos, letras y videos durante el
 ## Animaciones y videos de diseño
 
 - En **Diseño**, el selector ofrece fundido, deslizamiento en cuatro direcciones, zoom, desenfoque, barrido vertical o ninguna animación. El control de duración cambia la velocidad; los ajustes de fuente, color y posición no vuelven a animar el texto. Se respeta **Reducir movimiento** del dispositivo.
-- **Video en bucle** permite elegir un MP4 H.264 silencioso para el fondo. Se recomienda 5–20 segundos y 720p o menos; la aplicación admite hasta 30 segundos y 30 MB. El fondo continúa durante la espera y cuando se oculta el texto; se pausa únicamente ante otros medios o apagado. Safari usa el bucle nativo y la aplicación revisa periódicamente si el video quedó pausado o congelado para reanudarlo sin interacción. Para que la unión no se note, conviene que el primer y último fotograma del clip coincidan.
+- **Video en bucle** permite elegir un MP4 H.264 silencioso para el fondo. Se recomienda 5–20 segundos y 720p o menos; la aplicación admite hasta 30 segundos y 30 MB. El fondo continúa durante la espera y cuando se oculta el texto; se pausa únicamente ante otros medios o apagado. Dos reproductores mantienen el mismo archivo preparado y se cruzan con un fundido de hasta 950 ms al final del ciclo, sin volver a cargar el archivo entre repeticiones. El bucle nativo de Safari permanece activo como respaldo. El fundido suaviza la unión; si los primeros fotogramas difieren mucho de los últimos, puede percibirse un cambio de imagen, por lo que conviene usar un clip diseñado para repetirse.
 - La transición integrada se ejecuta al entrar o salir de YouTube o video local, y permite fundido, cortinilla, zoom o un zoom expansivo con el logo de la iglesia. El control de duración cambia la velocidad de los efectos y ajusta el clip propio entre 0.5× y 2×. Un MP4 opaco y silencioso opcional sustituye el efecto integrado; se recomienda 1–3 segundos y 720p o menos. Se admiten hasta 8 segundos y 30 MB. Si Safari bloquea el clip, se intenta el efecto elegido con un archivo integrado.
 - Los archivos guardados no se sincronizan entre dispositivos ni se publican en GitHub. En cada iPad hay que seleccionarlos una vez en el mismo Safari que se usará para el culto. Si Safari impide el inicio automático del fondo, el panel muestra el estado y mantiene visible el fondo estático de respaldo.
 
@@ -38,7 +39,7 @@ Aplicación web estática para controlar versículos, letras y videos durante el
 
 ## Verificación de animaciones y fondo en Safari
 
-Antes del culto, publica la versión más reciente del ZIP y recarga la consola y la ventana del proyector en el mismo Safari. En **Diseño**, carga el logo y un MP4 H.264 silencioso de fondo. Déjalo reproducir al menos dos ciclos: no debe quedarse congelado al final. Pulsa `C` para ocultar el texto y `L` para mostrar la espera; el fondo debe continuar en ambos estados. Al volver a Biblia o Letras, el texto/estrofa debe usar la animación elegida. Cambiar fuente o color no debe volver a iniciar esa animación.
+Antes del culto, publica los archivos más recientes y recarga la consola y la ventana del proyector en el mismo Safari. En **Diseño**, carga el logo y un MP4 H.264 silencioso de fondo. Déjalo reproducir al menos tres ciclos: debe cruzar el cambio de ciclo con un fundido, sin pausa de carga ni pantalla congelada. Pulsa `C` para ocultar el texto y `L` para mostrar la espera; el fondo debe continuar en ambos estados. Al volver a Biblia o Letras, el texto/estrofa debe usar la animación elegida. Cambiar fuente o color no debe volver a iniciar esa animación.
 
 Después abre un video local, cambia un versículo o una estrofa y confirma que el video sigue en el mismo tiempo. Al salir del video, el fondo debe volver a reproducirse. Cambiar entre texto y video debe mostrar la transición elegida; con **Zoom con logo de la iglesia**, el logo debe cubrir la pantalla y revelar el nuevo contenido. Si algo falla, anota el modelo del iPad, la versión de iPadOS, el formato/duración del MP4 y el estado que muestra el centro multimedia.
 

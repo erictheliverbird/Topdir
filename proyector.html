@@ -9,6 +9,7 @@
                             <link rel="icon" type="image/png" href="icon-192.png">
                             <title>Proyección en Vivo - Pantalla Externa</title>
                             <script src="https://cdn.tailwindcss.com"></script>
+                            <script src="background-loop.js"></script>
                             <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Cinzel:wght@500;700;900&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Montserrat:wght@400;600;800&family=Open+Sans:wght@300;400;600;700&family=Oswald:wght@400;700&family=Playfair+Display:ital,wght@0,600;0,800;1,400&family=Poppins:wght@300;400;600;700&family=Quicksand:wght@400;600;700&family=Raleway:wght@300;400;600;700&family=Roboto+Slab:wght@400;700&family=Ubuntu:wght@400;700&family=Fira+Sans:wght@400;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@400;600;700&family=Spectral:ital,wght@0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=Cardo:wght@400;700&family=Josefin+Sans:wght@400;600;700&family=Nunito+Sans:wght@400;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Archivo+Black&display=swap" rel="stylesheet">
                             <style>
                                 :root { color-scheme: dark; }
@@ -22,7 +23,8 @@
                         <body class="projection-page h-screen w-screen overflow-hidden relative flex flex-col justify-between p-16 select-none bg-black">
                             <button id="proj-fullscreen-prompt" type="button" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-xl border border-white/30 bg-black/85 px-5 py-3 text-sm font-bold text-white shadow-2xl" style="display:none">⛶ Activar pantalla completa</button>
                             <div id="proj-backdrop" class="absolute inset-0 z-0 bg-cover bg-center transition-all duration-300"></div>
-                            <video id="proj-background-video" class="absolute inset-0 z-[1] w-full h-full object-cover hidden pointer-events-none" muted playsinline loop autoplay preload="auto" aria-hidden="true"></video>
+                            <video id="proj-background-video" class="absolute inset-0 z-[1] w-full h-full object-cover pointer-events-none projection-background-loop-layer" muted playsinline loop autoplay preload="auto" aria-hidden="true"></video>
+                            <video id="proj-background-video-next" class="absolute inset-0 z-[1] w-full h-full object-cover pointer-events-none projection-background-loop-layer" muted playsinline loop autoplay preload="auto" aria-hidden="true"></video>
                             <video id="proj-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline autoplay></video>
                             <button id="proj-enable-audio" type="button" class="absolute z-50 hidden left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-black/85 border border-white/40 px-6 py-4 text-white text-lg font-bold shadow-2xl" style="pointer-events:auto">▶ Toca para reproducir con sonido</button>
 
@@ -85,94 +87,24 @@
                                     function sendProjectionAssetStatus(kind, assetId, message) {
                                         try { if (channel) channel.postMessage({ type: '__projection_asset_status', controllerId: projectorControllerId, kind, assetId: assetId || '', message: String(message || ''), timestamp: Date.now() }); } catch (_) {}
                                     }
-                                    function stopBackgroundVideoLoopGuard(video) {
-                                        const guard = video && video._projectionLoopGuard;
-                                        if (!guard) return;
-                                        clearInterval(guard.timer);
-                                        video._projectionLoopGuard = null;
-                                    }
-                                    function ensureBackgroundVideoLoopGuard(video, assetId, onBlocked) {
-                                        let guard = video._projectionLoopGuard;
-                                        if (guard) { guard.assetId = assetId; guard.onBlocked = onBlocked; return; }
-                                        guard = { assetId, onBlocked, playPending: false, lastFailureAt: 0, lastTime: null, lastProgressAt: Date.now(), timer: 0 };
-                                        guard.timer = setInterval(() => {
-                                            const activeAsset = video.dataset.shouldPlay;
-                                            if (!activeAsset || !video.isConnected) { stopBackgroundVideoLoopGuard(video); return; }
-                                            if (document.hidden || activeAsset !== guard.assetId || video.dataset.assetId !== activeAsset || video.readyState < 2 || guard.playPending) return;
-                                            const now = Date.now();
-                                            const currentTime = Number(video.currentTime) || 0;
-                                            if (guard.lastTime === null || currentTime > guard.lastTime + 0.02 || currentTime < guard.lastTime - 0.1) {
-                                                guard.lastTime = currentTime;
-                                                guard.lastProgressAt = now;
-                                            } else if (!video.paused && !video.seeking && video.readyState >= 3 && now - guard.lastProgressAt > 5000) {
-                                                if (Number.isFinite(video.duration) && video.duration > 0 && video.duration - currentTime < 0.5) {
-                                                    try { video.currentTime = 0; } catch (_) {}
-                                                }
-                                                video.pause();
-                                                guard.lastProgressAt = now;
+                                    let projectedBackgroundAssetId = '';
+                                    const projectedBackgroundLoop = window.ProjectionBackgroundLoop.create(
+                                        document.getElementById('proj-background-video'),
+                                        document.getElementById('proj-background-video-next'),
+                                        {
+                                            getUrl: getProjectorMediaUrl,
+                                            onReady: assetId => sendProjectionAssetStatus('background', assetId, 'Fondo de video listo · bucle con fundido'),
+                                            onError: (message, error) => {
+                                                sendProjectionAssetStatus('background', projectedBackgroundAssetId, message);
+                                                if (error) console.warn('No se pudo reproducir el video de fondo:', error);
                                             }
-                                            const stoppedAtEnd = Number.isFinite(video.duration) && video.duration > 0 && video.duration - currentTime <= 0.25;
-                                            if (video.ended || (video.paused && stoppedAtEnd)) { try { video.currentTime = 0; } catch (_) {} }
-                                            if (!video.paused) return;
-                                            guard.playPending = true;
-                                            Promise.resolve().then(() => video.play()).then(() => {
-                                                if (video.dataset.shouldPlay === activeAsset) video.classList.remove('hidden');
-                                            }).catch(error => {
-                                                if (video.dataset.shouldPlay !== activeAsset || Date.now() - guard.lastFailureAt < 5000) return;
-                                                guard.lastFailureAt = Date.now();
-                                                if (typeof guard.onBlocked === 'function') guard.onBlocked(error);
-                                            }).finally(() => { guard.playPending = false; });
-                                        }, 1000);
-                                        video._projectionLoopGuard = guard;
-                                    }
-                                    function updateProjectedBackground(data, video) {
-                                        if (!video) return;
-                                        const styles = data.styles || {};
-                                        const assetId = String(styles.backgroundVideoId || '');
-                                        const visible = styles.bgType === 'video' && !!assetId && data.mediaMode === 'none' && !data.isBlackout;
-                                        video.muted = true; video.defaultMuted = true; video.loop = true; video.playsInline = true; video.preload = 'auto';
-                                        video.setAttribute('muted', ''); video.setAttribute('playsinline', ''); video.setAttribute('loop', ''); video.setAttribute('autoplay', '');
-                                        if (!visible) { video.dataset.shouldPlay = ''; stopBackgroundVideoLoopGuard(video); video.pause(); video.classList.add('hidden'); return; }
-                                        video.dataset.shouldPlay = assetId;
-                                        video.classList.remove('hidden');
-                                        ensureBackgroundVideoLoopGuard(video, assetId, error => {
-                                            if (video.dataset.shouldPlay !== assetId) return;
-                                            video.classList.add('hidden');
-                                            sendProjectionAssetStatus('background', assetId, 'Safari pausó el fondo; se intentará reanudar automáticamente.');
-                                            console.warn('No se pudo reanudar automáticamente el video de fondo:', error);
-                                        });
-                                        video.onended = () => {
-                                            if (video.dataset.shouldPlay !== assetId) return;
-                                            try { video.currentTime = 0; } catch (_) {}
-                                            video.play().catch(() => reportFailure('Safari detuvo el bucle; se muestra el fondo de respaldo.'));
-                                        };
-                                        const reportFailure = message => {
-                                            if (video.dataset.shouldPlay !== assetId) return;
-                                            video.pause(); video.classList.add('hidden');
-                                            sendProjectionAssetStatus('background', assetId, message);
-                                        };
-                                        if (video.dataset.assetId !== assetId || !video.getAttribute('src')) {
-                                            if (video.dataset.loadingAsset === assetId) return;
-                                            video.pause(); video.dataset.loadingAsset = assetId;
-                                            video.removeAttribute('src'); video.load();
-                                            getProjectorMediaUrl(assetId).then(url => {
-                                                if (video.dataset.loadingAsset === assetId) video.dataset.loadingAsset = '';
-                                                if (video.dataset.shouldPlay !== assetId || !video.isConnected) return;
-                                                video.dataset.assetId = assetId;
-                                                video.src = url;
-                                                video.onerror = () => reportFailure('No se pudo reproducir el fondo; se muestra el fondo de respaldo.');
-                                                video.onloadeddata = () => {
-                                                    if (video.dataset.shouldPlay === assetId) sendProjectionAssetStatus('background', assetId, 'Fondo de video listo');
-                                                };
-                                                video.load();
-                                                video.play().catch(() => reportFailure('Safari bloqueó el inicio del fondo; toca la proyección y vuelve a activarlo.'));
-                                            }).catch(() => {
-                                                if (video.dataset.loadingAsset === assetId) video.dataset.loadingAsset = '';
-                                                if (video.dataset.shouldPlay === assetId) reportFailure('No se encontró el fondo guardado en este dispositivo; se muestra el fondo de respaldo.');
-                                            });
-                                            return;
                                         }
-                                        if (video.paused) video.play().catch(() => reportFailure('Safari bloqueó la reanudación del fondo; se muestra el fondo de respaldo.'));
+                                    );
+                                    function updateProjectedBackground(data) {
+                                        const styles = data.styles || {};
+                                        projectedBackgroundAssetId = String(styles.backgroundVideoId || '');
+                                        const visible = styles.bgType === 'video' && !!projectedBackgroundAssetId && data.mediaMode === 'none' && !data.isBlackout;
+                                        projectedBackgroundLoop.set(projectedBackgroundAssetId, visible);
                                     }
                                     function animateProjectedText(element, contentKey, animation, reducedMotion, durationMs = 350) {
                                         if (!element) return;
@@ -585,7 +517,7 @@
                                     });
                                     const resumeBackgroundVideo = () => {
                                         if (document.hidden || !latestProjectionData) return;
-                                        updateProjectedBackground(latestProjectionData, document.getElementById('proj-background-video'));
+                                        updateProjectedBackground(latestProjectionData);
                                     };
                                     window.addEventListener('pageshow', resumeBackgroundVideo);
                                     document.addEventListener('visibilitychange', resumeBackgroundVideo);
@@ -659,7 +591,7 @@
                                         const text = document.getElementById('proj-text');
                                         const citation = document.getElementById('proj-citation');
                                         const backdrop = document.getElementById('proj-backdrop');
-                                        const backgroundVideo = document.getElementById('proj-background-video');
+                                        
                                         const overlay = document.getElementById('proj-overlay');
                                         const video = document.getElementById('proj-video');
                                         const youtube = document.getElementById('proj-youtube');
@@ -673,7 +605,7 @@
                                         // La API de YouTube reemplaza el nodo objetivo por un iframe. Por eso el tamaño
                                         // se aplica al contenedor estable, no al iframe que controla YouTube.
                                         const karaokeBg = document.getElementById('proj-karaoke-bg');
-                                        updateProjectedBackground(data, backgroundVideo);
+                                        updateProjectedBackground(data);
                                         if (youtubeLyricsLayout) {
                                             youtube.style.top='0'; youtube.style.left='0'; youtube.style.right='0'; youtube.style.bottom='auto';
                                             youtube.style.width='100%'; youtube.style.height='76%'; youtube.style.overflow='hidden';
@@ -713,7 +645,7 @@
                                         if (data.isBlackout) {
                                             if (ytPlayerReady && ytPlayer) { try { ytPlayer.pauseVideo(); } catch (_) {} }
                                             backdrop.style.background = '#000';
-                                            if (backgroundVideo) { backgroundVideo.pause(); backgroundVideo.classList.add('hidden'); }
+                                            
                                             text.textContent = '';
                                             citation.textContent = '';
                                             standby.classList.add('hidden'); corner.classList.add('hidden'); const karaokeLayer = document.getElementById('proj-karaoke'); if (karaokeLayer) karaokeLayer.classList.add('hidden');

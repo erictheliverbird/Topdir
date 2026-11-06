@@ -417,6 +417,7 @@
                         
                         <video id="preview-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline muted></video>
                         <img id="preview-video-mirror" alt="Vista espejo del video proyectado" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" />
+                        <div id="preview-screen-capture-note" class="absolute inset-0 z-50 hidden items-center justify-center bg-black text-center text-sm font-semibold text-gray-300" style="display:none"><span><i class="fa-solid fa-tower-broadcast mr-2 text-blue-400"></i>Captura enviada directamente al proyector</span></div>
                         <iframe id="preview-youtube" referrerpolicy="strict-origin-when-cross-origin" title="Reproductor de YouTube (vista previa)" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>
 
                         <div id="preview-overlay" class="absolute inset-0 bg-black/40 z-20 transition-all duration-300"></div>
@@ -1321,6 +1322,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let screenFrameFallbackSourceVideo = null;
         let screenFrameFallbackSequence = 0;
         let screenFrameFallbackPendingSequence = 0;
+        let screenFrameFallbackEncoding = false;
         let screenFrameFallbackVisible = false;
 
         function stopScreenFrameFallback(sendStop = true) {
@@ -1338,6 +1340,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             screenFrameFallbackSourceVideo = null;
             screenFrameFallbackSessionId = '';
             screenFrameFallbackPendingSequence = 0;
+            screenFrameFallbackEncoding = false;
             screenFrameFallbackVisible = false;
         }
 
@@ -1346,12 +1349,16 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (!stream || !sessionId || !document.body) return;
             screenFrameFallbackSessionId = sessionId;
             screenFrameFallbackSequence = 0;
+            const sourceTrack = stream.getVideoTracks()[0];
+            const captureSettings = sourceTrack && typeof sourceTrack.getSettings === 'function' ? sourceTrack.getSettings() : {};
+            const targetFrameRate = Math.min(30, Math.max(1, Number(captureSettings.frameRate) || 30));
+            const frameIntervalMs = Math.max(34, Math.round(1000 / targetFrameRate));
             const source = document.createElement('video');
             source.muted = true;
             source.autoplay = true;
             source.playsInline = true;
             source.setAttribute('aria-hidden', 'true');
-            source.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none;z-index:9999';
+            source.style.cssText = 'position:fixed;left:0;top:0;width:64px;height:36px;opacity:.001;pointer-events:none;z-index:9999';
             source.srcObject = stream;
             screenFrameFallbackSourceVideo = source;
             document.body.appendChild(source);
@@ -1372,46 +1379,63 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     return;
                 }
                 if (screenFrameFallbackPendingSequence) {
-                    if (screenFrameFallbackAckTimeoutId && Date.now() > Number(source.dataset.pendingSince || 0) + 1200) {
+                    if (screenFrameFallbackAckTimeoutId && Date.now() > Number(source.dataset.pendingSince || 0) + 3000) {
                         screenFrameFallbackPendingSequence = 0;
                         clearTimeout(screenFrameFallbackAckTimeoutId);
                         screenFrameFallbackAckTimeoutId = 0;
                     } else {
-                        screenFrameFallbackTimerId = setTimeout(tick, 120);
+                        screenFrameFallbackTimerId = setTimeout(tick, frameIntervalMs);
                         return;
                     }
                 }
-                if (source.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !source.videoWidth || !source.videoHeight) {
-                    screenFrameFallbackTimerId = setTimeout(tick, 180);
+                if (screenFrameFallbackEncoding) {
+                    screenFrameFallbackTimerId = setTimeout(tick, frameIntervalMs);
                     return;
                 }
-                const scale = Math.min(1, 1024 / source.videoWidth, 576 / source.videoHeight);
-                canvas.width = Math.max(1, Math.round(source.videoWidth * scale));
-                canvas.height = Math.max(1, Math.round(source.videoHeight * scale));
+                if (source.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !source.videoWidth || !source.videoHeight) {
+                    screenFrameFallbackTimerId = setTimeout(tick, frameIntervalMs);
+                    return;
+                }
+                canvas.width = source.videoWidth;
+                canvas.height = source.videoHeight;
                 try {
                     context.drawImage(source, 0, 0, canvas.width, canvas.height);
-                    const frame = canvas.toDataURL('image/jpeg', 0.68);
-                    const sequence = ++screenFrameFallbackSequence;
-                    broadcastChannel.postMessage({
-                        type: '__screen_capture_frame',
-                        projectorId: localProjectorId,
-                        sessionId,
-                        sequence,
-                        width: canvas.width,
-                        height: canvas.height,
-                        frame,
-                        timestamp: Date.now()
-                    });
-                    screenFrameFallbackPendingSequence = sequence;
-                    source.dataset.pendingSince = String(Date.now());
-                    screenFrameFallbackAckTimeoutId = setTimeout(() => {
-                        if (screenFrameFallbackPendingSequence === sequence) screenFrameFallbackPendingSequence = 0;
-                        screenFrameFallbackAckTimeoutId = 0;
-                    }, 1200);
+                    screenFrameFallbackEncoding = true;
+                    canvas.toBlob(blob => {
+                        screenFrameFallbackEncoding = false;
+                        if (screenFrameFallbackSessionId !== sessionId || window.screenStream !== stream || !screenCaptureSending || mediaMode !== 'screen') return;
+                        if (!blob) {
+                            screenFrameFallbackTimerId = setTimeout(tick, frameIntervalMs);
+                            return;
+                        }
+                        const sequence = ++screenFrameFallbackSequence;
+                        try {
+                            broadcastChannel.postMessage({
+                                type: '__screen_capture_frame',
+                                projectorId: localProjectorId,
+                                sessionId,
+                                sequence,
+                                width: canvas.width,
+                                height: canvas.height,
+                                frame: blob,
+                                timestamp: Date.now()
+                            });
+                            screenFrameFallbackPendingSequence = sequence;
+                            source.dataset.pendingSince = String(Date.now());
+                            screenFrameFallbackAckTimeoutId = setTimeout(() => {
+                                if (screenFrameFallbackPendingSequence === sequence) screenFrameFallbackPendingSequence = 0;
+                                screenFrameFallbackAckTimeoutId = 0;
+                            }, 3000);
+                        } catch (error) {
+                            console.warn('No se pudo enviar un fotograma de alta resolución al proyector:', error);
+                        }
+                        screenFrameFallbackTimerId = setTimeout(tick, frameIntervalMs);
+                    }, 'image/jpeg', 0.9);
                 } catch (error) {
                     console.warn('No se pudo generar un fotograma de respaldo para el proyector:', error);
+                    screenFrameFallbackEncoding = false;
+                    screenFrameFallbackTimerId = setTimeout(tick, frameIntervalMs);
                 }
-                screenFrameFallbackTimerId = setTimeout(tick, 160);
             };
             // Dar tiempo a WebRTC para entregar y decodificar la señal completa.
             // El respaldo de imagen solo aparece si el proyector sigue sin un cuadro.
@@ -1841,7 +1865,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (pc.connectionState === 'connected' && mediaMode === 'screen') {
                         const hasAudio = stream.getAudioTracks().some(track => track.readyState === 'live');
                         setScreenCaptureStatus(screenFrameFallbackVisible
-                            ? 'El proyector usa respaldo visual de baja fluidez. Toca «Activar video en alta calidad» en esa ventana para iniciar WebRTC.'
+                            ? 'El proyector está recibiendo fotogramas directos de alta resolución mientras WebRTC continúa conectado.'
                             : screenCapturePurpose === 'youtube-monitor'
                                 ? (hasAudio ? 'Monitor YouTube en vivo con audio; se conserva el reproductor y su posición.' : 'Monitor YouTube en vivo; el navegador no envió pista de audio.')
                                 : (hasAudio ? 'Vídeo y pista de audio conectados al proyector' : 'Vídeo en tiempo real conectado; audio del sistema no capturado'));
@@ -2095,7 +2119,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                         screenFrameFallbackVisible = true;
                         if (screenFrameFallbackAckTimeoutId) clearTimeout(screenFrameFallbackAckTimeoutId);
                         screenFrameFallbackAckTimeoutId = 0;
-                        if (firstFrameVisible) setScreenCaptureStatus(`El proyector usa respaldo de baja fluidez (${data.width} × ${data.height}). Toca allí «Activar video en alta calidad» para iniciar WebRTC.`);
+                        if (firstFrameVisible) setScreenCaptureStatus(`El proyector recibe la captura a ${data.width} × ${data.height}; WebRTC sigue intentando la transmisión fluida.`);
                     }
                     return;
                 }
@@ -2108,16 +2132,16 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     } else if (data.state === 'fallback-playing') {
                         const firstFrameVisible = !screenFrameFallbackVisible;
                         screenFrameFallbackVisible = true;
-                        if (firstFrameVisible) setScreenCaptureStatus(`El proyector usa respaldo de baja fluidez (${data.width} × ${data.height}). Toca allí «Activar video en alta calidad» para iniciar WebRTC.`);
+                        if (firstFrameVisible) setScreenCaptureStatus(`El proyector recibe la captura a ${data.width} × ${data.height}; WebRTC sigue intentando la transmisión fluida.`);
                     } else if (data.state === 'blocked') {
                         if (screenFrameFallbackVisible) return;
-                        setScreenCaptureStatus('Safari necesita un toque dentro de la ventana del proyector para activar la captura.');
+                        setScreenCaptureStatus('Safari no inició WebRTC automáticamente; el proyector está cambiando a fotogramas de la fuente original.');
                     } else if (data.state === 'track-received') {
                         if (screenFrameFallbackVisible) return;
-                        setScreenCaptureStatus('La pista llegó al proyector. Si la imagen no aparece, toca el botón central «Iniciar captura» en esa ventana.');
+                        setScreenCaptureStatus('La pista llegó al proyector; esperando que Safari decodifique el primer fotograma.');
                     } else if (data.state === 'no-frames') {
                         if (screenFrameFallbackVisible) return;
-                        setScreenCaptureStatus(`Safari aún no muestra fotogramas (${data.width} × ${data.height}, estado ${data.readyState}). El botón central del proyector sigue disponible: tócalo para iniciar el video.`);
+                        setScreenCaptureStatus(`Safari aún no decodifica fotogramas (${data.width} × ${data.height}, estado ${data.readyState}); se usará el flujo directo de alta resolución.`);
                     } else if (data.state === 'waiting') {
                         if (screenFrameFallbackVisible) return;
                         setScreenCaptureStatus('Captura conectada; esperando el primer fotograma del proyector…');
@@ -3442,6 +3466,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const karaokeBoxEl = docObj.getElementById(prefix + 'karaoke');
             const karaokeBgEl = docObj.getElementById(prefix + 'karaoke-bg');
             const karaokeTextEl = docObj.getElementById(prefix + 'karaoke-stanza');
+            const screenCapturePreviewNote = docObj.getElementById('preview-screen-capture-note');
             const karaoke = data.karaoke || {};
             const karaokeStyle = karaoke.style || {};
             const karaokeVisible = !!karaoke.active && !!String(karaoke.stanza || '').trim() && !data.isClearText && !data.isStandby && !data.isBlackout && data.mediaMode !== 'screen';
@@ -3459,7 +3484,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (karaokeBoxEl) karaokeBoxEl.classList.add('hidden');
                 if (videoEl) videoEl.classList.add('hidden');
                 if (youtubeEl) youtubeEl.classList.add('hidden');
+                if (screenCapturePreviewNote) { screenCapturePreviewNote.classList.add('hidden'); screenCapturePreviewNote.style.display = 'none'; }
                 return;
+            }
+
+            if (screenCapturePreviewNote && data.mediaMode !== 'screen') {
+                screenCapturePreviewNote.classList.add('hidden');
+                screenCapturePreviewNote.style.display = 'none';
             }
 
             if (youtubeEl) {
@@ -3479,42 +3510,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (videoEl) {
                 if ((videoEl.id === 'preview-video' || videoEl.id === 'local-fs-video') && data.mediaMode === 'screen') {
                     const mirror = docObj.getElementById(videoEl.id === 'preview-video' ? 'preview-video-mirror' : 'local-fs-video-mirror');
-                    const localCaptureStream = window.screenStream;
-                    if (localCaptureStream && localCaptureStream.active) {
-                        // La consola y su vista a pantalla completa reproducen la fuente
-                        // directamente; el espejo comprimido queda como respaldo visual.
-                        if (videoEl.srcObject !== localCaptureStream) videoEl.srcObject = localCaptureStream;
-                        videoEl.muted = true; videoEl.playsInline = true; videoEl.autoplay = true;
-                        videoEl.classList.remove('hidden');
-                        if (mirror) {
-                            mirror.dataset.projectionMode = 'screen';
-                            if (videoEl.videoWidth > 0) mirror.classList.add('hidden');
-                            else mirror.classList.remove('hidden');
-                        }
-                        if (videoEl.dataset.screenPreviewEventsBound !== 'true') {
-                            videoEl.dataset.screenPreviewEventsBound = 'true';
-                            ['loadeddata', 'playing', 'resize'].forEach(name => videoEl.addEventListener(name, () => {
-                                if (videoEl.videoWidth > 0) mirror?.classList.add('hidden');
-                            }));
-                        }
-                        const playAttempt = videoEl.play();
-                        if (playAttempt && typeof playAttempt.then === 'function') playAttempt.then(() => {
-                            if (videoEl.videoWidth > 0) mirror?.classList.add('hidden');
-                        }).catch(() => {
-                            if (videoEl.videoWidth <= 0) {
-                                videoEl.classList.add('hidden');
-                                if (mirror) mirror.classList.remove('hidden');
-                            }
-                        });
-                    } else {
-                        try { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.srcObject = null; } catch (_) {}
-                        videoEl.classList.add('hidden');
-                        if (mirror) {
-                            if (mirror.dataset.projectionMode !== 'screen') mirror.removeAttribute('src');
-                            mirror.dataset.projectionMode = 'screen';
-                            mirror.classList.remove('hidden');
-                        }
-                    }
+                    // Prioridad de captura: no gastar ciclos de decodificación en la
+                    // miniatura. El MediaStream se envía al proyector por WebRTC y el
+                    // respaldo de fotogramas se genera fuera de esta vista previa.
+                    try { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.srcObject = null; } catch (_) {}
+                    videoEl.classList.add('hidden');
+                    if (mirror) { mirror.removeAttribute('src'); mirror.dataset.projectionMode = 'screen'; mirror.classList.add('hidden'); }
+                    if (screenCapturePreviewNote && !isLocalFs) { screenCapturePreviewNote.classList.remove('hidden'); screenCapturePreviewNote.style.display = 'flex'; }
                 } else if ((videoEl.id === 'preview-video' || videoEl.id === 'local-fs-video') && data.mediaMode === 'video') {
                     // No asignar src ni llamar play(): la vista previa es una imagen espejo
                     // enviada por el proyector. No hay segundo reproductor ni segundo audio.

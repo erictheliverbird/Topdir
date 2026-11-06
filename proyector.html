@@ -1302,14 +1302,14 @@
                                             if (latestProjectionData?.mediaMode !== 'screen' || latestProjectionData?.isBlackout || Number(message.sequence) !== projectorScreenFrameSequence) { acknowledge(); return; }
                                             if (!projectorScreenVideoConfirmed) {
                                                 const screenVideo = document.getElementById('proj-screen-video');
-                                                if (screenVideo) screenVideo.classList.add('hidden');
+                                                if (screenVideo) { screenVideo.classList.remove('hidden'); screenVideo.style.opacity = '0'; }
                                                 image.classList.remove('hidden');
                                                 ['proj-text', 'proj-citation', 'proj-backdrop', 'proj-overlay', 'proj-logo-standby', 'proj-logo-corner', 'proj-karaoke'].forEach(id => {
                                                     const layer = document.getElementById(id);
                                                     if (layer) layer.classList.add('hidden');
                                                 });
                                                 const prompt = document.getElementById('proj-enable-audio');
-                                                if (prompt) prompt.classList.add('hidden');
+                                                if (prompt) captureVideoPrompt('▶ Toca para activar video en alta calidad');
                                                 if (projectorScreenFallbackStatusSessionId !== message.sessionId) {
                                                     projectorScreenFallbackStatusSessionId = message.sessionId;
                                                     try {
@@ -1425,7 +1425,8 @@
                                     const audioPrompt = document.getElementById('proj-enable-audio');
                                     if (audioPrompt) audioPrompt.addEventListener('click', () => {
                                         const screenVideo = document.getElementById('proj-screen-video');
-                                        const video = screenVideo && !screenVideo.classList.contains('hidden') ? screenVideo : document.getElementById('proj-video');
+                                        const useScreenCapture = !!(latestProjectionData?.mediaMode === 'screen' && screenVideo && screenVideo.srcObject);
+                                        const video = useScreenCapture ? screenVideo : (screenVideo && !screenVideo.classList.contains('hidden') ? screenVideo : document.getElementById('proj-video'));
                                         if (!video) return;
                                         const isScreenCapture = video.id === 'proj-screen-video';
                                         const isScreenSource = isScreenCapture || (latestProjectionData?.mediaMode === 'screen' && !!video.srcObject);
@@ -1434,6 +1435,8 @@
                                         video.muted = isScreenSource ? !projectorScreenAudioEnabled : false; video.volume = 1;
                                         if (isScreenSource) {
                                             video.dataset.capturePlayAttempts = '0';
+                                            video.classList.remove('hidden');
+                                            if (video.videoWidth <= 0) video.style.opacity = '0';
                                             requestCaptureVideoPlayback(video);
                                         } else video.play().then(() => audioPrompt.classList.add('hidden')).catch(() => { audioPrompt.textContent = 'No se pudo iniciar el audio'; });
                                     });

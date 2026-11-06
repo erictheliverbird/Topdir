@@ -1362,7 +1362,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const context = canvas.getContext('2d', { alpha: false });
             if (!context) return;
             const tick = () => {
-                if (screenFrameFallbackSessionId !== sessionId || window.screenStream !== stream || !screenCaptureSending || mediaMode !== 'screen') return;
+                if (screenFrameFallbackSessionId !== sessionId || window.screenStream !== stream || !screenCaptureSending) return;
+                if (mediaMode !== 'screen') {
+                    screenFrameFallbackTimerId = setTimeout(tick, 250);
+                    return;
+                }
                 if (!broadcastChannel || !localProjectorId || !isLocalProjectorKnown()) {
                     screenFrameFallbackTimerId = setTimeout(tick, 250);
                     return;
@@ -1409,7 +1413,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 }
                 screenFrameFallbackTimerId = setTimeout(tick, 160);
             };
-            screenFrameFallbackTimerId = setTimeout(tick, 900);
+            // Dar tiempo a WebRTC para entregar y decodificar la señal completa.
+            // El respaldo de imagen solo aparece si el proyector sigue sin un cuadro.
+            screenFrameFallbackTimerId = setTimeout(tick, 2500);
         }
 
         function clearScreenTransferTimers() {
@@ -1791,9 +1797,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 try {
                     const params = videoSender.getParameters();
                     params.encodings = params.encodings && params.encodings.length ? params.encodings : [{}];
-                    params.encodings[0].maxBitrate = screenCapturePurpose === 'youtube-monitor' ? 9000000 : 12000000;
-                    // En captura de pantalla prioriza mantener resolución; Safari
-                    // puede reducir la tasa de cuadros cuando falta ancho de banda.
+                    const captureSettings = typeof track.getSettings === 'function' ? track.getSettings() : {};
+                    params.encodings[0].maxBitrate = screenCapturePurpose === 'youtube-monitor' ? 28000000 : 24000000;
+                    if (Number.isFinite(Number(captureSettings.frameRate)) && Number(captureSettings.frameRate) > 0) {
+                        params.encodings[0].maxFramerate = Math.min(60, Number(captureSettings.frameRate));
+                    }
+                    // Captura de pantalla: conservar la resolución de origen y dar
+                    // margen de bitrate para que WebRTC no la reduzca agresivamente.
                     params.degradationPreference = 'maintain-resolution';
                     await videoSender.setParameters(params);
                 } catch (e) { console.info('Se usarán los parámetros WebRTC predeterminados para la captura.', e); }
@@ -1831,7 +1841,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (pc.connectionState === 'connected' && mediaMode === 'screen') {
                         const hasAudio = stream.getAudioTracks().some(track => track.readyState === 'live');
                         setScreenCaptureStatus(screenFrameFallbackVisible
-                            ? 'El proyector muestra la captura mediante el respaldo local.'
+                            ? 'El proyector usa respaldo visual de baja fluidez. Toca «Activar video en alta calidad» en esa ventana para iniciar WebRTC.'
                             : screenCapturePurpose === 'youtube-monitor'
                                 ? (hasAudio ? 'Monitor YouTube en vivo con audio; se conserva el reproductor y su posición.' : 'Monitor YouTube en vivo; el navegador no envió pista de audio.')
                                 : (hasAudio ? 'Vídeo y pista de audio conectados al proyector' : 'Vídeo en tiempo real conectado; audio del sistema no capturado'));
@@ -2085,7 +2095,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                         screenFrameFallbackVisible = true;
                         if (screenFrameFallbackAckTimeoutId) clearTimeout(screenFrameFallbackAckTimeoutId);
                         screenFrameFallbackAckTimeoutId = 0;
-                        if (firstFrameVisible) setScreenCaptureStatus(`Captura visible en el proyector mediante respaldo local (${data.width} × ${data.height}).`);
+                        if (firstFrameVisible) setScreenCaptureStatus(`El proyector usa respaldo de baja fluidez (${data.width} × ${data.height}). Toca allí «Activar video en alta calidad» para iniciar WebRTC.`);
                     }
                     return;
                 }
@@ -2098,7 +2108,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     } else if (data.state === 'fallback-playing') {
                         const firstFrameVisible = !screenFrameFallbackVisible;
                         screenFrameFallbackVisible = true;
-                        if (firstFrameVisible) setScreenCaptureStatus(`Proyector activo con respaldo local: ${data.width} × ${data.height}.`);
+                        if (firstFrameVisible) setScreenCaptureStatus(`El proyector usa respaldo de baja fluidez (${data.width} × ${data.height}). Toca allí «Activar video en alta calidad» para iniciar WebRTC.`);
                     } else if (data.state === 'blocked') {
                         if (screenFrameFallbackVisible) return;
                         setScreenCaptureStatus('Safari necesita un toque dentro de la ventana del proyector para activar la captura.');

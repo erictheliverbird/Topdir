@@ -1292,23 +1292,10 @@
                                                     if (!receivedScreenStream.getTracks().includes(event.track)) receivedScreenStream.addTrack(event.track);
                                                     remoteStream = receivedScreenStream;
                                                 }
-                                                const directStream = screenVideo.dataset.directScreenCapture === 'true' ? screenVideo.srcObject : null;
-                                                const directVideoLive = directStream && directStream.getVideoTracks().some(track => track.readyState === 'live');
-                                                if (directVideoLive) {
-                                                    // El stream local directo suele ser más fiable en Safari. Conserva el
-                                                    // fotograma directo y solo conmuta a WebRTC si no llegan imágenes.
-                                                    setTimeout(() => {
-                                                        if (latestProjectionData?.mediaMode !== 'screen' || screenVideo.srcObject !== directStream || screenVideo.videoWidth > 0) return;
-                                                        screenVideo.dataset.directScreenCapture = 'false';
-                                                        screenVideo.srcObject = remoteStream;
-                                                        screenVideo.classList.remove('hidden');
-                                                        screenVideo.style.opacity = '0';
-                                                        requestCaptureVideoPlayback(screenVideo);
-                                                     }, 5000);
-                                                } else {
-                                                    screenVideo.dataset.directScreenCapture = 'false';
-                                                    screenVideo.srcObject = remoteStream;
-                                                }
+                                                // La captura se envía por WebRTC a esta ventana; el MediaStream
+                                                // original permanece solo en la consola y su vista previa.
+                                                screenVideo.dataset.directScreenCapture = 'false';
+                                                screenVideo.srcObject = remoteStream;
                                                 const isLiveProjection = !!(latestProjectionData && latestProjectionData.mediaMode === 'screen');
                                                 screenVideo.volume = 1;
                                                 if (isLiveProjection) { screenVideo.classList.remove('hidden'); screenVideo.style.opacity = screenVideo.videoWidth > 0 ? '1' : '0'; }

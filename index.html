@@ -3379,23 +3379,17 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     videoEl.classList.add('hidden');
                     const mirror = docObj.getElementById(videoEl.id === 'preview-video' ? 'preview-video-mirror' : 'local-fs-video-mirror');
                     if (mirror) { mirror.removeAttribute('src'); mirror.dataset.projectionMode = data.mediaMode || 'none'; mirror.classList.add('hidden'); }
-                } else if (videoEl.id === 'proj-video' && data.mediaMode === 'screen' && window.screenStream) {
-                    // En la ventana local se comparte el MediaStream original con el
-                    // reproductor de captura dedicado; WebRTC queda como respaldo.
+                } else if (videoEl.id === 'proj-video' && data.mediaMode === 'screen') {
+                    // La ventana de proyección recibe exclusivamente su stream WebRTC.
+                    // No se adjunta window.screenStream entre documentos: Safari puede
+                    // mostrarlo negro aunque la vista previa local sí tenga imagen.
                     videoEl.pause(); videoEl.classList.add('hidden');
+                    if (videoEl.srcObject) videoEl.srcObject = null;
                     const captureVideo = docObj.getElementById('proj-screen-video');
                     if (captureVideo) {
-                        try {
-                            const captureTrackId = window.screenStream.getVideoTracks()[0]?.id || 'screen-capture';
-                            if (captureVideo.dataset.directScreenStreamKey !== captureTrackId) {
-                                captureVideo.srcObject = window.screenStream;
-                                captureVideo.dataset.directScreenStreamKey = captureTrackId;
-                            }
-                            captureVideo.dataset.directScreenCapture = 'true';
-                            captureVideo.muted = true; captureVideo.playsInline = true;
-                            captureVideo.classList.remove('hidden');
-                            captureVideo.play().catch(() => {});
-                        } catch (error) { console.warn('No se pudo enlazar la captura local directamente; se usará WebRTC.', error); }
+                        captureVideo.dataset.directScreenCapture = 'false';
+                        captureVideo.classList.remove('hidden');
+                        captureVideo.style.opacity = '0';
                     }
                 } else if (data.mediaMode === 'video' && data.videoUrl) {
                     videoEl.srcObject = null;

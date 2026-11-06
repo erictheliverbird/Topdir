@@ -28,7 +28,7 @@
                             <video id="proj-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline autoplay></video>
                             <button id="proj-enable-audio" type="button" class="absolute z-50 hidden left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-black/85 border border-white/40 px-6 py-4 text-white text-lg font-bold shadow-2xl" style="pointer-events:auto">▶ Toca para reproducir con sonido</button>
 
-                            <video id="proj-screen-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" playsinline autoplay></video>
+                            <video id="proj-screen-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" muted playsinline autoplay></video>
                             <div id="proj-youtube" title="Reproductor de YouTube (proyección)" class="absolute inset-0 w-full h-full bg-black z-10 hidden overflow-hidden" aria-label="Reproductor de YouTube" style="contain:layout paint; clip-path:inset(0)"><div id="proj-youtube-player" data-youtube-api="1" class="absolute inset-0 w-full h-full"></div></div>
                             <div id="proj-overlay" class="absolute inset-0 z-20 bg-black/40 transition-all duration-300"></div>
                             <img id="proj-logo-standby" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[40%] max-h-[60%] object-contain z-30 hidden" alt="Standby Logo" />
@@ -120,16 +120,25 @@
                                         target.classList.remove(...classes);
                                         const animationClass = 'projection-enter-' + animation;
                                         if (animation === 'none' || reducedMotion || !classes.includes(animationClass)) return;
-                                        target.style.animationDuration = Math.min(1400, Math.max(100, Number(durationMs) || 350)) + 'ms';
+                                        target.style.animationDuration = Math.min(5000, Math.max(100, Number(durationMs) || 350)) + 'ms';
                                         void target.offsetWidth;
                                         target.classList.add(animationClass);
                                     }
                                     let lastAcceptedProjection = null;
                                     let mediaTransitionSequence = 0;
                                     let activeMediaTransition = null;
+                                    function projectionScene(data) {
+                                        if (!data || data.isBlackout || data.mediaMode === 'screen') return '';
+                                        if (data.mediaMode === 'video' || data.mediaMode === 'youtube') return data.mediaMode;
+                                        if (data.isStandby) return 'standby';
+                                        const karaoke = data.karaoke || {};
+                                        if (karaoke.active && String(karaoke.stanza || '').trim()) return 'karaoke';
+                                        return 'verse';
+                                    }
                                     function isMediaTransitionBoundary(from, to) {
-                                        const mediaModes = ['video','youtube'];
-                                        return (from === 'none' && mediaModes.includes(to)) || (to === 'none' && mediaModes.includes(from));
+                                        const fromScene = projectionScene(from);
+                                        const toScene = projectionScene(to);
+                                        return !!fromScene && !!toScene && fromScene !== toScene;
                                     }
                                     function mediaTransitionTargetReady(pending) {
                                         if (!pending || pending.targetMode === 'none') return true;
@@ -164,7 +173,7 @@
                                         if (!curtain || !pending || activeMediaTransition !== pending) return;
                                         if (clip) { clip.onended = null; clip.onerror = null; clip.onloadedmetadata = null; clip.pause(); clip.classList.remove('is-active'); }
                                         if (logoLayer) { logoLayer.onanimationend = null; logoLayer.className = 'projection-logo-transition'; }
-                                        const safeDuration = Math.min(2000, Math.max(300, Number(durationMs) || 700));
+                                        const safeDuration = Math.min(6000, Math.max(300, Number(durationMs) || 700));
                                         if (effect === 'logo' && logoUrl && logoLayer && logoImage) {
                                             curtain.className = 'projection-transition-curtain';
                                             logoImage.src = logoUrl;
@@ -213,7 +222,7 @@
                                     async function startMediaTransition(data) {
                                         const effect = data.styles && data.styles.mediaTransition || 'fade';
                                         if (effect === 'none') return;
-                                        const durationMs = Math.min(2000, Math.max(300, Number(data.styles.mediaTransitionDurationMs) || 700));
+                                        const durationMs = Math.min(6000, Math.max(300, Number(data.styles.mediaTransitionDurationMs) || 700));
                                         const logoUrl = String(data.styles.logoUrl || '');
                                         const token = ++mediaTransitionSequence;
                                         if (activeMediaTransition) {
@@ -241,23 +250,29 @@
                                                     try {
                                                         const targetSeconds = durationMs / 1000;
                                                         if (Number.isFinite(clip.duration) && clip.duration > 0 && targetSeconds > 0) {
-                                                            clip.playbackRate = Math.min(2, Math.max(.5, clip.duration / targetSeconds));
+                                                            clip.playbackRate = Math.min(2, Math.max(.15, clip.duration / targetSeconds));
                                                         }
                                                     } catch (_) {}
                                                 };
                                                 clip.load();
                                                 clip.onended = () => {
-                                                    pending.visualComplete = true;
                                                     clip.classList.remove('is-active');
                                                     if (curtain) curtain.className = 'projection-transition-curtain is-active is-held';
-                                                    sendProjectionAssetStatus('transition', assetId, 'Transición personalizada reproducida');
-                                                    maybeFinishMediaTransition();
+                                                    const elapsed = Date.now() - (pending.startedAt || Date.now());
+                                                    const remaining = Math.max(0, durationMs - elapsed);
+                                                    pending.visualTimer = setTimeout(() => {
+                                                        if (activeMediaTransition !== pending) return;
+                                                        pending.visualComplete = true;
+                                                        sendProjectionAssetStatus('transition', assetId, 'Transición personalizada reproducida');
+                                                        maybeFinishMediaTransition();
+                                                    }, remaining);
                                                 };
                                                 clip.onerror = () => {
                                                     sendProjectionAssetStatus('transition', assetId, 'No se pudo reproducir el clip; se usó la transición integrada.');
                                                     runBuiltInMediaTransition(pending, effect, logoUrl, durationMs);
                                                 };
                                                 clip.classList.add('is-active');
+                                                pending.startedAt = Date.now();
                                                 await clip.play();
                                                 sendProjectionAssetStatus('transition', assetId, 'Reproduciendo transición personalizada');
                                                 return;
@@ -570,9 +585,7 @@
                                         const incomingTimestamp = Number(data.timestamp || 0);
                                         if (!force && incomingTimestamp && incomingTimestamp <= latestProjectionTimestamp) return;
                                         const previous = lastAcceptedProjection;
-                                        const shouldTransition = !!previous && !force &&
-                                            isMediaTransitionBoundary(previous.mediaMode, data.mediaMode) &&
-                                            !previous.isBlackout && !previous.isStandby && !data.isBlackout && !data.isStandby;
+                                        const shouldTransition = !!previous && !force && isMediaTransitionBoundary(previous, data);
                                         applyProjectionContent(data, force);
                                         lastAcceptedProjection = data;
                                         if (shouldTransition) startMediaTransition(data);
@@ -725,21 +738,25 @@
                                             video.pause(); video.classList.add('hidden');
                                             if (screenVideo && screenVideo.srcObject) {
                                                 screenVideo.classList.remove('hidden');
-                                                screenVideo.muted = false;
+                                                screenVideo.muted = !projectorScreenAudioEnabled;
                                                 screenVideo.volume = 1;
+                                                const hasAudio = screenVideo.srcObject.getAudioTracks().some(track => track.readyState === 'live');
                                                 screenVideo.play().then(() => {
                                                     const prompt = document.getElementById('proj-enable-audio');
-                                                    if (prompt) prompt.classList.add('hidden');
+                                                    if (prompt && hasAudio) { prompt.textContent = '▶ Activar audio de la captura'; prompt.classList.remove('hidden'); }
+                                                    else if (prompt) prompt.classList.add('hidden');
                                                 }).catch(error => {
                                                     console.warn('Safari requiere activar la captura desde la ventana de proyección:', error);
                                                     const prompt = document.getElementById('proj-enable-audio');
-                                                    if (prompt) { prompt.textContent = '▶ Toca para activar el audio de la captura'; prompt.classList.remove('hidden'); }
+                                                    if (prompt) { prompt.textContent = hasAudio ? '▶ Activar captura y audio' : '▶ Toca para mostrar la captura'; prompt.classList.remove('hidden'); }
                                                 });
                                             } else {
                                                 // Espera la pista WebRTC recibida desde la consola.
                                                 if (screenVideo) screenVideo.classList.add('hidden');
                                             }
                                         } else if (screenVideo) {
+                                            projectorScreenAudioEnabled = false;
+                                            screenVideo.muted = true;
                                             screenVideo.classList.add('hidden');
                                             if (data.mediaMode !== 'screen' && screenVideo.srcObject) {
                                                 try { screenVideo.srcObject.getTracks().forEach(track => track.stop()); } catch (_) {}
@@ -1122,6 +1139,7 @@
 
                                     let projectorScreenPeer = null;
                                     let projectorScreenSessionId = '';
+                                    let projectorScreenAudioEnabled = false;
                                     let projectorScreenRemoteDescriptionApplied = false;
                                     let projectorScreenPendingOfferCandidates = [];
                                     const projectorPendingScreenCandidates = new Map();
@@ -1130,6 +1148,7 @@
                                         try { if (projectorScreenPeer) projectorScreenPeer.close(); } catch (_) {}
                                         projectorScreenPeer = null;
                                         projectorScreenSessionId = '';
+                                        projectorScreenAudioEnabled = false;
                                         projectorScreenRemoteDescriptionApplied = false;
                                         projectorScreenPendingOfferCandidates = [];
                                         const screenVideo = document.getElementById('proj-screen-video');
@@ -1170,20 +1189,29 @@
                                             pc.ontrack = event => {
                                                 const screenVideo = document.getElementById('proj-screen-video');
                                                 if (!screenVideo) return;
-                                                screenVideo.srcObject = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+                                                if (event.streams && event.streams[0]) screenVideo.srcObject = event.streams[0];
+                                                else {
+                                                    const receivedStream = screenVideo.srcObject instanceof MediaStream ? screenVideo.srcObject : new MediaStream();
+                                                    if (!receivedStream.getTracks().includes(event.track)) receivedStream.addTrack(event.track);
+                                                    screenVideo.srcObject = receivedStream;
+                                                }
                                                 const isLiveProjection = !!(latestProjectionData && latestProjectionData.mediaMode === 'screen');
-                                                screenVideo.muted = !isLiveProjection;
+                                                screenVideo.muted = !projectorScreenAudioEnabled;
                                                 screenVideo.volume = 1;
                                                 if (isLiveProjection) screenVideo.classList.remove('hidden');
                                                 else screenVideo.classList.add('hidden');
-                                                if (isLiveProjection) screenVideo.play().then(() => {
-                                                    const prompt = document.getElementById('proj-enable-audio');
-                                                    if (prompt) prompt.classList.add('hidden');
-                                                }).catch(error => {
-                                                    console.warn('La reproducción de captura necesita activación en la ventana del proyector:', error);
-                                                    const prompt = document.getElementById('proj-enable-audio');
-                                                    if (prompt) { prompt.textContent = '▶ Toca para activar el audio de la captura'; prompt.classList.remove('hidden'); }
-                                                });
+                                                if (isLiveProjection) {
+                                                    const hasAudio = screenVideo.srcObject.getAudioTracks().some(track => track.readyState === 'live');
+                                                    screenVideo.play().then(() => {
+                                                        const prompt = document.getElementById('proj-enable-audio');
+                                                        if (prompt && hasAudio) { prompt.textContent = '▶ Activar audio de la captura'; prompt.classList.remove('hidden'); }
+                                                        else if (prompt) prompt.classList.add('hidden');
+                                                    }).catch(error => {
+                                                        console.warn('Safari requiere activar la captura desde la ventana de proyección:', error);
+                                                        const prompt = document.getElementById('proj-enable-audio');
+                                                        if (prompt) { prompt.textContent = hasAudio ? '▶ Activar captura y audio' : '▶ Toca para mostrar la captura'; prompt.classList.remove('hidden'); }
+                                                    });
+                                                }
                                             };
                                             pc.onconnectionstatechange = () => {
                                                 if (['failed', 'closed'].includes(pc.connectionState)) {
@@ -1217,7 +1245,10 @@
                                         const screenVideo = document.getElementById('proj-screen-video');
                                         const video = screenVideo && !screenVideo.classList.contains('hidden') ? screenVideo : document.getElementById('proj-video');
                                         if (!video) return;
-                                        video.muted = false; video.volume = 1;
+                                        const isScreenCapture = video.id === 'proj-screen-video';
+                                        const hasAudio = isScreenCapture && video.srcObject && video.srcObject.getAudioTracks().some(track => track.readyState === 'live');
+                                        if (isScreenCapture) projectorScreenAudioEnabled = !!hasAudio;
+                                        video.muted = isScreenCapture ? !projectorScreenAudioEnabled : false; video.volume = 1;
                                         video.play().then(() => audioPrompt.classList.add('hidden')).catch(() => { audioPrompt.textContent = 'No se pudo iniciar el audio'; });
                                     });
 

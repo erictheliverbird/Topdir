@@ -628,14 +628,16 @@
                           <div id="karaoke-work-grid" class="karaoke-work-grid">
                             <section id="karaoke-search-area" class="karaoke-area rounded-xl border border-gray-700/80 bg-gray-950/35 p-3 space-y-3"><h3 class="text-sm font-bold text-blue-200"><i class="fa-solid fa-magnifying-glass mr-2"></i>Buscar letras en línea</h3>
                               <div class="grid grid-cols-1 gap-2"><input id="karaoke-track" class="bg-gray-950 border border-gray-700 rounded-xl p-3 text-sm" placeholder="Nombre de la canción"><input id="karaoke-artist" class="bg-gray-950 border border-gray-700 rounded-xl p-3 text-sm" placeholder="Artista"><button id="karaoke-search" class="bg-fuchsia-700 hover:bg-fuchsia-600 rounded-xl px-4 py-3 text-sm font-bold"><i class="fa-solid fa-magnifying-glass mr-2"></i>Buscar letras</button><button id="karaoke-google-search" type="button" class="bg-sky-900/70 hover:bg-sky-800 border border-sky-700/70 rounded-xl px-4 py-3 text-sm font-bold"><i class="fa-brands fa-google mr-2"></i>Buscar letra en Google</button></div>
-                              <p class="text-[10px] text-gray-500">LRCLIB busca letras automáticamente. Si no aparece la canción, usa Google para localizar otras fuentes, como Musixmatch, y copia la letra al editor.</p><div id="karaoke-results" class="space-y-2"></div><div class="mt-3 rounded-xl border border-gray-700/80 bg-gray-900/60 p-3"><div class="flex items-center justify-between gap-2 mb-2"><h4 class="text-xs font-bold text-fuchsia-200"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Últimas 10 letras usadas</h4><button id="karaoke-history-clear" type="button" class="text-[10px] text-gray-400 hover:text-white">Borrar historial</button></div><div id="karaoke-history" class="space-y-2"><p class="text-[10px] text-gray-500">Aquí aparecerán las letras que uses.</p></div></div>
+                              <p class="text-[10px] text-gray-500">LRCLIB busca letras automáticamente. Si no aparece la canción, usa Google para localizar otras fuentes, como Musixmatch, y copia la letra al editor.</p><div id="karaoke-results" class="space-y-2"></div>
+                              <div class="mt-3 rounded-xl border border-blue-400/20 bg-gray-900/60 p-3"><div class="mb-2"><h4 class="text-xs font-bold text-blue-200"><i class="fa-solid fa-box-archive mr-1"></i>Mi banco de canciones</h4><p id="karaoke-bank-count" class="text-[10px] text-gray-500 mt-1">0 canciones guardadas en este dispositivo</p></div><input id="karaoke-bank-search" type="search" class="w-full mb-2 bg-gray-950 border border-gray-700 rounded-lg p-2 text-xs" placeholder="Buscar en mis canciones"><div id="karaoke-bank" class="space-y-2"><p class="text-[10px] text-gray-500">Guarda aquí las letras que usas con frecuencia.</p></div></div>
+                              <div class="mt-3 rounded-xl border border-gray-700/80 bg-gray-900/60 p-3"><div class="flex items-center justify-between gap-2 mb-2"><h4 class="text-xs font-bold text-fuchsia-200"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Últimas 10 letras usadas</h4><button id="karaoke-history-clear" type="button" class="text-[10px] text-gray-400 hover:text-white">Borrar historial</button></div><div id="karaoke-history" class="space-y-2"><p class="text-[10px] text-gray-500">Aquí aparecerán las letras que uses.</p></div></div>
                             </section>
                             <section id="karaoke-manual-area" class="karaoke-area rounded-xl border border-gray-700/80 bg-gray-950/35 p-3 space-y-2"><h3 class="text-sm font-bold text-blue-200"><i class="fa-solid fa-file-lines mr-2"></i>Letras de la canción</h3><label class="text-xs font-bold text-gray-300">Escribir o pegar letras (separa las estrofas con una línea en blanco)</label>
                               <div id="karaoke-quick-controls" class="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-gray-700/80 bg-gray-900/95 p-2 backdrop-blur"><button id="karaoke-prev" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-bold" disabled><i class="fa-solid fa-chevron-left mr-1"></i>Anterior</button><button id="karaoke-project" class="bg-fuchsia-700 hover:bg-fuchsia-600 rounded-lg px-3 py-2 text-xs font-bold">Proyectar estrofa</button><button id="karaoke-next" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-bold" disabled>Siguiente<i class="fa-solid fa-chevron-right ml-1"></i></button><button id="karaoke-split-2" type="button" class="bg-blue-900/70 border border-blue-700/70 rounded-lg px-3 py-2 text-xs font-bold" title="Dividir cada estrofa en bloques de dos líneas">Dividir cada 2 líneas</button><label class="flex items-center gap-2 text-xs text-gray-300">División<select id="karaoke-split-mode" class="max-w-[180px] bg-gray-950 border border-gray-700 rounded-lg px-2 py-2 text-xs"><option value="manual">Estrofas originales</option><option value="lines1">Cada línea</option><option value="lines2">Cada 2 líneas</option><option value="lines3">Cada 3 líneas</option><option value="lines4">Cada 4 líneas</option><option value="words20">Hasta 20 palabras</option><option value="words40">Hasta 40 palabras</option><option value="words60">Hasta 60 palabras</option><option value="words80">Hasta 80 palabras</option></select></label></div>
                               <textarea id="karaoke-manual" rows="14" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-3 text-sm leading-relaxed" placeholder="Primera línea de la estrofa
-Segunda línea
+                              Segunda línea
 
-Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="karaoke-load-manual" class="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-2.5 text-sm font-bold">Usar estas letras</button><button id="karaoke-clear" class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm">Limpiar</button></div><div class="mt-3 rounded-xl border border-gray-700/80 bg-gray-900/60 p-3"><div class="flex items-center justify-between gap-2 mb-2"><h4 class="text-xs font-bold text-fuchsia-200"><i class="fa-solid fa-hand-pointer mr-1"></i>Proyección rápida</h4><span class="text-[10px] text-gray-500">Toca un bloque para proyectarlo</span></div><div id="karaoke-clickable-stanzas" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><p class="text-xs text-gray-500">Carga una letra para seleccionar sus bloques aquí.</p></div></div></section>
+Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="karaoke-load-manual" class="bg-gray-700 hover:bg-gray-600 rounded-xl px-4 py-2.5 text-sm font-bold">Usar estas letras</button><button id="karaoke-bank-save" type="button" class="bg-blue-800 hover:bg-blue-700 rounded-xl px-4 py-2.5 text-sm font-bold"><i class="fa-solid fa-bookmark mr-1"></i>Guardar en mi banco</button><button id="karaoke-clear" class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm">Limpiar</button></div><div class="mt-3 rounded-xl border border-gray-700/80 bg-gray-900/60 p-3"><div class="flex items-center justify-between gap-2 mb-2"><h4 class="text-xs font-bold text-fuchsia-200"><i class="fa-solid fa-hand-pointer mr-1"></i>Proyección rápida</h4><span class="text-[10px] text-gray-500">Toca un bloque para proyectarlo</span></div><div id="karaoke-clickable-stanzas" class="grid grid-cols-1 sm:grid-cols-2 gap-2"><p class="text-xs text-gray-500">Carga una letra para seleccionar sus bloques aquí.</p></div></div></section>
                             <section id="karaoke-design-area" class="karaoke-area rounded-xl border border-gray-700/80 bg-gray-950/60 p-3 space-y-4"><div class="flex items-center justify-between gap-3"><h3 class="text-sm font-bold text-gray-200">Diseño de proyección</h3><label class="text-xs flex items-center gap-2"><input id="karaoke-transparent" type="checkbox" checked class="accent-fuchsia-500"> Fondo transparente</label></div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3"><label class="text-xs text-gray-400">Tamaño (vw)<input id="karaoke-size" type="number" min="1.5" max="12" step="0.5" value="4.5" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"></label><label class="text-xs text-gray-400">Color texto<input id="karaoke-color" type="color" value="#ffffff" class="mt-1 w-full h-10 bg-gray-900 border border-gray-700 rounded-lg p-1"></label><label class="text-xs text-gray-400">Fuente<select id="karaoke-font" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option>Inter</option><option>Montserrat</option><option>Cinzel</option><option>Playfair Display</option><option>EB Garamond</option><option>Lora</option><option>Merriweather</option><option>Libre Baskerville</option><option>Crimson Text</option><option>Cardo</option><option>Spectral</option><option>PT Serif</option><option>Roboto Slab</option><option>Open Sans</option><option>Source Sans 3</option><option>Fira Sans</option><option>Nunito Sans</option><option>Raleway</option><option>Poppins</option><option>Quicksand</option><option>Josefin Sans</option><option>Ubuntu</option><option>Oswald</option><option>Amatic SC</option><option>Archivo Black</option><option>Arial</option><option>Georgia</option></select></label><label class="text-xs text-gray-400">Alineación<select id="karaoke-align" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option value="center">Centro</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label></div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3"><label class="text-xs text-gray-400">Fondo<select id="karaoke-bg-type" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option value="color">Color sólido</option><option value="gradient">Degradado</option><option value="image">Imagen de internet</option></select></label><label class="text-xs text-gray-400">Color del fondo<input id="karaoke-bg-color" type="color" value="#000000" class="mt-1 w-full h-10 bg-gray-900 border border-gray-700 rounded-lg p-1"></label><label class="text-xs text-gray-400">Degradado<select id="karaoke-bg-gradient" class="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white"><option value="linear-gradient(135deg,#020617 0%,#1e1b4b 100%)">Azul noche</option><option value="linear-gradient(135deg,#000000 0%,#434343 100%)">Negro y gris</option><option value="linear-gradient(135deg,#052e16 0%,#166534 100%)">Verde</option><option value="linear-gradient(135deg,#450a0a 0%,#991b1b 100%)">Rojo</option><option value="linear-gradient(135deg,#312e81 0%,#7e22ce 100%)">Violeta</option></select></label><label class="text-xs text-gray-400">Opacidad del fondo <span id="karaoke-bg-opacity-label">100%</span><input id="karaoke-bg-opacity" type="range" min="0" max="100" step="5" value="100" class="mt-2 w-full accent-fuchsia-500"></label></div>
@@ -646,7 +648,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                           <div class="flex items-center justify-between gap-3 border-t border-gray-800 pt-3"><span id="karaoke-stanza-count" class="text-xs text-gray-400">0 estrofas</span><span class="text-[10px] text-gray-500">Los cambios de división no modifican las letras originales.</span></div>
                         </div>
                         <div id="tab-estilos" class="hidden space-y-4">
-                            
+                            <details class="design-group" open>
+                                <summary><i class="fa-solid fa-text-height"></i><span>Versículo</span><small>Tipografía, formato, alineación y tamaño</small></summary>
+                                <div class="design-group-content space-y-4">
                             <!-- Tipografía -->
                             <div class="space-y-1.5">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Fuente del versículo</label>
@@ -713,7 +717,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                 </div>
                                 <input type="range" id="style-size" min="2" max="8" step="0.1" value="4.5" class="w-full accent-blue-500">
                             </div>
+                                </div>
+                            </details>
 
+                            <details class="design-group">
+                                <summary><i class="fa-solid fa-book-open"></i><span>Libro y cita bíblica</span><small>Fuente, tamaño, color, posición</small></summary>
+                                <div class="design-group-content">
                             <!-- Personalización independiente de la cita bíblica -->
                             <div class="space-y-3 rounded-xl border border-amber-500/30 bg-amber-950/10 p-3">
                                 <div class="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-2"><i class="fa-solid fa-book-open"></i> Personalizar libro y cita bíblica</div>
@@ -748,7 +757,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                     </select>
                                 </div>
                             </div>
+                                </div>
+                            </details>
 
+                            <details class="design-group">
+                                <summary><i class="fa-solid fa-panorama"></i><span>Fondo</span><small>Color, degradado, imagen o video</small></summary>
+                                <div class="design-group-content space-y-4">
                             <!-- Tipo de Fondo -->
                             <div class="space-y-1.5">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Estilo del Fondo</label>
@@ -860,6 +874,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                 <p class="text-[10px] text-gray-500">MP4 H.264 silencioso, recomendado 5–20 s y 720p. Se guarda en este dispositivo; sigue durante espera y texto oculto, y se pausa solo ante otros medios o apagado.</p>
                             </div>
 
+                                </div>
+                            </details>
+
+                            <details class="design-group">
+                                <summary><i class="fa-solid fa-wand-magic-sparkles"></i><span>Animación y transición</span><small>Escenas, efectos y duración</small></summary>
+                                <div class="design-group-content">
                             <div class="space-y-3 rounded-xl border border-gray-700/70 bg-gray-950/30 p-3">
                                 <div class="space-y-1.5">
                                     <label for="projection-text-animation" class="text-[10px] font-bold text-gray-300 uppercase tracking-wider block">Animación de versículos y karaoke</label>
@@ -876,11 +896,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                     </select>
                                     <div class="space-y-1">
                                         <div class="flex justify-between items-center"><label for="projection-text-duration" class="text-[10px] text-gray-400">Duración de animación</label><span id="val-projection-text-duration" class="text-[10px] font-bold text-blue-300">350 ms</span></div>
-                                        <input id="projection-text-duration" type="range" min="100" max="1400" step="50" value="350" class="w-full accent-blue-500">
+                                        <input id="projection-text-duration" type="range" min="100" max="5000" step="50" value="350" class="w-full accent-blue-500">
                                     </div>
                                 </div>
                                 <div class="space-y-1.5 border-t border-gray-800 pt-3">
-                                    <label for="projection-media-transition" class="text-[10px] font-bold text-gray-300 uppercase tracking-wider block">Transición entre texto y video</label>
+                                    <label for="projection-media-transition" class="text-[10px] font-bold text-gray-300 uppercase tracking-wider block">Transición entre escenas</label>
                                     <select id="projection-media-transition" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
                                         <option value="fade">Fundido a negro</option>
                                         <option value="wipe">Cortinilla lateral</option>
@@ -888,9 +908,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                         <option value="logo">Zoom con logo de la iglesia</option>
                                         <option value="none">Sin transición</option>
                                     </select>
+                                    <p class="text-[10px] leading-relaxed text-gray-500">Se aplica al cambiar entre versículo, karaoke, pantalla de espera y video. No se repite al cambiar de versículo o estrofa.</p>
                                     <div class="space-y-1">
-                                        <div class="flex justify-between items-center"><label for="projection-transition-duration" class="text-[10px] text-gray-400">Duración de transición</label><span id="val-projection-transition-duration" class="text-[10px] font-bold text-blue-300">680 ms</span></div>
-                                        <input id="projection-transition-duration" type="range" min="300" max="2000" step="50" value="700" class="w-full accent-blue-500">
+                                        <div class="flex justify-between items-center"><label for="projection-transition-duration" class="text-[10px] text-gray-400">Duración de transición</label><span id="val-projection-transition-duration" class="text-[10px] font-bold text-blue-300">700 ms</span></div>
+                                        <input id="projection-transition-duration" type="range" min="300" max="6000" step="50" value="700" class="w-full accent-blue-500">
                                     </div>
                                     <label class="w-full bg-gray-900 hover:bg-gray-800 border border-dashed border-gray-700 p-3 rounded-xl flex flex-col items-center justify-center cursor-pointer transition">
                                         <i class="fa-solid fa-clapperboard text-blue-300 text-lg mb-1"></i>
@@ -901,10 +922,15 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                         <span id="transition-video-status" class="min-w-0 text-[10px] text-gray-400" role="status" aria-live="polite">Se usará el efecto integrado</span>
                                         <button id="transition-video-remove" type="button" class="hidden shrink-0 rounded-lg border border-gray-700 px-2 py-1 text-[10px] font-bold text-gray-300 hover:bg-gray-800">Quitar</button>
                                     </div>
-                                    <p class="text-[10px] text-gray-500">Clip opaco y silencioso, recomendado 1–3 s y 720p. La duración elegida ajusta también su velocidad, entre 0.5× y 2×.</p>
+                                    <p class="text-[10px] text-gray-500">Clip opaco y silencioso, recomendado 1–3 s y 720p. Su reproducción se ajusta a la duración elegida.</p>
                                 </div>
                             </div>
+                                </div>
+                            </details>
 
+                            <details class="design-group">
+                                <summary><i class="fa-solid fa-sliders"></i><span>Filtro, texto y logo</span><small>Acabado visual de la proyección</small></summary>
+                                <div class="design-group-content space-y-4">
                             <!-- Filtro Oscuro de Imagen -->
                             <div id="overlay-opacity-container" class="space-y-1.5 hidden">
                                 <div class="flex justify-between items-center">
@@ -975,6 +1001,8 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                 </div>
                             </div>
 
+                                </div>
+                            </details>
                         </div>
                     </div>
                 </div>
@@ -2578,9 +2606,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (!['none','fade','slide-up','slide-left','slide-down','slide-right','zoom','blur','reveal'].includes(projectionStyles.textAnimation)) projectionStyles.textAnimation = 'fade';
             if (!['none','fade','wipe','zoom','logo'].includes(projectionStyles.mediaTransition)) projectionStyles.mediaTransition = 'fade';
             const textAnimationDuration = Number(projectionStyles.textAnimationDurationMs);
-            projectionStyles.textAnimationDurationMs = Number.isFinite(textAnimationDuration) ? Math.min(1400, Math.max(100, Math.round(textAnimationDuration / 50) * 50)) : 350;
+            projectionStyles.textAnimationDurationMs = Number.isFinite(textAnimationDuration) ? Math.min(5000, Math.max(100, Math.round(textAnimationDuration / 50) * 50)) : 350;
             const mediaTransitionDuration = Number(projectionStyles.mediaTransitionDurationMs);
-            projectionStyles.mediaTransitionDurationMs = Number.isFinite(mediaTransitionDuration) ? Math.min(2000, Math.max(300, Math.round(mediaTransitionDuration / 50) * 50)) : 700;
+            projectionStyles.mediaTransitionDurationMs = Number.isFinite(mediaTransitionDuration) ? Math.min(6000, Math.max(300, Math.round(mediaTransitionDuration / 50) * 50)) : 700;
             projectionStyles.backgroundVideoId = String(projectionStyles.backgroundVideoId || '');
             projectionStyles.transitionVideoId = String(projectionStyles.transitionVideoId || '');
             projectionStyles.bgVideoFallbackType = ['color','gradient','image'].includes(projectionStyles.bgVideoFallbackType) ? projectionStyles.bgVideoFallbackType : 'color';
@@ -3208,7 +3236,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const classes = ['projection-enter-fade','projection-enter-slide-up','projection-enter-slide-left','projection-enter-slide-down','projection-enter-slide-right','projection-enter-zoom','projection-enter-blur','projection-enter-reveal'];
             target.classList.remove(...classes);
             if (!animation || animation === 'none' || reducedMotion || !classes.includes(`projection-enter-${animation}`)) return;
-            const duration = Math.min(1400, Math.max(100, Number(durationMs) || 350));
+            const duration = Math.min(5000, Math.max(100, Number(durationMs) || 350));
             target.style.animationDuration = duration + 'ms';
             void target.offsetWidth;
             target.classList.add(`projection-enter-${animation}`);
@@ -4219,7 +4247,57 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 else saveOperatorState();
             }
             const KARAOKE_HISTORY_KEY = 'proyector_karaoke_history_v1';
+            const KARAOKE_BANK_KEY = 'proyector_song_bank_v1';
             function karaokeGetHistory() { try { const data = JSON.parse(localStorage.getItem(KARAOKE_HISTORY_KEY) || '[]'); return Array.isArray(data) ? data : []; } catch (_) { return []; } }
+            function karaokeGetBank() { try { const data = JSON.parse(localStorage.getItem(KARAOKE_BANK_KEY) || '[]'); return Array.isArray(data) ? data.filter(item => item && typeof item.lyrics === 'string') : []; } catch (_) { return []; } }
+            function karaokeRenderBank() {
+                const box = document.getElementById('karaoke-bank'); if (!box) return;
+                const bank = karaokeGetBank();
+                const count = document.getElementById('karaoke-bank-count');
+                if (count) count.textContent = `${bank.length} ${bank.length === 1 ? 'canción guardada' : 'canciones guardadas'} en este dispositivo`;
+                const query = (document.getElementById('karaoke-bank-search')?.value || '').trim().toLocaleLowerCase();
+                const items = bank.filter(item => !query || [item.track, item.artist, item.title, item.lyrics].join(' ').toLocaleLowerCase().includes(query));
+                box.innerHTML = '';
+                if (!items.length) {
+                    const empty = document.createElement('p'); empty.className = 'text-[10px] text-gray-500';
+                    empty.textContent = bank.length ? 'No hay coincidencias en tu banco.' : 'Guarda aquí las letras que usas con frecuencia.';
+                    box.appendChild(empty); return;
+                }
+                items.forEach(item => {
+                    const row = document.createElement('div'); row.className = 'flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-950/70 p-2';
+                    const load = document.createElement('button'); load.type = 'button'; load.className = 'min-w-0 flex-1 text-left';
+                    const title = document.createElement('span'); title.className = 'block truncate text-xs font-bold text-gray-100'; title.textContent = item.title || item.track || 'Canción sin título';
+                    const sub = document.createElement('span'); sub.className = 'block truncate text-[10px] text-gray-500'; sub.textContent = [item.artist, item.date ? new Date(item.date).toLocaleDateString() : ''].filter(Boolean).join(' · ') || 'Guardada';
+                    load.append(title, sub);
+                    load.onclick = () => {
+                        document.getElementById('karaoke-track').value = item.track || item.title || '';
+                        document.getElementById('karaoke-artist').value = item.artist || '';
+                        document.getElementById('karaoke-manual').value = item.lyrics;
+                        karaokeLoad(item.lyrics, item.title || item.track || '');
+                        karaokeStatus.textContent = 'Canción cargada desde mi banco';
+                    };
+                    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'shrink-0 rounded-lg border border-gray-700 px-2.5 py-2 text-[10px] text-gray-400 hover:border-red-500 hover:text-red-300'; remove.title = 'Quitar del banco'; remove.setAttribute('aria-label', 'Quitar ' + (item.title || item.track || 'canción'));
+                    remove.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                    remove.onclick = () => { try { localStorage.setItem(KARAOKE_BANK_KEY, JSON.stringify(karaokeGetBank().filter(song => song.id !== item.id))); karaokeRenderBank(); karaokeStatus.textContent = 'Canción quitada de mi banco'; } catch (_) { karaokeStatus.textContent = 'No se pudo actualizar el banco de canciones.'; } };
+                    row.append(load, remove); box.appendChild(row);
+                });
+            }
+            function karaokeSaveToBank() {
+                const lyrics = document.getElementById('karaoke-manual').value.trim();
+                if (!lyrics) { karaokeStatus.textContent = 'Escribe o carga las letras antes de guardarlas.'; return; }
+                const track = document.getElementById('karaoke-track').value.trim() || karaokeTitle || 'Letra manual';
+                const artist = document.getElementById('karaoke-artist').value.trim();
+                const title = [track, artist].filter(Boolean).join(' — ');
+                const normalize = value => String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+                const id = [normalize(track), normalize(artist)].join('|');
+                const bank = karaokeGetBank().filter(item => item.id !== id);
+                bank.unshift({ id, title, track, artist, lyrics, date: Date.now() });
+                try {
+                    localStorage.setItem(KARAOKE_BANK_KEY, JSON.stringify(bank.slice(0, 100)));
+                    karaokeRenderBank();
+                    karaokeStatus.textContent = bank.length > 100 ? 'Canción guardada; el banco conserva hasta 100 canciones.' : 'Canción guardada en mi banco en este dispositivo.';
+                } catch (_) { karaokeStatus.textContent = 'No se pudo guardar: el almacenamiento de este navegador está lleno.'; }
+            }
             function karaokeRenderHistory() {
                 const box = document.getElementById('karaoke-history'); if (!box) return;
                 const history = karaokeGetHistory(); box.innerHTML = '';
@@ -4303,6 +4381,8 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 karaokeStatus.textContent = 'Se abrió Google en otra pestaña. Si encuentras la letra, cópiala y pégala en el editor.';
             };
             document.getElementById('karaoke-load-manual').onclick=()=>karaokeLoad(document.getElementById('karaoke-manual').value,document.getElementById('karaoke-track').value.trim());
+            document.getElementById('karaoke-bank-save').onclick=karaokeSaveToBank;
+            document.getElementById('karaoke-bank-search').addEventListener('input',karaokeRenderBank);
             document.getElementById('karaoke-history-clear').onclick=()=>{try{localStorage.removeItem(KARAOKE_HISTORY_KEY);}catch(_){}karaokeRenderHistory();karaokeStatus.textContent='Historial de letras borrado';};
             document.getElementById('karaoke-clear').onclick=()=>{karaokeOriginalStanzas=[];karaokeStanzas=[];karaokeIndex=0;karaokeActive=false;karaokeTitle='';document.getElementById('karaoke-manual').value='';document.getElementById('karaoke-results').innerHTML='';karaokeRefreshNav();syncToProjector();karaokeStatus.textContent='Letras limpiadas';};
             document.getElementById('karaoke-prev').onclick=()=>{if(karaokeIndex>0){karaokeIndex--;karaokeRefreshNav();syncToProjector();}};
@@ -4317,6 +4397,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             ['karaoke-track','karaoke-artist','karaoke-manual'].forEach(id => document.getElementById(id).addEventListener('input', saveOperatorState));
             karaokeApplyStyle();
             karaokeRefreshNav();
+            karaokeRenderBank();
             karaokeRenderHistory();
             document.getElementById('btn-start-screen-capture').onclick = startScreenCapture;
             document.getElementById('btn-stop-screen-capture').onclick = stopScreenCapture;

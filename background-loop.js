@@ -31,6 +31,8 @@
             active: primary,
             standby: secondary,
             fading: false,
+            preparingFade: false,
+            fadePreparationId: 0,
             fadeEndsAt: 0,
             lastProgressAt: Date.now(),
             lastTime: null,
@@ -116,8 +118,43 @@
             }).finally(function () { video._projectionBackgroundPlayPending = false; });
         }
 
+        function waitForVideoFrame(video, timeoutMs) {
+            return new Promise(function (resolve) {
+                let settled = false;
+                let timeout = 0;
+                let frameCallbackId = 0;
+                const finish = function (ready) {
+                    if (settled) return;
+                    settled = true;
+                    if (timeout) global.clearTimeout(timeout);
+                    if (video && frameCallbackId && typeof video.cancelVideoFrameCallback === 'function') {
+                        try { video.cancelVideoFrameCallback(frameCallbackId); } catch (_) {}
+                    }
+                    video.removeEventListener('loadeddata', checkReady);
+                    resolve(!!ready);
+                };
+                const checkReady = function () {
+                    if (!video || video.readyState < 2 || !video.videoWidth) return;
+                    if (typeof video.requestVideoFrameCallback === 'function') {
+                        try {
+                            frameCallbackId = video.requestVideoFrameCallback(function () { finish(true); });
+                            return;
+                        } catch (_) {}
+                    }
+                    global.requestAnimationFrame(function () {
+                        global.requestAnimationFrame(function () {
+                            finish(video.readyState >= 2 && video.videoWidth > 0);
+                        });
+                    });
+                };
+                timeout = global.setTimeout(function () { finish(false); }, timeoutMs || 700);
+                video.addEventListener('loadeddata', checkReady);
+                checkReady();
+            });
+        }
+
         function startFade() {
-            if (state.fading || !state.visible) return;
+            if (state.fading || state.preparingFade || !state.visible) return;
             const outgoing = state.active;
             const incoming = state.standby;
             if (!Number.isFinite(outgoing.duration) || outgoing.duration <= 0) return;
@@ -129,9 +166,22 @@
             incoming.muted = true;
             incoming.defaultMuted = true;
             incoming.playsInline = true;
-            Promise.resolve().then(function () { return incoming.play(); }).then(function () {
+            state.preparingFade = true;
+            const preparationId = ++state.fadePreparationId;
+            Promise.resolve().then(function () { return incoming.play(); }).then(async function () {
+                const hasDecodedFrame = await waitForVideoFrame(incoming, 700);
+                if (preparationId !== state.fadePreparationId) {
+                    incoming.pause();
+                    return;
+                }
+                state.preparingFade = false;
                 if (!state.visible || state.assetId !== incoming.dataset.projectionBackgroundAsset) {
                     incoming.pause();
+                    return;
+                }
+                if (!hasDecodedFrame) {
+                    incoming.pause();
+                    state.retryAt = Date.now() + 800;
                     return;
                 }
                 state.fading = true;
@@ -141,9 +191,10 @@
                 setLayer(incoming, true, true);
                 setLayer(outgoing, true, false);
             }).catch(function () {
+                if (preparationId === state.fadePreparationId) state.preparingFade = false;
                 // El video actual conserva loop nativo como respaldo si Safari no permite
                 // iniciar el segundo elemento para el fundido.
-                state.retryAt = Date.now() + 1500;
+                if (preparationId === state.fadePreparationId) state.retryAt = Date.now() + 1500;
             });
         }
 
@@ -197,6 +248,8 @@
         }
 
         function loadAsset(assetId) {
+            state.fadePreparationId++;
+            state.preparingFade = false;
             state.loadingAsset = assetId;
             state.failedAsset = '';
             state.active = primary;
@@ -275,6 +328,8 @@
             const id = visible ? String(assetId || '') : state.assetId || String(assetId || '');
             state.visible = !!visible && !!id;
             if (!state.visible) {
+                state.fadePreparationId++;
+                state.preparingFade = false;
                 resetFade();
                 videos.forEach(function (video) {
                     video.pause();

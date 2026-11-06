@@ -224,6 +224,39 @@ body.operator-page {
 .projection-enter-blur { animation-name: projection-enter-blur; }
 .projection-enter-reveal { animation-name: projection-enter-reveal; }
 
+.design-group {
+    overflow: hidden;
+    border: 1px solid rgba(100, 116, 139, .3);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, .52);
+}
+
+.design-group > summary {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 14px;
+    color: #e2e8f0;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    list-style: none;
+}
+
+.design-group > summary::-webkit-details-marker { display: none; }
+.design-group > summary::after { content: '+'; margin-left: auto; color: #93c5fd; font-size: 18px; line-height: 1; }
+.design-group[open] > summary::after { content: '−'; }
+.design-group > summary > i { width: 18px; color: #93c5fd; text-align: center; }
+.design-group > summary > small { margin-left: auto; color: #94a3b8; font-size: 10px; font-weight: 500; }
+.design-group[open] > summary { border-bottom: 1px solid rgba(100, 116, 139, .2); }
+.design-group-content { padding: 14px; }
+
+@media (max-width: 640px) {
+    .design-group > summary { flex-wrap: wrap; }
+    .design-group > summary > small { width: calc(100% - 28px); margin: -5px 0 0 27px; }
+}
+
 .projection-background-loop-layer {
     opacity: 0;
     visibility: hidden;

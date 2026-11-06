@@ -898,6 +898,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                         <div class="flex justify-between items-center"><label for="projection-text-duration" class="text-[10px] text-gray-400">Duración de animación</label><span id="val-projection-text-duration" class="text-[10px] font-bold text-blue-300">350 ms</span></div>
                                         <input id="projection-text-duration" type="range" min="100" max="5000" step="50" value="350" class="w-full accent-blue-500">
                                     </div>
+                                        <label class="flex items-center gap-2 text-[10px] text-gray-400"><input id="projection-respect-reduced-motion" type="checkbox" class="accent-blue-500"> Respetar movimiento reducido del dispositivo</label>
+                                        <p class="text-[10px] text-gray-500">Las duraciones elegidas se aplican por defecto. Activa esta opción solo si quieres que el ajuste de accesibilidad del dispositivo las acorte.</p>
+                                    <p class="text-[10px] leading-relaxed text-gray-500">Safari puede acortar los efectos si el ajuste de accesibilidad está activo. Desmarca esta opción para aplicar la duración elegida.</p>
                                 </div>
                                 <div class="space-y-1.5 border-t border-gray-800 pt-3">
                                     <label for="projection-media-transition" class="text-[10px] font-bold text-gray-300 uppercase tracking-wider block">Transición entre escenas</label>
@@ -1231,6 +1234,8 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             transitionVideoId: '',
             textAnimation: 'fade',
             textAnimationDurationMs: 350,
+            respectReducedMotion: false,
+            respectReducedMotionConfigured: false,
             mediaTransition: 'fade',
             mediaTransitionDurationMs: 700,
             textcolor: '#ffffff',
@@ -1555,13 +1560,18 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         }
 
         function showLocalVideoPreviewFrame(frame, timestamp) {
-            if (mediaMode !== 'video' || typeof frame !== 'string') return;
+            if (!['video','screen'].includes(mediaMode) || typeof frame !== 'string') return;
             const frameTimestamp = Number(timestamp) || Date.now();
             if (frameTimestamp <= localVideoPreviewTimestamp) return;
             localVideoPreviewTimestamp = frameTimestamp;
             ['preview-video-mirror', 'local-fs-video-mirror'].forEach(id => {
                 const mirror = document.getElementById(id);
-                if (mirror) { if (mirror.src !== frame) mirror.src = frame; mirror.classList.remove('hidden'); }
+                const directVideo = document.getElementById(id === 'preview-video-mirror' ? 'preview-video' : 'local-fs-video');
+                if (mediaMode === 'screen' && directVideo && directVideo.srcObject === window.screenStream && directVideo.videoWidth > 0) {
+                    mirror?.classList.add('hidden');
+                    return;
+                }
+                if (mirror) { if (mirror.src !== frame) mirror.src = frame; mirror.dataset.projectionMode = mediaMode; mirror.classList.remove('hidden'); }
             });
         }
 
@@ -1956,6 +1966,19 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (data.projectorId === localProjectorId) showLocalVideoPreviewFrame(data.frame, data.timestamp);
                     return;
                 }
+                if (data.type === '__screen_capture_playback_status') {
+                    if (data.projectorId !== localProjectorId) return;
+                    if (data.state === 'playing') {
+                        setScreenCaptureStatus(`Captura visible en el proyector: ${data.width} × ${data.height}.`);
+                    } else if (data.state === 'blocked') {
+                        setScreenCaptureStatus('Safari necesita un toque dentro de la ventana del proyector para activar la captura.');
+                    } else if (data.state === 'no-frames') {
+                        setScreenCaptureStatus(`La ventana del proyector no recibe fotogramas (${data.width} × ${data.height}, estado ${data.readyState}). Cancela y vuelve a elegir la fuente de captura.`);
+                    } else if (data.state === 'waiting') {
+                        setScreenCaptureStatus('Captura conectada; esperando el primer fotograma del proyector…');
+                    }
+                    return;
+                }
                 if (data.type === '__projection_asset_status') {
                     if (data.controllerId !== projectorControllerId) return;
                     const kind = data.kind === 'background' ? 'background' : 'transition';
@@ -2342,6 +2365,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     isClearText = saved.isClearText || false;
                     if(saved.cultoList) cultoList = saved.cultoList;
                     if(saved.projectionStyles) projectionStyles = {...projectionStyles, ...saved.projectionStyles};
+                    if (projectionStyles.respectReducedMotionConfigured !== true) {
+                        projectionStyles.respectReducedMotion = false;
+                        projectionStyles.respectReducedMotionConfigured = false;
+                    } else projectionStyles.respectReducedMotion = !!projectionStyles.respectReducedMotion;
 
                     document.getElementById('style-font').value = projectionStyles.font;
                     document.getElementById('style-size').value = projectionStyles.size;
@@ -2350,6 +2377,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     document.getElementById('val-overlay-opacity').innerText = projectionStyles.bgOpacity + "%";
                     document.getElementById('style-bgcolor').value = projectionStyles.bgcolor;
                     document.getElementById('style-textcolor').value = projectionStyles.textcolor;
+                    document.getElementById('projection-respect-reduced-motion').checked = projectionStyles.respectReducedMotion;
                     projectionStyles.citationFont = projectionStyles.citationFont || projectionStyles.font || 'Inter';
                     projectionStyles.citationSize = projectionStyles.citationSize || '1.6';
                     projectionStyles.citationColor = projectionStyles.citationColor || projectionStyles.textcolor || '#ffffff';
@@ -2609,6 +2637,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             projectionStyles.textAnimationDurationMs = Number.isFinite(textAnimationDuration) ? Math.min(5000, Math.max(100, Math.round(textAnimationDuration / 50) * 50)) : 350;
             const mediaTransitionDuration = Number(projectionStyles.mediaTransitionDurationMs);
             projectionStyles.mediaTransitionDurationMs = Number.isFinite(mediaTransitionDuration) ? Math.min(6000, Math.max(300, Math.round(mediaTransitionDuration / 50) * 50)) : 700;
+            if (projectionStyles.respectReducedMotionConfigured !== true) {
+                // En versiones anteriores la casilla estaba activada por defecto y
+                // podía anular silenciosamente una duración personalizada de 5 s.
+                projectionStyles.respectReducedMotion = false;
+                projectionStyles.respectReducedMotionConfigured = false;
+            } else projectionStyles.respectReducedMotion = !!projectionStyles.respectReducedMotion;
             projectionStyles.backgroundVideoId = String(projectionStyles.backgroundVideoId || '');
             projectionStyles.transitionVideoId = String(projectionStyles.transitionVideoId || '');
             projectionStyles.bgVideoFallbackType = ['color','gradient','image'].includes(projectionStyles.bgVideoFallbackType) ? projectionStyles.bgVideoFallbackType : 'color';
@@ -2646,6 +2680,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             document.getElementById('projection-text-animation').value = projectionStyles.textAnimation;
             document.getElementById('projection-media-transition').value = projectionStyles.mediaTransition;
             document.getElementById('projection-text-duration').value = projectionStyles.textAnimationDurationMs;
+            document.getElementById('projection-respect-reduced-motion').checked = projectionStyles.respectReducedMotion;
             document.getElementById('val-projection-text-duration').textContent = projectionStyles.textAnimationDurationMs + ' ms';
             document.getElementById('projection-transition-duration').value = projectionStyles.mediaTransitionDurationMs;
             document.getElementById('val-projection-transition-duration').textContent = projectionStyles.mediaTransitionDurationMs + ' ms';
@@ -3237,13 +3272,14 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             target.classList.remove(...classes);
             if (!animation || animation === 'none' || reducedMotion || !classes.includes(`projection-enter-${animation}`)) return;
             const duration = Math.min(5000, Math.max(100, Number(durationMs) || 350));
-            target.style.animationDuration = duration + 'ms';
+            target.style.setProperty('animation-duration', duration + 'ms', 'important');
             void target.offsetWidth;
             target.classList.add(`projection-enter-${animation}`);
         }
 
         function updateProjectorDOM(docObj, data, isLocalFs = false) {
             const prefix = isLocalFs ? 'local-fs-' : (docObj === document ? 'preview-' : 'proj-');
+            if (docObj.documentElement) docObj.documentElement.dataset.projectionMotion = data.styles?.respectReducedMotion === false ? 'full' : 'reduced';
 
             const textEl = docObj.getElementById(prefix + 'text');
             const citationEl = docObj.getElementById(prefix + 'citation');
@@ -3293,28 +3329,74 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             }
 
             if (videoEl) {
-                if ((videoEl.id === 'preview-video' || videoEl.id === 'local-fs-video') && data.mediaMode === 'video') {
+                if ((videoEl.id === 'preview-video' || videoEl.id === 'local-fs-video') && data.mediaMode === 'screen') {
+                    const mirror = docObj.getElementById(videoEl.id === 'preview-video' ? 'preview-video-mirror' : 'local-fs-video-mirror');
+                    const localCaptureStream = window.screenStream;
+                    if (localCaptureStream && localCaptureStream.active) {
+                        // La consola y su vista a pantalla completa reproducen la fuente
+                        // directamente; el espejo comprimido queda como respaldo visual.
+                        if (videoEl.srcObject !== localCaptureStream) videoEl.srcObject = localCaptureStream;
+                        videoEl.muted = true; videoEl.playsInline = true; videoEl.autoplay = true;
+                        videoEl.classList.remove('hidden');
+                        if (mirror) {
+                            mirror.dataset.projectionMode = 'screen';
+                            if (videoEl.videoWidth > 0) mirror.classList.add('hidden');
+                            else mirror.classList.remove('hidden');
+                        }
+                        if (videoEl.dataset.screenPreviewEventsBound !== 'true') {
+                            videoEl.dataset.screenPreviewEventsBound = 'true';
+                            ['loadeddata', 'playing', 'resize'].forEach(name => videoEl.addEventListener(name, () => {
+                                if (videoEl.videoWidth > 0) mirror?.classList.add('hidden');
+                            }));
+                        }
+                        const playAttempt = videoEl.play();
+                        if (playAttempt && typeof playAttempt.then === 'function') playAttempt.then(() => {
+                            if (videoEl.videoWidth > 0) mirror?.classList.add('hidden');
+                        }).catch(() => {
+                            if (videoEl.videoWidth <= 0) {
+                                videoEl.classList.add('hidden');
+                                if (mirror) mirror.classList.remove('hidden');
+                            }
+                        });
+                    } else {
+                        try { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.srcObject = null; } catch (_) {}
+                        videoEl.classList.add('hidden');
+                        if (mirror) {
+                            if (mirror.dataset.projectionMode !== 'screen') mirror.removeAttribute('src');
+                            mirror.dataset.projectionMode = 'screen';
+                            mirror.classList.remove('hidden');
+                        }
+                    }
+                } else if ((videoEl.id === 'preview-video' || videoEl.id === 'local-fs-video') && data.mediaMode === 'video') {
                     // No asignar src ni llamar play(): la vista previa es una imagen espejo
                     // enviada por el proyector. No hay segundo reproductor ni segundo audio.
                     try { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.srcObject = null; } catch (_) {}
                     videoEl.classList.add('hidden');
                     const mirror = docObj.getElementById(videoEl.id === 'preview-video' ? 'preview-video-mirror' : 'local-fs-video-mirror');
-                    if (mirror) mirror.classList.remove('hidden');
+                    if (mirror) { mirror.dataset.projectionMode = 'video'; mirror.classList.remove('hidden'); }
                 } else if (videoEl.id === 'preview-video' || videoEl.id === 'local-fs-video') {
-                    // La captura de pantalla NUNCA se muestra en una vista previa local.
-                    // Solo la ventana de proyección recibe la fuente de captura.
                     try { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.srcObject = null; } catch (_) {}
                     videoEl.classList.add('hidden');
                     const mirror = docObj.getElementById(videoEl.id === 'preview-video' ? 'preview-video-mirror' : 'local-fs-video-mirror');
-                    if (mirror) { mirror.removeAttribute('src'); mirror.classList.add('hidden'); }
+                    if (mirror) { mirror.removeAttribute('src'); mirror.dataset.projectionMode = data.mediaMode || 'none'; mirror.classList.add('hidden'); }
                 } else if (videoEl.id === 'proj-video' && data.mediaMode === 'screen' && window.screenStream) {
-                    // Asignar el MediaStream directamente al video de la ventana del proyector.
-                    // No usar el reproductor ni la vista previa del panel de control.
-                    videoEl.muted = true;
-                    videoEl.playsInline = true;
-                    if (videoEl.srcObject !== window.screenStream) videoEl.srcObject = window.screenStream;
-                    videoEl.classList.remove('hidden');
-                    videoEl.play().catch(() => {});
+                    // En la ventana local se comparte el MediaStream original con el
+                    // reproductor de captura dedicado; WebRTC queda como respaldo.
+                    videoEl.pause(); videoEl.classList.add('hidden');
+                    const captureVideo = docObj.getElementById('proj-screen-video');
+                    if (captureVideo) {
+                        try {
+                            const captureTrackId = window.screenStream.getVideoTracks()[0]?.id || 'screen-capture';
+                            if (captureVideo.dataset.directScreenStreamKey !== captureTrackId) {
+                                captureVideo.srcObject = window.screenStream;
+                                captureVideo.dataset.directScreenStreamKey = captureTrackId;
+                            }
+                            captureVideo.dataset.directScreenCapture = 'true';
+                            captureVideo.muted = true; captureVideo.playsInline = true;
+                            captureVideo.classList.remove('hidden');
+                            captureVideo.play().catch(() => {});
+                        } catch (error) { console.warn('No se pudo enlazar la captura local directamente; se usará WebRTC.', error); }
+                    }
                 } else if (data.mediaMode === 'video' && data.videoUrl) {
                     videoEl.srcObject = null;
                     const sourceChanged = videoEl.getAttribute('src') !== data.videoUrl;
@@ -3343,6 +3425,15 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 }
             }
 
+            const directCaptureVideo = docObj.getElementById('proj-screen-video');
+            if (directCaptureVideo && data.mediaMode !== 'screen' && directCaptureVideo.dataset.directScreenCapture === 'true') {
+                directCaptureVideo.pause();
+                directCaptureVideo.srcObject = null;
+                directCaptureVideo.dataset.directScreenCapture = 'false';
+                directCaptureVideo.dataset.directScreenStreamKey = '';
+                directCaptureVideo.classList.add('hidden');
+            }
+
             if (textEl) {
                 textEl.innerText = karaokeVisible ? '' : (data.text || '');
                 textEl.style.fontFamily = `"${data.styles.font}", sans-serif`;
@@ -3354,7 +3445,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (data.styles.hasShadow) textEl.classList.add('text-projection-shadow');
                 else textEl.classList.remove('text-projection-shadow');
                 const verseKey = JSON.stringify([data.citation || '', data.text || '', !!karaokeVisible]);
-                const reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+                const reducedMotion = data.styles?.respectReducedMotion !== false && !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
                 animateProjectionContent(textEl, verseKey, data.styles.textAnimation || 'fade', reducedMotion, data.styles.textAnimationDurationMs);
             }
 
@@ -3455,7 +3546,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (karaokeVisible && karaokeTextEl) {
                     karaokeBoxEl.classList.remove('hidden');
                     karaokeTextEl.textContent = String(karaoke.stanza || '');
-                    animateProjectionContent(karaokeTextEl, karaoke.stanza || '', data.styles.textAnimation || 'fade', !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches), data.styles.textAnimationDurationMs);
+                    const respectReducedMotion = data.styles?.respectReducedMotion === true;
+                    const reducedMotion = respectReducedMotion && !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+                    animateProjectionContent(karaokeTextEl, karaoke.stanza || '', data.styles.textAnimation || 'fade', reducedMotion, data.styles.textAnimationDurationMs);
                     karaokeTextEl.style.fontFamily = `"${karaokeStyle.font || 'Inter'}", sans-serif`;
                     karaokeTextEl.style.fontSize = docObj === document && !isLocalFs
                         ? Math.max(9, (docObj.getElementById('projector-preview-container')?.clientWidth || 480) * (Number(karaokeStyle.size) || 4.5) / 100) + 'px'
@@ -4571,6 +4664,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             document.getElementById('projection-text-duration').oninput = (e) => {
                 projectionStyles.textAnimationDurationMs = Number(e.target.value);
                 document.getElementById('val-projection-text-duration').textContent = e.target.value + ' ms';
+                syncToProjector();
+            };
+            document.getElementById('projection-respect-reduced-motion').onchange = (e) => {
+                projectionStyles.respectReducedMotion = !!e.target.checked;
+                projectionStyles.respectReducedMotionConfigured = true;
                 syncToProjector();
             };
             document.getElementById('projection-media-transition').onchange = (e) => {

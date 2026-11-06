@@ -210,7 +210,7 @@ body.operator-page {
 .projection-enter-blur,
 .projection-enter-reveal {
     animation-duration: 350ms;
-    animation-timing-function: cubic-bezier(.2,.75,.25,1);
+    animation-timing-function: linear;
     animation-fill-mode: both;
     will-change: opacity, transform, filter, clip-path;
 }
@@ -343,7 +343,7 @@ body.operator-page {
     opacity: 0;
     transform: scale(.12);
 }
-.projection-logo-transition.is-playing img { animation: projection-logo-mark 700ms cubic-bezier(.2,.75,.25,1) both; }
+.projection-logo-transition.is-playing img { animation: projection-logo-mark 700ms ease-in-out both; }
 
 @keyframes projection-logo-curtain {
     0% { clip-path: circle(0 at 50% 50%); opacity: 0; }
@@ -361,19 +361,19 @@ body.operator-page {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .projection-enter-fade,
-    .projection-enter-slide-up,
-    .projection-enter-slide-left,
-    .projection-enter-slide-down,
-    .projection-enter-slide-right,
-    .projection-enter-zoom,
-    .projection-enter-blur,
-    .projection-enter-reveal,
-    .projection-transition-curtain.effect-fade,
-    .projection-transition-curtain.effect-wipe,
-    .projection-transition-curtain.effect-zoom,
-    .projection-logo-transition.is-playing,
-    .projection-logo-transition.is-playing img {
+    html:not([data-projection-motion="full"]) .projection-enter-fade,
+    html:not([data-projection-motion="full"]) .projection-enter-slide-up,
+    html:not([data-projection-motion="full"]) .projection-enter-slide-left,
+    html:not([data-projection-motion="full"]) .projection-enter-slide-down,
+    html:not([data-projection-motion="full"]) .projection-enter-slide-right,
+    html:not([data-projection-motion="full"]) .projection-enter-zoom,
+    html:not([data-projection-motion="full"]) .projection-enter-blur,
+    html:not([data-projection-motion="full"]) .projection-enter-reveal,
+    html:not([data-projection-motion="full"]) .projection-transition-curtain.effect-fade,
+    html:not([data-projection-motion="full"]) .projection-transition-curtain.effect-wipe,
+    html:not([data-projection-motion="full"]) .projection-transition-curtain.effect-zoom,
+    html:not([data-projection-motion="full"]) .projection-logo-transition.is-playing,
+    html:not([data-projection-motion="full"]) .projection-logo-transition.is-playing img {
         animation-duration: .01ms !important;
         transition-duration: .01ms !important;
     }

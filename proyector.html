@@ -120,7 +120,7 @@
                                         target.classList.remove(...classes);
                                         const animationClass = 'projection-enter-' + animation;
                                         if (animation === 'none' || reducedMotion || !classes.includes(animationClass)) return;
-                                        target.style.animationDuration = Math.min(5000, Math.max(100, Number(durationMs) || 350)) + 'ms';
+                                        target.style.setProperty('animation-duration', Math.min(5000, Math.max(100, Number(durationMs) || 350)) + 'ms', 'important');
                                         void target.offsetWidth;
                                         target.classList.add(animationClass);
                                     }
@@ -134,6 +134,92 @@
                                         const karaoke = data.karaoke || {};
                                         if (karaoke.active && String(karaoke.stanza || '').trim()) return 'karaoke';
                                         return 'verse';
+                                    }
+                                    function captureVideoPrompt(message) {
+                                        const prompt = document.getElementById('proj-enable-audio');
+                                        if (!prompt) return;
+                                        prompt.textContent = message;
+                                        prompt.classList.remove('hidden');
+                                    }
+                                    function reportCapturePlaybackState(video, state, errorMessage = '') {
+                                        if (!channel || !video) return;
+                                        try {
+                                            channel.postMessage({
+                                                type: '__screen_capture_playback_status',
+                                                projectorId: projectorInstanceId,
+                                                state,
+                                                width: Number(video.videoWidth) || 0,
+                                                height: Number(video.videoHeight) || 0,
+                                                readyState: Number(video.readyState) || 0,
+                                                paused: !!video.paused,
+                                                error: String(errorMessage || '').slice(0, 180),
+                                                timestamp: Date.now()
+                                            });
+                                        } catch (_) {}
+                                    }
+                                    function confirmCaptureVideoFrame(video) {
+                                        if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) return false;
+                                        video.dataset.capturePlayAttempts = '0';
+                                        video.style.opacity = '1';
+                                        video.classList.remove('hidden');
+                                        ['proj-text', 'proj-citation', 'proj-backdrop', 'proj-overlay', 'proj-logo-standby', 'proj-logo-corner', 'proj-karaoke'].forEach(id => {
+                                            const layer = document.getElementById(id);
+                                            if (layer) layer.classList.add('hidden');
+                                        });
+                                        const prompt = document.getElementById('proj-enable-audio');
+                                        const hasAudio = video.srcObject && video.srcObject.getAudioTracks().some(track => track.readyState === 'live');
+                                        if (hasAudio && !projectorScreenAudioEnabled) captureVideoPrompt('▶ Activar audio de la captura');
+                                        else if (prompt) prompt.classList.add('hidden');
+                                        reportCapturePlaybackState(video, 'playing');
+                                        sendProjectorMirrorFrame(true);
+                                        return true;
+                                    }
+                                    function retryCaptureVideo(video) {
+                                        if (!video || video.dataset.captureRetryPending === 'true') return;
+                                        const attempts = Number(video.dataset.capturePlayAttempts) || 0;
+                                        if (attempts >= 60) {
+                                            const prompt = document.getElementById('proj-enable-audio');
+                                            if (prompt) prompt.classList.add('hidden');
+                                            reportCapturePlaybackState(video, 'no-frames');
+                                            return;
+                                        }
+                                        video.dataset.capturePlayAttempts = String(attempts + 1);
+                                        video.dataset.captureRetryPending = 'true';
+                                        setTimeout(() => {
+                                            video.dataset.captureRetryPending = 'false';
+                                            if (latestProjectionData && latestProjectionData.mediaMode === 'screen' && video.srcObject) requestCaptureVideoPlayback(video);
+                                        }, 350);
+                                    }
+                                    function requestCaptureVideoPlayback(video) {
+                                        if (!video || !video.srcObject) return;
+                                        video.muted = !projectorScreenAudioEnabled;
+                                        video.playsInline = true;
+                                        video.autoplay = true;
+                                        if (video.dataset.captureEventsBound !== 'true') {
+                                            video.dataset.captureEventsBound = 'true';
+                                            ['loadedmetadata', 'loadeddata', 'canplay', 'playing', 'resize'].forEach(name => video.addEventListener(name, () => {
+                                                if (!confirmCaptureVideoFrame(video) && name === 'loadedmetadata') reportCapturePlaybackState(video, 'waiting');
+                                            }));
+                                            video.srcObject.getVideoTracks().forEach(track => track.addEventListener('ended', () => reportCapturePlaybackState(video, 'ended'), { once: true }));
+                                        }
+                                        reportCapturePlaybackState(video, 'waiting');
+                                        let playAttempt;
+                                        try { playAttempt = video.play(); }
+                                        catch (error) {
+                                            console.warn('No se pudo iniciar la reproducción de captura:', error);
+                                            captureVideoPrompt('▶ Toca para mostrar la captura');
+                                            reportCapturePlaybackState(video, 'blocked', error && error.message);
+                                            retryCaptureVideo(video);
+                                            return;
+                                        }
+                                        Promise.resolve(playAttempt).then(() => {
+                                            if (!confirmCaptureVideoFrame(video)) retryCaptureVideo(video);
+                                        }).catch(error => {
+                                            console.warn('Safari requiere activar o esperar la captura:', error);
+                                            captureVideoPrompt(video.videoWidth > 0 ? '▶ Activar audio de la captura' : '▶ Toca para mostrar la captura');
+                                            reportCapturePlaybackState(video, 'blocked', error && error.message);
+                                            retryCaptureVideo(video);
+                                        });
                                     }
                                     function isMediaTransitionBoundary(from, to) {
                                         const fromScene = projectionScene(from);
@@ -177,8 +263,8 @@
                                         if (effect === 'logo' && logoUrl && logoLayer && logoImage) {
                                             curtain.className = 'projection-transition-curtain';
                                             logoImage.src = logoUrl;
-                                            logoLayer.style.animationDuration = safeDuration + 'ms';
-                                            logoImage.style.animationDuration = safeDuration + 'ms';
+                                            logoLayer.style.setProperty('animation-duration', safeDuration + 'ms', 'important');
+                                            logoImage.style.setProperty('animation-duration', safeDuration + 'ms', 'important');
                                             logoLayer.className = 'projection-logo-transition is-active';
                                             void logoLayer.offsetWidth;
                                             logoLayer.classList.add('is-playing');
@@ -201,7 +287,7 @@
                                         }
                                         if (effect === 'logo') sendProjectionAssetStatus('transition', '', 'No hay logo de iglesia cargado; se usó el fundido a negro.');
                                         const safeEffect = ['fade','wipe','zoom'].includes(effect) ? effect : 'fade';
-                                        curtain.style.animationDuration = safeDuration + 'ms';
+                                        curtain.style.setProperty('animation-duration', safeDuration + 'ms', 'important');
                                         curtain.className = 'projection-transition-curtain is-active is-held';
                                         void curtain.offsetWidth;
                                         curtain.classList.remove('is-held');
@@ -616,7 +702,9 @@
                                         const karaokeBox = document.getElementById('proj-karaoke'); const karaokeText = document.getElementById('proj-karaoke-stanza');
                                         const karaoke = data.karaoke || {}; const karaokeStyle = karaoke.style || {};
                                         const karaokeLoaded = !!karaoke.active && !!String(karaoke.stanza || '').trim();
-                                        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                                        const respectReducedMotion = styles.respectReducedMotion !== false;
+                                        document.documentElement.dataset.projectionMotion = respectReducedMotion ? 'reduced' : 'full';
+                                        const reducedMotion = respectReducedMotion && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
                                         const youtubeLyricsLayout = data.mediaMode === 'youtube' && karaokeLoaded;
                                         // La API de YouTube reemplaza el nodo objetivo por un iframe. Por eso el tamaño
                                         // se aplica al contenedor estable, no al iframe que controla YouTube.
@@ -668,6 +756,8 @@
                                             video.classList.add('hidden'); youtube.classList.add('hidden');
                                             const screenVideo = document.getElementById('proj-screen-video');
                                             if (screenVideo) screenVideo.classList.add('hidden');
+                                            const capturePrompt = document.getElementById('proj-enable-audio');
+                                            if (capturePrompt) capturePrompt.classList.add('hidden');
                                             return;
                                         }
 
@@ -738,29 +828,26 @@
                                             video.pause(); video.classList.add('hidden');
                                             if (screenVideo && screenVideo.srcObject) {
                                                 screenVideo.classList.remove('hidden');
-                                                screenVideo.muted = !projectorScreenAudioEnabled;
+                                                screenVideo.style.opacity = screenVideo.videoWidth > 0 ? '1' : '0';
                                                 screenVideo.volume = 1;
-                                                const hasAudio = screenVideo.srcObject.getAudioTracks().some(track => track.readyState === 'live');
-                                                screenVideo.play().then(() => {
-                                                    const prompt = document.getElementById('proj-enable-audio');
-                                                    if (prompt && hasAudio) { prompt.textContent = '▶ Activar audio de la captura'; prompt.classList.remove('hidden'); }
-                                                    else if (prompt) prompt.classList.add('hidden');
-                                                }).catch(error => {
-                                                    console.warn('Safari requiere activar la captura desde la ventana de proyección:', error);
-                                                    const prompt = document.getElementById('proj-enable-audio');
-                                                    if (prompt) { prompt.textContent = hasAudio ? '▶ Activar captura y audio' : '▶ Toca para mostrar la captura'; prompt.classList.remove('hidden'); }
-                                                });
+                                                requestCaptureVideoPlayback(screenVideo);
                                             } else {
                                                 // Espera la pista WebRTC recibida desde la consola.
-                                                if (screenVideo) screenVideo.classList.add('hidden');
+                                                if (screenVideo) { screenVideo.classList.remove('hidden'); screenVideo.style.opacity = '0'; }
                                             }
                                         } else if (screenVideo) {
                                             projectorScreenAudioEnabled = false;
                                             screenVideo.muted = true;
+                                            screenVideo.style.opacity = '1';
                                             screenVideo.classList.add('hidden');
+                                            const capturePrompt = document.getElementById('proj-enable-audio');
+                                            if (capturePrompt) capturePrompt.classList.add('hidden');
                                             if (data.mediaMode !== 'screen' && screenVideo.srcObject) {
-                                                try { screenVideo.srcObject.getTracks().forEach(track => track.stop()); } catch (_) {}
+                                                if (screenVideo.dataset.directScreenCapture !== 'true') {
+                                                    try { screenVideo.srcObject.getTracks().forEach(track => track.stop()); } catch (_) {}
+                                                }
                                                 screenVideo.srcObject = null;
+                                                screenVideo.dataset.directScreenCapture = 'false';
                                             }
                                         }
                                         if (data.mediaMode === 'youtube' && data.videoUrl) {
@@ -792,12 +879,13 @@
                                             youtube.classList.add('hidden');
                                             youtube.style.pointerEvents = 'none';
                                             if (data.mediaMode === 'screen') {
-                                                text.classList.add('hidden');
-                                                citation.classList.add('hidden');
-                                                backdrop.classList.add('hidden');
-                                                overlay.classList.add('hidden');
+                                                const captureHasFrame = !!(screenVideo && screenVideo.videoWidth > 0 && screenVideo.videoHeight > 0);
+                                                text.classList.toggle('hidden', captureHasFrame);
+                                                citation.classList.toggle('hidden', captureHasFrame);
+                                                backdrop.classList.toggle('hidden', captureHasFrame);
+                                                overlay.classList.toggle('hidden', captureHasFrame);
                                                 standby.classList.add('hidden');
-                                                corner.classList.add('hidden');
+                                                if (captureHasFrame) corner.classList.add('hidden');
                                             } else {
                                                 text.classList.remove('hidden');
                                                 citation.classList.remove('hidden');
@@ -1058,7 +1146,10 @@
                                     function sendProjectorMirrorFrame(force = false) {
                                         const mirrorDataChannel = projectorMirrorChannel;
                                         const webRtcMirrorReady = !!(mirrorDataChannel && mirrorDataChannel.readyState === 'open');
-                                        const video = document.getElementById('proj-video');
+                                        const regularVideo = document.getElementById('proj-video');
+                                        const screenVideo = document.getElementById('proj-screen-video');
+                                        const useScreenCapture = !!(latestProjectionData && latestProjectionData.mediaMode === 'screen');
+                                        const video = useScreenCapture ? screenVideo : regularVideo;
                                         if ((!webRtcMirrorReady && !channel) || !video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
                                         if (!force && video.paused) return;
                                         if (webRtcMirrorReady && mirrorDataChannel.bufferedAmount > 180000) return;
@@ -1093,11 +1184,12 @@
                                     }
                                     function startProjectorMirror() {
                                         if (!projectorMirrorTimer) projectorMirrorTimer = setInterval(() => sendProjectorMirrorFrame(false), 250);
-                                        const video = document.getElementById('proj-video');
-                                        if (video && video.dataset.mirrorEventsBound !== 'true') {
-                                            video.dataset.mirrorEventsBound = 'true';
-                                            ['loadeddata', 'playing', 'pause', 'seeked', 'timeupdate'].forEach(name => video.addEventListener(name, () => sendProjectorMirrorFrame(true)));
-                                        }
+                                        [document.getElementById('proj-video'), document.getElementById('proj-screen-video')].forEach(video => {
+                                            if (video && video.dataset.mirrorEventsBound !== 'true') {
+                                                video.dataset.mirrorEventsBound = 'true';
+                                                ['loadeddata', 'playing', 'pause', 'seeked', 'timeupdate', 'resize'].forEach(name => video.addEventListener(name, () => sendProjectorMirrorFrame(true)));
+                                            }
+                                        });
                                         sendProjectorMirrorFrame(true);
                                     }
 
@@ -1153,8 +1245,11 @@
                                         projectorScreenPendingOfferCandidates = [];
                                         const screenVideo = document.getElementById('proj-screen-video');
                                         if (screenVideo) {
-                                            try { if (screenVideo.srcObject) screenVideo.srcObject.getTracks().forEach(track => track.stop()); } catch (_) {}
-                                            screenVideo.pause(); screenVideo.srcObject = null; screenVideo.classList.add('hidden');
+                                            const keepDirectCapture = screenVideo.dataset.directScreenCapture === 'true' && latestProjectionData?.mediaMode === 'screen';
+                                            if (!keepDirectCapture) {
+                                                try { if (screenVideo.srcObject) screenVideo.srcObject.getTracks().forEach(track => track.stop()); } catch (_) {}
+                                                screenVideo.pause(); screenVideo.srcObject = null; screenVideo.dataset.directScreenCapture = 'false'; screenVideo.classList.add('hidden');
+                                            }
                                         }
                                     }
                                     function receiveProjectorScreenCandidate(message) {
@@ -1186,37 +1281,44 @@
                                                 const candidate = typeof event.candidate.toJSON === 'function' ? event.candidate.toJSON() : event.candidate;
                                                 channel.postMessage({ type: '__screen_capture_candidate', direction: 'answer', sessionId: offer.sessionId, projectorId: projectorInstanceId, candidate, timestamp: Date.now() });
                                             };
+                                            let receivedScreenStream = null;
                                             pc.ontrack = event => {
                                                 const screenVideo = document.getElementById('proj-screen-video');
                                                 if (!screenVideo) return;
-                                                if (event.streams && event.streams[0]) screenVideo.srcObject = event.streams[0];
+                                                let remoteStream;
+                                                if (event.streams && event.streams[0]) remoteStream = event.streams[0];
                                                 else {
-                                                    const receivedStream = screenVideo.srcObject instanceof MediaStream ? screenVideo.srcObject : new MediaStream();
-                                                    if (!receivedStream.getTracks().includes(event.track)) receivedStream.addTrack(event.track);
-                                                    screenVideo.srcObject = receivedStream;
+                                                    if (!receivedScreenStream) receivedScreenStream = new MediaStream();
+                                                    if (!receivedScreenStream.getTracks().includes(event.track)) receivedScreenStream.addTrack(event.track);
+                                                    remoteStream = receivedScreenStream;
+                                                }
+                                                const directStream = screenVideo.dataset.directScreenCapture === 'true' ? screenVideo.srcObject : null;
+                                                const directVideoLive = directStream && directStream.getVideoTracks().some(track => track.readyState === 'live');
+                                                if (directVideoLive) {
+                                                    // El stream local directo suele ser más fiable en Safari. Conserva el
+                                                    // fotograma directo y solo conmuta a WebRTC si no llegan imágenes.
+                                                    setTimeout(() => {
+                                                        if (latestProjectionData?.mediaMode !== 'screen' || screenVideo.srcObject !== directStream || screenVideo.videoWidth > 0) return;
+                                                        screenVideo.dataset.directScreenCapture = 'false';
+                                                        screenVideo.srcObject = remoteStream;
+                                                        screenVideo.classList.remove('hidden');
+                                                        screenVideo.style.opacity = '0';
+                                                        requestCaptureVideoPlayback(screenVideo);
+                                                     }, 5000);
+                                                } else {
+                                                    screenVideo.dataset.directScreenCapture = 'false';
+                                                    screenVideo.srcObject = remoteStream;
                                                 }
                                                 const isLiveProjection = !!(latestProjectionData && latestProjectionData.mediaMode === 'screen');
-                                                screenVideo.muted = !projectorScreenAudioEnabled;
                                                 screenVideo.volume = 1;
-                                                if (isLiveProjection) screenVideo.classList.remove('hidden');
+                                                if (isLiveProjection) { screenVideo.classList.remove('hidden'); screenVideo.style.opacity = screenVideo.videoWidth > 0 ? '1' : '0'; }
                                                 else screenVideo.classList.add('hidden');
-                                                if (isLiveProjection) {
-                                                    const hasAudio = screenVideo.srcObject.getAudioTracks().some(track => track.readyState === 'live');
-                                                    screenVideo.play().then(() => {
-                                                        const prompt = document.getElementById('proj-enable-audio');
-                                                        if (prompt && hasAudio) { prompt.textContent = '▶ Activar audio de la captura'; prompt.classList.remove('hidden'); }
-                                                        else if (prompt) prompt.classList.add('hidden');
-                                                    }).catch(error => {
-                                                        console.warn('Safari requiere activar la captura desde la ventana de proyección:', error);
-                                                        const prompt = document.getElementById('proj-enable-audio');
-                                                        if (prompt) { prompt.textContent = hasAudio ? '▶ Activar captura y audio' : '▶ Toca para mostrar la captura'; prompt.classList.remove('hidden'); }
-                                                    });
-                                                }
+                                                if (isLiveProjection) requestCaptureVideoPlayback(screenVideo);
                                             };
                                             pc.onconnectionstatechange = () => {
                                                 if (['failed', 'closed'].includes(pc.connectionState)) {
                                                     const screenVideo = document.getElementById('proj-screen-video');
-                                                    if (screenVideo) screenVideo.classList.add('hidden');
+                                                    if (screenVideo && screenVideo.dataset.directScreenCapture !== 'true') screenVideo.classList.add('hidden');
                                                 }
                                             };
                                             await pc.setRemoteDescription({ type: 'offer', sdp: offer.sdp });
@@ -1246,10 +1348,14 @@
                                         const video = screenVideo && !screenVideo.classList.contains('hidden') ? screenVideo : document.getElementById('proj-video');
                                         if (!video) return;
                                         const isScreenCapture = video.id === 'proj-screen-video';
-                                        const hasAudio = isScreenCapture && video.srcObject && video.srcObject.getAudioTracks().some(track => track.readyState === 'live');
-                                        if (isScreenCapture) projectorScreenAudioEnabled = !!hasAudio;
-                                        video.muted = isScreenCapture ? !projectorScreenAudioEnabled : false; video.volume = 1;
-                                        video.play().then(() => audioPrompt.classList.add('hidden')).catch(() => { audioPrompt.textContent = 'No se pudo iniciar el audio'; });
+                                        const isScreenSource = isScreenCapture || (latestProjectionData?.mediaMode === 'screen' && !!video.srcObject);
+                                        const hasAudio = isScreenSource && video.srcObject && video.srcObject.getAudioTracks().some(track => track.readyState === 'live');
+                                        if (isScreenSource) projectorScreenAudioEnabled = !!hasAudio;
+                                        video.muted = isScreenSource ? !projectorScreenAudioEnabled : false; video.volume = 1;
+                                        if (isScreenSource) {
+                                            video.dataset.capturePlayAttempts = '0';
+                                            requestCaptureVideoPlayback(video);
+                                        } else video.play().then(() => audioPrompt.classList.add('hidden')).catch(() => { audioPrompt.textContent = 'No se pudo iniciar el audio'; });
                                     });
 
                                     // Recupera el último estado al abrir o recargar la ventana de proyección.

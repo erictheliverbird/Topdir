@@ -1972,8 +1972,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                         setScreenCaptureStatus(`Captura visible en el proyector: ${data.width} × ${data.height}.`);
                     } else if (data.state === 'blocked') {
                         setScreenCaptureStatus('Safari necesita un toque dentro de la ventana del proyector para activar la captura.');
+                    } else if (data.state === 'track-received') {
+                        setScreenCaptureStatus('La pista llegó al proyector. Si la imagen no aparece, toca el botón central «Iniciar captura» en esa ventana.');
                     } else if (data.state === 'no-frames') {
-                        setScreenCaptureStatus(`La ventana del proyector no recibe fotogramas (${data.width} × ${data.height}, estado ${data.readyState}). Cancela y vuelve a elegir la fuente de captura.`);
+                        setScreenCaptureStatus(`Safari aún no muestra fotogramas (${data.width} × ${data.height}, estado ${data.readyState}). El botón central del proyector sigue disponible: tócalo para iniciar el video.`);
                     } else if (data.state === 'waiting') {
                         setScreenCaptureStatus('Captura conectada; esperando el primer fotograma del proyector…');
                     }

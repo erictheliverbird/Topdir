@@ -179,7 +179,10 @@
                                         const attempts = Number(video.dataset.capturePlayAttempts) || 0;
                                         if (attempts >= 60) {
                                             const prompt = document.getElementById('proj-enable-audio');
-                                            if (prompt) prompt.classList.add('hidden');
+                                            if (prompt && latestProjectionData?.mediaMode === 'screen') {
+                                                prompt.textContent = '▶ Toca aquí para iniciar la captura';
+                                                prompt.classList.remove('hidden');
+                                            }
                                             reportCapturePlaybackState(video, 'no-frames');
                                             return;
                                         }
@@ -195,6 +198,9 @@
                                         video.muted = !projectorScreenAudioEnabled;
                                         video.playsInline = true;
                                         video.autoplay = true;
+                                        if (latestProjectionData?.mediaMode === 'screen' && video.videoWidth <= 0) {
+                                            captureVideoPrompt('▶ Toca aquí para iniciar la captura');
+                                        }
                                         if (video.dataset.captureEventsBound !== 'true') {
                                             video.dataset.captureEventsBound = 'true';
                                             ['loadedmetadata', 'loadeddata', 'canplay', 'playing', 'resize'].forEach(name => video.addEventListener(name, () => {
@@ -835,6 +841,9 @@
                                                 // Espera la pista WebRTC recibida desde la consola.
                                                 if (screenVideo) { screenVideo.classList.remove('hidden'); screenVideo.style.opacity = '0'; }
                                             }
+                                            // La captura debe ocupar toda la proyección; el logo de esquina
+                                            // no debe confundirse con una imagen parcial de la captura.
+                                            corner.classList.add('hidden');
                                         } else if (screenVideo) {
                                             projectorScreenAudioEnabled = false;
                                             screenVideo.muted = true;
@@ -885,7 +894,7 @@
                                                 backdrop.classList.toggle('hidden', captureHasFrame);
                                                 overlay.classList.toggle('hidden', captureHasFrame);
                                                 standby.classList.add('hidden');
-                                                if (captureHasFrame) corner.classList.add('hidden');
+                                                corner.classList.add('hidden');
                                             } else {
                                                 text.classList.remove('hidden');
                                                 citation.classList.remove('hidden');
@@ -1296,6 +1305,7 @@
                                                 // original permanece solo en la consola y su vista previa.
                                                 screenVideo.dataset.directScreenCapture = 'false';
                                                 screenVideo.srcObject = remoteStream;
+                                                reportCapturePlaybackState(screenVideo, 'track-received');
                                                 const isLiveProjection = !!(latestProjectionData && latestProjectionData.mediaMode === 'screen');
                                                 screenVideo.volume = 1;
                                                 if (isLiveProjection) { screenVideo.classList.remove('hidden'); screenVideo.style.opacity = screenVideo.videoWidth > 0 ? '1' : '0'; }

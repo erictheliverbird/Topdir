@@ -29,6 +29,7 @@
                             <button id="proj-enable-audio" type="button" class="absolute z-50 hidden left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-black/85 border border-white/40 px-6 py-4 text-white text-lg font-bold shadow-2xl" style="pointer-events:auto">▶ Toca para reproducir con sonido</button>
 
                             <video id="proj-screen-video" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" muted playsinline autoplay></video>
+                            <img id="proj-screen-frame-fallback" class="absolute inset-0 w-full h-full object-contain bg-black z-10 hidden" alt="Fotograma de respaldo de la captura" />
                             <div id="proj-youtube" title="Reproductor de YouTube (proyección)" class="absolute inset-0 w-full h-full bg-black z-10 hidden overflow-hidden" aria-label="Reproductor de YouTube" style="contain:layout paint; clip-path:inset(0)"><div id="proj-youtube-player" data-youtube-api="1" class="absolute inset-0 w-full h-full"></div></div>
                             <div id="proj-overlay" class="absolute inset-0 z-20 bg-black/40 transition-all duration-300"></div>
                             <img id="proj-logo-standby" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[40%] max-h-[60%] object-contain z-30 hidden" alt="Standby Logo" />
@@ -147,6 +148,7 @@
                                             channel.postMessage({
                                                 type: '__screen_capture_playback_status',
                                                 projectorId: projectorInstanceId,
+                                                sessionId: projectorScreenSessionId || '',
                                                 state,
                                                 width: Number(video.videoWidth) || 0,
                                                 height: Number(video.videoHeight) || 0,
@@ -158,10 +160,14 @@
                                         } catch (_) {}
                                     }
                                     function confirmCaptureVideoFrame(video) {
-                                        if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) return false;
+                                        if (!video || video.videoWidth <= 0 || video.videoHeight <= 0 || video.paused || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return false;
+                                        if (latestProjectionData?.isBlackout) return false;
                                         video.dataset.capturePlayAttempts = '0';
+                                        projectorScreenVideoConfirmed = true;
                                         video.style.opacity = '1';
                                         video.classList.remove('hidden');
+                                        const frameFallback = document.getElementById('proj-screen-frame-fallback');
+                                        if (frameFallback) { frameFallback.classList.add('hidden'); frameFallback.removeAttribute('src'); }
                                         ['proj-text', 'proj-citation', 'proj-backdrop', 'proj-overlay', 'proj-logo-standby', 'proj-logo-corner', 'proj-karaoke'].forEach(id => {
                                             const layer = document.getElementById(id);
                                             if (layer) layer.classList.add('hidden');
@@ -582,6 +588,14 @@
                                                     if (data.projectorId === projectorInstanceId && data.sessionId === projectorScreenSessionId) closeProjectorScreenPeer();
                                                     return;
                                                 }
+                                                if (data && data.type === '__screen_capture_frame') {
+                                                    receiveProjectorScreenFrame(data);
+                                                    return;
+                                                }
+                                                if (data && data.type === '__screen_capture_frame_stop') {
+                                                    if (data.projectorId === projectorInstanceId && data.sessionId === projectorScreenFrameSessionId) clearProjectorScreenFrameFallback();
+                                                    return;
+                                                }
                                                 if (data && (data.type === '__video_transfer_answer' || data.type === '__screen_capture_answer')) return;
                                                 if (data && data.type === '__controller_hello') {
                                                     if (data.controllerId === projectorControllerId) sendProjectorHeartbeat();
@@ -762,6 +776,8 @@
                                             video.classList.add('hidden'); youtube.classList.add('hidden');
                                             const screenVideo = document.getElementById('proj-screen-video');
                                             if (screenVideo) screenVideo.classList.add('hidden');
+                                            projectorScreenVideoConfirmed = false;
+                                            clearProjectorScreenFrameFallback();
                                             const capturePrompt = document.getElementById('proj-enable-audio');
                                             if (capturePrompt) capturePrompt.classList.add('hidden');
                                             return;
@@ -828,6 +844,7 @@
                                         } else corner.classList.add('hidden');
 
                                         const screenVideo = document.getElementById('proj-screen-video');
+                                        const screenFrameFallback = document.getElementById('proj-screen-frame-fallback');
                                         if (data.mediaMode === 'screen') {
                                             if (ytPlayerReady && ytPlayer) { try { ytPlayer.pauseVideo(); } catch (_) {} }
                                             youtube.classList.add('hidden');
@@ -846,6 +863,8 @@
                                             corner.classList.add('hidden');
                                         } else if (screenVideo) {
                                             projectorScreenAudioEnabled = false;
+                                            projectorScreenVideoConfirmed = false;
+                                            clearProjectorScreenFrameFallback();
                                             screenVideo.muted = true;
                                             screenVideo.style.opacity = '1';
                                             screenVideo.classList.add('hidden');
@@ -888,7 +907,7 @@
                                             youtube.classList.add('hidden');
                                             youtube.style.pointerEvents = 'none';
                                             if (data.mediaMode === 'screen') {
-                                                const captureHasFrame = !!(screenVideo && screenVideo.videoWidth > 0 && screenVideo.videoHeight > 0);
+                                                const captureHasFrame = !!((screenVideo && screenVideo.videoWidth > 0 && screenVideo.videoHeight > 0) || (screenFrameFallback && screenFrameFallback.naturalWidth > 0 && !screenFrameFallback.classList.contains('hidden')));
                                                 text.classList.toggle('hidden', captureHasFrame);
                                                 citation.classList.toggle('hidden', captureHasFrame);
                                                 backdrop.classList.toggle('hidden', captureHasFrame);
@@ -1243,7 +1262,66 @@
                                     let projectorScreenAudioEnabled = false;
                                     let projectorScreenRemoteDescriptionApplied = false;
                                     let projectorScreenPendingOfferCandidates = [];
+                                    let projectorScreenVideoConfirmed = false;
+                                    let projectorScreenFrameTimestamp = 0;
+                                    let projectorScreenFrameSequence = 0;
+                                    let projectorScreenFrameSessionId = '';
+                                    let projectorScreenFallbackStatusSessionId = '';
                                     const projectorPendingScreenCandidates = new Map();
+                                    function clearProjectorScreenFrameFallback() {
+                                        const image = document.getElementById('proj-screen-frame-fallback');
+                                        if (image) { image.classList.add('hidden'); image.removeAttribute('src'); }
+                                        projectorScreenFrameTimestamp = 0;
+                                        projectorScreenFrameSequence = 0;
+                                        projectorScreenFrameSessionId = '';
+                                        projectorScreenFallbackStatusSessionId = '';
+                                    }
+                                    function receiveProjectorScreenFrame(message) {
+                                        if (!message || message.projectorId !== projectorInstanceId || !message.sessionId || !message.frame || latestProjectionData?.mediaMode !== 'screen' || latestProjectionData?.isBlackout) return;
+                                        if (projectorScreenSessionId && message.sessionId !== projectorScreenSessionId) return;
+                                        if (Number(message.timestamp) <= projectorScreenFrameTimestamp) return;
+                                        const image = document.getElementById('proj-screen-frame-fallback');
+                                        if (!image) return;
+                                        projectorScreenFrameTimestamp = Number(message.timestamp) || Date.now();
+                                        projectorScreenFrameSequence = Number(message.sequence) || 0;
+                                        projectorScreenFrameSessionId = message.sessionId;
+                                        const acknowledge = () => {
+                                            try {
+                                                if (channel) channel.postMessage({
+                                                    type: '__screen_capture_frame_ack',
+                                                    projectorId: projectorInstanceId,
+                                                    sessionId: message.sessionId,
+                                                    sequence: Number(message.sequence) || 0,
+                                                    width: Number(message.width) || image.naturalWidth || 0,
+                                                    height: Number(message.height) || image.naturalHeight || 0,
+                                                    timestamp: Date.now()
+                                                });
+                                            } catch (_) {}
+                                        };
+                                        image.onload = () => {
+                                            if (latestProjectionData?.mediaMode !== 'screen' || latestProjectionData?.isBlackout || Number(message.sequence) !== projectorScreenFrameSequence) { acknowledge(); return; }
+                                            if (!projectorScreenVideoConfirmed) {
+                                                const screenVideo = document.getElementById('proj-screen-video');
+                                                if (screenVideo) screenVideo.classList.add('hidden');
+                                                image.classList.remove('hidden');
+                                                ['proj-text', 'proj-citation', 'proj-backdrop', 'proj-overlay', 'proj-logo-standby', 'proj-logo-corner', 'proj-karaoke'].forEach(id => {
+                                                    const layer = document.getElementById(id);
+                                                    if (layer) layer.classList.add('hidden');
+                                                });
+                                                const prompt = document.getElementById('proj-enable-audio');
+                                                if (prompt) prompt.classList.add('hidden');
+                                                if (projectorScreenFallbackStatusSessionId !== message.sessionId) {
+                                                    projectorScreenFallbackStatusSessionId = message.sessionId;
+                                                    try {
+                                                        if (channel) channel.postMessage({ type: '__screen_capture_playback_status', projectorId: projectorInstanceId, sessionId: message.sessionId, state: 'fallback-playing', width: image.naturalWidth, height: image.naturalHeight, timestamp: Date.now() });
+                                                    } catch (_) {}
+                                                }
+                                            }
+                                            acknowledge();
+                                        };
+                                        image.onerror = () => { image.classList.add('hidden'); };
+                                        image.src = message.frame;
+                                    }
                                     function closeProjectorScreenPeer() {
                                         if (projectorScreenSessionId) projectorPendingScreenCandidates.delete(projectorScreenSessionId);
                                         try { if (projectorScreenPeer) projectorScreenPeer.close(); } catch (_) {}
@@ -1252,6 +1330,8 @@
                                         projectorScreenAudioEnabled = false;
                                         projectorScreenRemoteDescriptionApplied = false;
                                         projectorScreenPendingOfferCandidates = [];
+                                        projectorScreenVideoConfirmed = false;
+                                        clearProjectorScreenFrameFallback();
                                         const screenVideo = document.getElementById('proj-screen-video');
                                         if (screenVideo) {
                                             const keepDirectCapture = screenVideo.dataset.directScreenCapture === 'true' && latestProjectionData?.mediaMode === 'screen';
@@ -1282,6 +1362,8 @@
                                         closeProjectorScreenPeer();
                                         projectorScreenSessionId = offer.sessionId;
                                         projectorScreenPendingOfferCandidates = earlyCandidates.map(candidate => new RTCIceCandidate(candidate));
+                                        projectorScreenVideoConfirmed = false;
+                                        clearProjectorScreenFrameFallback();
                                         try {
                                             const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
                                             projectorScreenPeer = pc;
@@ -1304,6 +1386,7 @@
                                                 // La captura se envía por WebRTC a esta ventana; el MediaStream
                                                 // original permanece solo en la consola y su vista previa.
                                                 screenVideo.dataset.directScreenCapture = 'false';
+                                                projectorScreenVideoConfirmed = false;
                                                 screenVideo.srcObject = remoteStream;
                                                 reportCapturePlaybackState(screenVideo, 'track-received');
                                                 const isLiveProjection = !!(latestProjectionData && latestProjectionData.mediaMode === 'screen');

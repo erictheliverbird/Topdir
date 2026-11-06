@@ -1315,6 +1315,102 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let screenTransferSessionId = '';
         let screenTransferConnectTimeoutId = 0;
         let screenTransferDisconnectTimeoutId = 0;
+        let screenFrameFallbackSessionId = '';
+        let screenFrameFallbackTimerId = 0;
+        let screenFrameFallbackAckTimeoutId = 0;
+        let screenFrameFallbackSourceVideo = null;
+        let screenFrameFallbackSequence = 0;
+        let screenFrameFallbackPendingSequence = 0;
+        let screenFrameFallbackVisible = false;
+
+        function stopScreenFrameFallback(sendStop = true) {
+            if (screenFrameFallbackTimerId) clearTimeout(screenFrameFallbackTimerId);
+            if (screenFrameFallbackAckTimeoutId) clearTimeout(screenFrameFallbackAckTimeoutId);
+            screenFrameFallbackTimerId = 0;
+            screenFrameFallbackAckTimeoutId = 0;
+            const closingSessionId = screenFrameFallbackSessionId;
+            if (sendStop && closingSessionId && broadcastChannel && localProjectorId) {
+                try { broadcastChannel.postMessage({ type: '__screen_capture_frame_stop', projectorId: localProjectorId, sessionId: closingSessionId, timestamp: Date.now() }); } catch (_) {}
+            }
+            if (screenFrameFallbackSourceVideo) {
+                try { screenFrameFallbackSourceVideo.pause(); screenFrameFallbackSourceVideo.srcObject = null; screenFrameFallbackSourceVideo.remove(); } catch (_) {}
+            }
+            screenFrameFallbackSourceVideo = null;
+            screenFrameFallbackSessionId = '';
+            screenFrameFallbackPendingSequence = 0;
+            screenFrameFallbackVisible = false;
+        }
+
+        function startScreenFrameFallback(stream, sessionId) {
+            stopScreenFrameFallback();
+            if (!stream || !sessionId || !document.body) return;
+            screenFrameFallbackSessionId = sessionId;
+            screenFrameFallbackSequence = 0;
+            const source = document.createElement('video');
+            source.muted = true;
+            source.autoplay = true;
+            source.playsInline = true;
+            source.setAttribute('aria-hidden', 'true');
+            source.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none;z-index:9999';
+            source.srcObject = stream;
+            screenFrameFallbackSourceVideo = source;
+            document.body.appendChild(source);
+            const playResult = source.play();
+            if (playResult && typeof playResult.catch === 'function') playResult.catch(error => console.warn('Safari no inició el video auxiliar de captura; se conservará el video WebRTC.', error));
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d', { alpha: false });
+            if (!context) return;
+            const tick = () => {
+                if (screenFrameFallbackSessionId !== sessionId || window.screenStream !== stream || !screenCaptureSending || mediaMode !== 'screen') return;
+                if (!broadcastChannel || !localProjectorId || !isLocalProjectorKnown()) {
+                    screenFrameFallbackTimerId = setTimeout(tick, 250);
+                    return;
+                }
+                if (screenFrameFallbackPendingSequence) {
+                    if (screenFrameFallbackAckTimeoutId && Date.now() > Number(source.dataset.pendingSince || 0) + 1200) {
+                        screenFrameFallbackPendingSequence = 0;
+                        clearTimeout(screenFrameFallbackAckTimeoutId);
+                        screenFrameFallbackAckTimeoutId = 0;
+                    } else {
+                        screenFrameFallbackTimerId = setTimeout(tick, 120);
+                        return;
+                    }
+                }
+                if (source.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !source.videoWidth || !source.videoHeight) {
+                    screenFrameFallbackTimerId = setTimeout(tick, 180);
+                    return;
+                }
+                const scale = Math.min(1, 1024 / source.videoWidth, 576 / source.videoHeight);
+                canvas.width = Math.max(1, Math.round(source.videoWidth * scale));
+                canvas.height = Math.max(1, Math.round(source.videoHeight * scale));
+                try {
+                    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+                    const frame = canvas.toDataURL('image/jpeg', 0.68);
+                    const sequence = ++screenFrameFallbackSequence;
+                    broadcastChannel.postMessage({
+                        type: '__screen_capture_frame',
+                        projectorId: localProjectorId,
+                        sessionId,
+                        sequence,
+                        width: canvas.width,
+                        height: canvas.height,
+                        frame,
+                        timestamp: Date.now()
+                    });
+                    screenFrameFallbackPendingSequence = sequence;
+                    source.dataset.pendingSince = String(Date.now());
+                    screenFrameFallbackAckTimeoutId = setTimeout(() => {
+                        if (screenFrameFallbackPendingSequence === sequence) screenFrameFallbackPendingSequence = 0;
+                        screenFrameFallbackAckTimeoutId = 0;
+                    }, 1200);
+                } catch (error) {
+                    console.warn('No se pudo generar un fotograma de respaldo para el proyector:', error);
+                }
+                screenFrameFallbackTimerId = setTimeout(tick, 160);
+            };
+            screenFrameFallbackTimerId = setTimeout(tick, 900);
+        }
 
         function clearScreenTransferTimers() {
             if (screenTransferConnectTimeoutId) clearTimeout(screenTransferConnectTimeoutId);
@@ -1359,7 +1455,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (screenCapturePurpose === 'youtube-monitor') {
                     failYouTubeMonitorTransfer(sessionId, 'No se pudo completar la señalización local con el proyector. La proyección anterior sigue activa.', 'No se pudo señalizar la captura; se conservó la proyección anterior.');
                 } else if (screenTransferSessionId === sessionId) {
-                    failScreenTransfer(sessionId, 'No se pudo señalizar la captura. Se restauró el contenido anterior.', 'No se pudo señalizar la captura; se restauró el contenido anterior.');
+                    setScreenCaptureStatus('La señalización WebRTC falló; el proyector sigue intentando recibir la captura por el canal local de respaldo.');
                 }
             }
         }
@@ -1650,6 +1746,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
         function closeScreenTransferPeer() {
             clearScreenTransferTimers();
+            stopScreenFrameFallback();
             const closingSessionId = screenTransferSessionId;
             if (closingSessionId && broadcastChannel && localProjectorId) {
                 try { broadcastChannel.postMessage({ type: '__screen_capture_stop', sessionId: closingSessionId, projectorId: localProjectorId, timestamp: Date.now() }); } catch (_) {}
@@ -1678,6 +1775,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             closeScreenTransferPeer();
             const sessionId = 'screen-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
             screenTransferSessionId = sessionId;
+            // El proyector recibe WebRTC como transporte principal. Si Safari entrega
+            // la pista pero no llega a decodificarla, el mismo proyector recibe cuadros
+            // JPEG locales a baja frecuencia hasta confirmar que el video ya se ve.
+            startScreenFrameFallback(stream, sessionId);
             try {
                 const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
                 screenTransferPeer = pc;
@@ -1729,24 +1830,30 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     }
                     if (pc.connectionState === 'connected' && mediaMode === 'screen') {
                         const hasAudio = stream.getAudioTracks().some(track => track.readyState === 'live');
-                        setScreenCaptureStatus(screenCapturePurpose === 'youtube-monitor'
-                            ? (hasAudio ? 'Monitor YouTube en vivo con audio; se conserva el reproductor y su posición.' : 'Monitor YouTube en vivo; el navegador no envió pista de audio.')
-                            : (hasAudio ? 'Vídeo y pista de audio conectados al proyector' : 'Vídeo en tiempo real conectado; audio del sistema no capturado'));
+                        setScreenCaptureStatus(screenFrameFallbackVisible
+                            ? 'El proyector muestra la captura mediante el respaldo local.'
+                            : screenCapturePurpose === 'youtube-monitor'
+                                ? (hasAudio ? 'Monitor YouTube en vivo con audio; se conserva el reproductor y su posición.' : 'Monitor YouTube en vivo; el navegador no envió pista de audio.')
+                                : (hasAudio ? 'Vídeo y pista de audio conectados al proyector' : 'Vídeo en tiempo real conectado; audio del sistema no capturado'));
                     }
                     if (['failed', 'closed'].includes(pc.connectionState)) {
                         const isYouTubeMonitor = screenCapturePurpose === 'youtube-monitor';
-                        failScreenTransfer(sessionId,
-                            isYouTubeMonitor ? 'No se pudo establecer la conexión. La proyección anterior se restauró; vuelve a intentar cuando haya conexión.' : 'La conexión de captura falló. Se restauró el contenido anterior.',
-                            isYouTubeMonitor ? 'No se conectó el monitor YouTube; se restauró el contenido anterior.' : 'La captura perdió conexión; se restauró el contenido anterior.');
+                        if (isYouTubeMonitor) {
+                            failYouTubeMonitorTransfer(sessionId, 'No se pudo establecer la conexión. La proyección anterior se restauró; vuelve a intentar cuando haya conexión.', 'No se conectó el monitor YouTube; se restauró el contenido anterior.');
+                        } else if (!screenFrameFallbackVisible) {
+                            setScreenCaptureStatus('WebRTC no entregó video; el proyector está usando el respaldo de fotogramas local.');
+                        }
                     } else if (pc.connectionState === 'disconnected') {
-                        setScreenCaptureStatus(screenCapturePurpose === 'youtube-monitor' ? 'La conexión del monitor se interrumpió. Intentando recuperarla…' : 'La conexión de captura se interrumpió. Intentando recuperarla…');
+                        if (!screenFrameFallbackVisible) setScreenCaptureStatus(screenCapturePurpose === 'youtube-monitor' ? 'La conexión del monitor se interrumpió. Intentando recuperarla…' : 'La conexión de captura se interrumpió. Intentando recuperarla…');
                         if (!screenTransferDisconnectTimeoutId) {
                             screenTransferDisconnectTimeoutId = setTimeout(() => {
                                 if (screenTransferSessionId === sessionId && pc.connectionState !== 'connected') {
                                     const isYouTubeMonitor = screenCapturePurpose === 'youtube-monitor';
-                                    failScreenTransfer(sessionId,
-                                        isYouTubeMonitor ? 'La conexión no se recuperó. La proyección anterior se restauró; vuelve a capturar el monitor.' : 'La conexión no se recuperó. Se restauró el contenido anterior.',
-                                        isYouTubeMonitor ? 'Se perdió la conexión con Monitor YouTube; se restauró la proyección anterior.' : 'Se perdió la conexión de captura; se restauró el contenido anterior.');
+                                    if (isYouTubeMonitor) {
+                                        failYouTubeMonitorTransfer(sessionId, 'La conexión no se recuperó. La proyección anterior se restauró; vuelve a capturar el monitor.', 'Se perdió la conexión con Monitor YouTube; se restauró la proyección anterior.');
+                                    } else {
+                                        setScreenCaptureStatus('La conexión WebRTC no se recuperó; el respaldo local mantiene la captura visible en el proyector.');
+                                    }
                                 }
                             }, 8000);
                         }
@@ -1755,9 +1862,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 screenTransferConnectTimeoutId = setTimeout(() => {
                     if (screenTransferSessionId === sessionId && pc.connectionState !== 'connected') {
                         const isYouTubeMonitor = screenCapturePurpose === 'youtube-monitor';
-                        failScreenTransfer(sessionId,
-                            isYouTubeMonitor ? 'El proyector no confirmó la conexión a tiempo. Se restauró el contenido anterior; comprueba que la ventana de proyección siga abierta.' : 'La conexión de captura tardó demasiado. Se restauró el contenido anterior.',
-                            isYouTubeMonitor ? 'El monitor no llegó al proyector; se restauró el contenido anterior.' : 'La captura tardó demasiado; se restauró el contenido anterior.');
+                        screenTransferConnectTimeoutId = 0;
+                        if (isYouTubeMonitor) {
+                            failYouTubeMonitorTransfer(sessionId, 'El proyector no confirmó la conexión a tiempo. Se restauró el contenido anterior; comprueba que la ventana de proyección siga abierta.', 'El monitor no llegó al proyector; se restauró el contenido anterior.');
+                        } else {
+                            setScreenCaptureStatus('WebRTC tardó en responder; la captura continúa hacia el proyector por el respaldo local.');
+                        }
                     }
                 }, 30000);
                 let answerApplied = false;
@@ -1774,7 +1884,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                             if (screenCapturePurpose === 'youtube-monitor') {
                                 failYouTubeMonitorTransfer(sessionId, 'No se pudo completar la conexión WebRTC. La proyección anterior se restauró; vuelve a intentarlo.', 'No se pudo conectar Monitor YouTube; se restauró la proyección anterior.');
                             } else {
-                                failScreenTransfer(sessionId, 'No se pudo completar WebRTC. Se restauró el contenido anterior.', 'No se pudo conectar la captura; se restauró el contenido anterior.');
+                                setScreenCaptureStatus(screenFrameFallbackVisible ? 'La captura sigue visible mediante el respaldo local del proyector.' : 'No se pudo completar WebRTC; el proyector continúa usando el respaldo local.');
                             }
                         }
                     });
@@ -1794,9 +1904,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     setScreenCaptureStatus('No se pudo conectar el monitor. La proyección anterior se mantuvo; vuelve a intentar cuando haya conexión.');
                     showToast('No se conectó el monitor YouTube; se conservó el contenido anterior.', 'error');
                 } else {
-                    closeScreenTransferPeer();
-                    setScreenCaptureStatus('No se pudo conectar el vídeo. Comprueba la conexión con el proyector.');
-                    showToast('No se pudo conectar la captura al proyector.', 'error');
+                    clearScreenTransferTimers();
+                    try { if (screenTransferPeer) screenTransferPeer.close(); } catch (_) {}
+                    screenTransferPeer = null;
+                    setScreenCaptureStatus(screenFrameFallbackVisible ? 'La captura sigue visible mediante el respaldo local del proyector.' : 'WebRTC no pudo iniciar; el proyector recibirá la captura por el respaldo local.');
                 }
             }
         }
@@ -1966,17 +2077,39 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (data.projectorId === localProjectorId) showLocalVideoPreviewFrame(data.frame, data.timestamp);
                     return;
                 }
+                if (data.type === '__screen_capture_frame_ack') {
+                    if (data.projectorId !== localProjectorId || data.sessionId !== screenFrameFallbackSessionId) return;
+                    if (Number(data.sequence) === screenFrameFallbackPendingSequence) {
+                        screenFrameFallbackPendingSequence = 0;
+                        const firstFrameVisible = !screenFrameFallbackVisible;
+                        screenFrameFallbackVisible = true;
+                        if (screenFrameFallbackAckTimeoutId) clearTimeout(screenFrameFallbackAckTimeoutId);
+                        screenFrameFallbackAckTimeoutId = 0;
+                        if (firstFrameVisible) setScreenCaptureStatus(`Captura visible en el proyector mediante respaldo local (${data.width} × ${data.height}).`);
+                    }
+                    return;
+                }
                 if (data.type === '__screen_capture_playback_status') {
                     if (data.projectorId !== localProjectorId) return;
+                    if (data.sessionId && screenTransferSessionId && data.sessionId !== screenTransferSessionId) return;
                     if (data.state === 'playing') {
+                        if (screenFrameFallbackSessionId) stopScreenFrameFallback();
                         setScreenCaptureStatus(`Captura visible en el proyector: ${data.width} × ${data.height}.`);
+                    } else if (data.state === 'fallback-playing') {
+                        const firstFrameVisible = !screenFrameFallbackVisible;
+                        screenFrameFallbackVisible = true;
+                        if (firstFrameVisible) setScreenCaptureStatus(`Proyector activo con respaldo local: ${data.width} × ${data.height}.`);
                     } else if (data.state === 'blocked') {
+                        if (screenFrameFallbackVisible) return;
                         setScreenCaptureStatus('Safari necesita un toque dentro de la ventana del proyector para activar la captura.');
                     } else if (data.state === 'track-received') {
+                        if (screenFrameFallbackVisible) return;
                         setScreenCaptureStatus('La pista llegó al proyector. Si la imagen no aparece, toca el botón central «Iniciar captura» en esa ventana.');
                     } else if (data.state === 'no-frames') {
+                        if (screenFrameFallbackVisible) return;
                         setScreenCaptureStatus(`Safari aún no muestra fotogramas (${data.width} × ${data.height}, estado ${data.readyState}). El botón central del proyector sigue disponible: tócalo para iniciar el video.`);
                     } else if (data.state === 'waiting') {
+                        if (screenFrameFallbackVisible) return;
                         setScreenCaptureStatus('Captura conectada; esperando el primer fotograma del proyector…');
                     }
                     return;
@@ -3200,11 +3333,14 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 localStorage.setItem('biblical_projector_data', JSON.stringify(storagePayload));
             } catch (e) {}
             // Canal directo adicional: útil mientras la referencia de la ventana siga disponible.
-            try { if (externalWindow && !externalWindow.closed) externalWindow.postMessage(payload, '*'); } catch (e) {}
+            // La ventana del proyector es la única propietaria del video de captura.
+            // No mandar también el mismo estado por window.postMessage, porque puede
+            // competir con BroadcastChannel y dejar opaco el video ya recibido.
+            try { if (externalWindow && !externalWindow.closed && payload.mediaMode !== 'screen') externalWindow.postMessage(payload, '*'); } catch (e) {}
             refreshYouTubeControls();
 
             updateProjectorDOM(document, payload, false);
-            if (externalWindow && !externalWindow.closed && payload.mediaMode !== 'video') {
+            if (externalWindow && !externalWindow.closed && payload.mediaMode !== 'video' && payload.mediaMode !== 'screen') {
                 // El blob: de la consola no existe en la otra ventana. Durante video,
                 // proyector.html conserva su URL local recibida y aplica el estado por canal.
                 try { updateProjectorDOM(externalWindow.document, payload); } catch (e) {}
@@ -3382,17 +3518,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     const mirror = docObj.getElementById(videoEl.id === 'preview-video' ? 'preview-video-mirror' : 'local-fs-video-mirror');
                     if (mirror) { mirror.removeAttribute('src'); mirror.dataset.projectionMode = data.mediaMode || 'none'; mirror.classList.add('hidden'); }
                 } else if (videoEl.id === 'proj-video' && data.mediaMode === 'screen') {
-                    // La ventana de proyección recibe exclusivamente su stream WebRTC.
-                    // No se adjunta window.screenStream entre documentos: Safari puede
-                    // mostrarlo negro aunque la vista previa local sí tenga imagen.
+                    // El controlador no escribe en la capa de captura del proyector.
+                    // Esa ventana es la única propietaria del MediaStream remoto y su
+                    // estado visual; los cambios de estilo de la consola no deben
+                    // volver transparente el video mientras WebRTC lo decodifica.
                     videoEl.pause(); videoEl.classList.add('hidden');
                     if (videoEl.srcObject) videoEl.srcObject = null;
-                    const captureVideo = docObj.getElementById('proj-screen-video');
-                    if (captureVideo) {
-                        captureVideo.dataset.directScreenCapture = 'false';
-                        captureVideo.classList.remove('hidden');
-                        captureVideo.style.opacity = '0';
-                    }
                 } else if (data.mediaMode === 'video' && data.videoUrl) {
                     videoEl.srcObject = null;
                     const sourceChanged = videoEl.getAttribute('src') !== data.videoUrl;
@@ -3874,6 +4005,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
         function stopScreenCapture() {
             if (!window.screenStream && !screenCapturePending) return;
+            stopScreenFrameFallback();
             closeScreenTransferPeer();
             if (window.screenStream) {
                 window.screenStream.getTracks().forEach(track => track.stop());

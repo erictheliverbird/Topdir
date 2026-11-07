@@ -184,16 +184,23 @@
         byId('audio-value').textContent = 'Aún no probadas';
         let capturedStream = null;
         captureMode = includeAudio ? 'video y audio solicitados' : 'solo video';
-        setStatus('Elige una ventana, pestaña o pantalla en el selector del sistema…');
+        setStatus('En el selector, elige «Pantalla completa» o «Toda la pantalla» para probar 60 fps y cambiar después a otra app…');
         try {
-          capturedStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: includeAudio });
+          const supported = typeof navigator.mediaDevices.getSupportedConstraints === 'function'
+            ? navigator.mediaDevices.getSupportedConstraints()
+            : {};
+          const video = { frameRate: { ideal: 60, max: 60 } };
+          if (supported.displaySurface) video.displaySurface = { ideal: 'monitor' };
+          capturedStream = await navigator.mediaDevices.getDisplayMedia({ video, audio: includeAudio });
           if (!capturedStream.getVideoTracks().some(track => track.readyState === 'live')) throw new Error('El navegador no devolvió una pista de video activa.');
           activeStream = capturedStream;
           describeStream(capturedStream);
           startButton.hidden = true;
           stopButton.hidden = false;
           retryButton.hidden = true;
-          setStatus('Captura activa solo para diagnóstico. No está conectada al proyector.', 'ok');
+          const track = capturedStream.getVideoTracks()[0];
+          const fps = track && track.getSettings ? track.getSettings().frameRate : 0;
+          setStatus(`Captura activa solo para diagnóstico · ${fps ? `${Math.round(fps)} fps reales` : 'el navegador no informó fps'}. No está conectada al proyector.`, 'ok');
         } catch (error) {
           if (capturedStream) capturedStream.getTracks().forEach(track => track.stop());
           lastError = `${error && error.name ? error.name + ': ' : ''}${error && error.message ? error.message : String(error)}`;

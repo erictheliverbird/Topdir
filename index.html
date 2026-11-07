@@ -570,7 +570,7 @@
                                         <i class="fa-solid fa-desktop"></i> Captura de Pantalla
                                     </span>
                                 </div>
-                                <p class="text-xs text-gray-300 leading-relaxed">El selector del sistema ofrece las fuentes que iPadOS permite compartir. En iPad, Safari pausa la captura al pasar a otra app; vuelve a Safari para reanudarla. Esta versión web no puede proyectar otra app nativa en segundo plano. Para seleccionar y transmitir otras apps se necesita una versión nativa para iPadOS.</p>
+                                <p class="text-xs text-gray-300 leading-relaxed">Cuando aparezca el selector, elige «Pantalla completa» o «Toda la pantalla» para que la proyección incluya los cambios entre apps. Si eliges Safari o una ventana, solo se compartirá esa fuente. Se solicitarán hasta 60 fps; el valor final depende del iPad y de la fuente elegida.</p>
                                 <div class="flex gap-2 pt-1">
                                     <button id="btn-start-screen-capture" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30">
                                         <i class="fa-solid fa-display"></i>
@@ -1344,15 +1344,15 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             screenFrameFallbackVisible = false;
         }
 
-        function startScreenFrameFallback(stream, sessionId) {
+        async function startScreenFrameFallback(stream, sessionId) {
             stopScreenFrameFallback();
             if (!stream || !sessionId || !document.body) return;
             screenFrameFallbackSessionId = sessionId;
             screenFrameFallbackSequence = 0;
             const sourceTrack = stream.getVideoTracks()[0];
             const captureSettings = sourceTrack && typeof sourceTrack.getSettings === 'function' ? sourceTrack.getSettings() : {};
-            const targetFrameRate = Math.min(30, Math.max(1, Number(captureSettings.frameRate) || 30));
-            const frameIntervalMs = Math.max(34, Math.round(1000 / targetFrameRate));
+            const targetFrameRate = Math.min(60, Math.max(1, Number(captureSettings.frameRate) || 60));
+            const frameIntervalMs = Math.max(16, Math.round(1000 / targetFrameRate));
             const source = document.createElement('video');
             source.muted = true;
             source.autoplay = true;
@@ -1362,8 +1362,17 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             source.srcObject = stream;
             screenFrameFallbackSourceVideo = source;
             document.body.appendChild(source);
-            const playResult = source.play();
-            if (playResult && typeof playResult.catch === 'function') playResult.catch(error => console.warn('Safari no inició el video auxiliar de captura; se conservará el video WebRTC.', error));
+            let playTimeoutId = 0;
+            try {
+                const playResult = source.play();
+                if (playResult && typeof playResult.then === 'function') {
+                    await Promise.race([playResult, new Promise(resolve => { playTimeoutId = setTimeout(resolve, 1200); })]);
+                }
+            } catch (error) {
+                console.warn('Safari no inició el video auxiliar de captura; se conservará el video WebRTC.', error);
+            } finally {
+                if (playTimeoutId) clearTimeout(playTimeoutId);
+            }
 
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d', { alpha: false });
@@ -1425,6 +1434,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                 width: canvas.width,
                                 height: canvas.height,
                                 frame: blob,
+                                frameRate: Number(captureSettings.frameRate) || targetFrameRate,
                                 timestamp: Date.now()
                             });
                             screenFrameFallbackPendingSequence = sequence;
@@ -1815,7 +1825,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             // El proyector recibe WebRTC como transporte principal. Si Safari entrega
             // la pista pero no llega a decodificarla, el mismo proyector recibe cuadros
             // JPEG locales a baja frecuencia hasta confirmar que el video ya se ve.
-            startScreenFrameFallback(stream, sessionId);
+            await startScreenFrameFallback(stream, sessionId);
             try {
                 const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
                 screenTransferPeer = pc;
@@ -1832,10 +1842,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     params.encodings[0].maxBitrate = screenCapturePurpose === 'youtube-monitor' ? 28000000 : 24000000;
                     if (Number.isFinite(Number(captureSettings.frameRate)) && Number(captureSettings.frameRate) > 0) {
                         params.encodings[0].maxFramerate = Math.min(60, Number(captureSettings.frameRate));
-                    }
-                    // Captura de pantalla: conservar la resolución de origen y dar
-                    // margen de bitrate para que WebRTC no la reduzca agresivamente.
-                    params.degradationPreference = 'maintain-resolution';
+                    } else params.encodings[0].maxFramerate = 60;
+                    // La captura de pantalla prioriza fluidez; solicitar 60 fps no
+                    // inventa cuadros si el iPad o la fuente entregan menos.
+                    params.degradationPreference = 'maintain-framerate';
                     await videoSender.setParameters(params);
                 } catch (e) { console.info('Se usarán los parámetros WebRTC predeterminados para la captura.', e); }
                 pc.onicecandidate = event => {
@@ -1871,11 +1881,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     }
                     if (pc.connectionState === 'connected' && mediaMode === 'screen') {
                         const hasAudio = stream.getAudioTracks().some(track => track.readyState === 'live');
+                        const actualFrameRate = typeof track.getSettings === 'function' ? Number(track.getSettings().frameRate) : 0;
+                        const frameRateLabel = actualFrameRate > 0 ? ` · ${Math.round(actualFrameRate)} fps` : '';
                         setScreenCaptureStatus(screenFrameFallbackVisible
                             ? 'El proyector está recibiendo fotogramas directos de alta resolución mientras WebRTC continúa conectado.'
                             : screenCapturePurpose === 'youtube-monitor'
-                                ? (hasAudio ? 'Monitor YouTube en vivo con audio; se conserva el reproductor y su posición.' : 'Monitor YouTube en vivo; el navegador no envió pista de audio.')
-                                : (hasAudio ? 'Vídeo y pista de audio conectados al proyector' : 'Vídeo en tiempo real conectado; audio del sistema no capturado'));
+                                ? (hasAudio ? `Monitor YouTube en vivo${frameRateLabel} con audio; se conserva el reproductor y su posición.` : `Monitor YouTube en vivo${frameRateLabel}; el navegador no envió pista de audio.`)
+                                : (hasAudio ? `Vídeo${frameRateLabel} y pista de audio conectados al proyector` : `Vídeo en tiempo real${frameRateLabel} conectado; audio del sistema no capturado`));
                     }
                     if (['failed', 'closed'].includes(pc.connectionState)) {
                         const isYouTubeMonitor = screenCapturePurpose === 'youtube-monitor';
@@ -2135,11 +2147,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     if (data.sessionId && screenTransferSessionId && data.sessionId !== screenTransferSessionId) return;
                     if (data.state === 'playing') {
                         if (screenFrameFallbackSessionId) stopScreenFrameFallback();
-                        setScreenCaptureStatus(`Captura visible en el proyector: ${data.width} × ${data.height}.`);
+                        const frameRateLabel = Number(data.frameRate) > 0 ? ` · ${Math.round(Number(data.frameRate))} fps` : '';
+                        setScreenCaptureStatus(`Captura visible en el proyector: ${data.width} × ${data.height}${frameRateLabel}.`);
                     } else if (data.state === 'fallback-playing') {
                         const firstFrameVisible = !screenFrameFallbackVisible;
                         screenFrameFallbackVisible = true;
-                        if (firstFrameVisible) setScreenCaptureStatus(`El proyector recibe la captura a ${data.width} × ${data.height}; WebRTC sigue intentando la transmisión fluida.`);
+                        const frameRateLabel = Number(data.frameRate) > 0 ? ` · objetivo ${Math.round(Number(data.frameRate))} fps` : '';
+                        if (firstFrameVisible) setScreenCaptureStatus(`El proyector recibe la captura a ${data.width} × ${data.height}${frameRateLabel}; WebRTC sigue intentando la transmisión fluida.`);
                     } else if (data.state === 'blocked') {
                         if (screenFrameFallbackVisible) return;
                         setScreenCaptureStatus('Safari no inició WebRTC automáticamente; el proyector está cambiando a fotogramas de la fuente original.');
@@ -3968,11 +3982,17 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             updateYouTubeMonitorCaptureUI();
             try {
                 // La llamada sigue dentro del gesto del operador para que el navegador
-                // pueda mostrar su selector nativo de ventana/pestaña.
+                // muestre el selector del sistema. Se prefiere pantalla completa y 60 fps,
+                // sin excluir otras fuentes que el usuario quiera seleccionar.
+                const supportedCaptureConstraints = typeof navigator.mediaDevices.getSupportedConstraints === 'function'
+                    ? navigator.mediaDevices.getSupportedConstraints()
+                    : {};
+                const captureVideoConstraints = { frameRate: { ideal: 60, max: 60 } };
+                if (supportedCaptureConstraints.displaySurface) {
+                    captureVideoConstraints.displaySurface = { ideal: 'monitor' };
+                }
                 window.screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    // Omitir restricciones de video evita incompatibilidades del
-                    // selector de captura de Safari; WebRTC ajusta luego el bitrate.
-                    video: true,
+                    video: captureVideoConstraints,
                     audio: requestAudio
                 });
                 screenCapturePending = false;
@@ -3989,7 +4009,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 track.addEventListener('mute', () => {
                     if (window.screenStream !== capturedStream) return;
                     setScreenCaptureStatus(isAppleTouchDevice()
-                        ? 'iPadOS pausó los fotogramas al salir de Safari. Vuelve a Safari para reanudar la proyección; una página web no puede mantener la captura activa en segundo plano.'
+                        ? 'iPadOS pausó los fotogramas al salir de Safari. Vuelve a Safari; la transmisión se reanudará cuando la fuente entregue nuevos cuadros.'
                         : 'La fuente dejó de entregar fotogramas temporalmente. El proyector conserva el último cuadro y continuará cuando la fuente se reanude.');
                     updateYouTubeMonitorCaptureUI();
                 });
@@ -4006,13 +4026,19 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (purpose === 'youtube-monitor' && requestAudio && !hasAudio) youtubeCaptureVideoOnlyFallback = true;
                 const surface = track && typeof track.getSettings === 'function' ? track.getSettings().displaySurface : '';
                 screenCaptureSurface = surface || '';
+                const captureSettings = track && typeof track.getSettings === 'function' ? track.getSettings() : {};
+                const actualResolution = captureSettings.width && captureSettings.height ? `${captureSettings.width} × ${captureSettings.height}` : 'resolución no informada';
+                const actualFrameRate = Number(captureSettings.frameRate) > 0 ? `${Math.round(Number(captureSettings.frameRate))} fps` : 'fps no informados';
+                const selectedSurfaceLabel = ({ browser: 'pestaña del navegador', window: 'ventana', monitor: 'pantalla completa' })[surface] || '';
                 screenCaptureSending = purpose !== 'youtube-monitor';
                 const captureMessage = purpose === 'youtube-monitor'
-                    ? (hasAudio ? 'Fuente capturada con audio. La proyección no ha cambiado; revisa la fuente y pulsa Enviar cuando quieras salir en vivo.' : 'Fuente capturada. La proyección no ha cambiado; revisa la fuente y pulsa Enviar cuando quieras salir en vivo.')
-                    : (hasAudio ? 'Captura iniciada; se detectó una pista de audio.' : 'Video capturado. Audio de pantalla no capturado.');
+                    ? `${selectedSurfaceLabel ? `Fuente: ${selectedSurfaceLabel}. ` : ''}${actualResolution} · ${actualFrameRate}. La proyección no ha cambiado; revisa la fuente y pulsa Enviar cuando quieras salir en vivo.`
+                    : `Captura iniciada: ${selectedSurfaceLabel || 'fuente seleccionada'} · ${actualResolution} · ${actualFrameRate}${hasAudio ? ' · audio disponible' : ''}.`;
                 setScreenCaptureStatus(purpose === 'youtube-monitor' && surface === 'monitor'
                     ? `${captureMessage} El selector eligió una pantalla completa; comprueba que sea la pantalla dedicada al monitor.`
-                    : captureMessage);
+                    : (purpose !== 'youtube-monitor' && surface && surface !== 'monitor'
+                        ? `${captureMessage} Para incluir otras apps, detén y vuelve a elegir «Pantalla completa» en el selector.`
+                        : captureMessage));
                 updateYouTubeMonitorCaptureUI();
                 if (purpose !== 'youtube-monitor') {
                     syncToProjector();
@@ -4023,7 +4049,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 return true;
             } catch (err) {
                 console.warn('No se pudo iniciar la captura de pantalla', err);
-                const canceled = err && err.name === 'NotAllowedError';
+                const canceled = err && (err.name === 'NotAllowedError' || err.name === 'AbortError');
                 const retryWithoutAudio = purpose === 'youtube-monitor' && requestAudio && !canceled;
                 if (retryWithoutAudio) youtubeCaptureVideoOnlyFallback = true;
                 if (window.screenStream) {
@@ -4038,7 +4064,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 screenCaptureSurface = '';
                 setScreenCaptureStatus(retryWithoutAudio
                     ? 'Safari rechazó la captura de audio. Pulsa de nuevo para intentar compartir el video sin audio.'
-                    : (canceled ? 'Captura cancelada. Elige Monitor YouTube o comparte una pantalla donde siga visible.' : 'No se pudo iniciar. Este navegador o iPadOS puede no admitir la captura seleccionada.'));
+                    : (canceled ? 'Captura cancelada. Vuelve a iniciar y elige «Pantalla completa» para incluir otras apps.' : 'No se pudo iniciar. Este navegador o iPadOS puede no admitir la captura seleccionada.'));
                 updateYouTubeMonitorCaptureUI();
                 showToast(retryWithoutAudio ? 'Safari rechazó el audio; puedes reintentar con video solamente.' : (canceled ? 'Captura cancelada o denegada.' : 'No se pudo iniciar la captura de pantalla.'), 'error');
                 return false;

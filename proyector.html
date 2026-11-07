@@ -144,6 +144,10 @@
                                     }
                                     function reportCapturePlaybackState(video, state, errorMessage = '') {
                                         if (!channel || !video) return;
+                                        const captureTrack = video.srcObject && typeof video.srcObject.getVideoTracks === 'function'
+                                            ? video.srcObject.getVideoTracks()[0]
+                                            : null;
+                                        const captureSettings = captureTrack && typeof captureTrack.getSettings === 'function' ? captureTrack.getSettings() : {};
                                         try {
                                             channel.postMessage({
                                                 type: '__screen_capture_playback_status',
@@ -152,6 +156,7 @@
                                                 state,
                                                 width: Number(video.videoWidth) || 0,
                                                 height: Number(video.videoHeight) || 0,
+                                                frameRate: Number(captureSettings.frameRate) || 0,
                                                 readyState: Number(video.readyState) || 0,
                                                 paused: !!video.paused,
                                                 error: String(errorMessage || '').slice(0, 180),
@@ -1333,7 +1338,7 @@
                                                 if (projectorScreenFallbackStatusSessionId !== message.sessionId) {
                                                     projectorScreenFallbackStatusSessionId = message.sessionId;
                                                     try {
-                                                        if (channel) channel.postMessage({ type: '__screen_capture_playback_status', projectorId: projectorInstanceId, sessionId: message.sessionId, state: 'fallback-playing', width: image.naturalWidth, height: image.naturalHeight, timestamp: Date.now() });
+                                                        if (channel) channel.postMessage({ type: '__screen_capture_playback_status', projectorId: projectorInstanceId, sessionId: message.sessionId, state: 'fallback-playing', width: image.naturalWidth, height: image.naturalHeight, frameRate: Number(message.frameRate) || 0, timestamp: Date.now() });
                                                     } catch (_) {}
                                                 }
                                             }

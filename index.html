@@ -570,7 +570,7 @@
                                         <i class="fa-solid fa-desktop"></i> Captura de Pantalla
                                     </span>
                                 </div>
-                                <p class="text-xs text-gray-300 leading-relaxed">Comparte una pantalla o ventana desde el selector del navegador. La captura se envía directamente a la proyección; no utiliza la vista previa del panel.</p>
+                                <p class="text-xs text-gray-300 leading-relaxed">El selector del sistema ofrece las fuentes que iPadOS permite compartir. En iPad, Safari pausa la captura al pasar a otra app; vuelve a Safari para reanudarla. Esta versión web no puede proyectar otra app nativa en segundo plano. Para seleccionar y transmitir otras apps se necesita una versión nativa para iPadOS.</p>
                                 <div class="flex gap-2 pt-1">
                                     <button id="btn-start-screen-capture" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30">
                                         <i class="fa-solid fa-display"></i>
@@ -1370,6 +1370,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (!context) return;
             const tick = () => {
                 if (screenFrameFallbackSessionId !== sessionId || window.screenStream !== stream || !screenCaptureSending) return;
+                // ReplayKit/WebKit silencia la pista cuando Safari pasa a segundo plano.
+                // No sigas codificando y enviando el último cuadro congelado; el proyector
+                // conserva su último cuadro y este ciclo se reanuda cuando la pista vuelva.
+                if (sourceTrack && (sourceTrack.muted || sourceTrack.readyState !== 'live')) {
+                    screenFrameFallbackTimerId = setTimeout(tick, 250);
+                    return;
+                }
                 if (mediaMode !== 'screen') {
                     screenFrameFallbackTimerId = setTimeout(tick, 250);
                     return;
@@ -3975,7 +3982,26 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 if (purpose !== 'youtube-monitor') mediaMode = 'screen';
                 document.getElementById('btn-start-screen-capture').classList.add('hidden');
                 document.getElementById('btn-stop-screen-capture').classList.remove('hidden');
-                track.onended = stopScreenCapture;
+                const capturedStream = window.screenStream;
+                track.addEventListener('ended', () => {
+                    if (window.screenStream === capturedStream) stopScreenCapture();
+                }, { once: true });
+                track.addEventListener('mute', () => {
+                    if (window.screenStream !== capturedStream) return;
+                    setScreenCaptureStatus(isAppleTouchDevice()
+                        ? 'iPadOS pausó los fotogramas al salir de Safari. Vuelve a Safari para reanudar la proyección; una página web no puede mantener la captura activa en segundo plano.'
+                        : 'La fuente dejó de entregar fotogramas temporalmente. El proyector conserva el último cuadro y continuará cuando la fuente se reanude.');
+                    updateYouTubeMonitorCaptureUI();
+                });
+                track.addEventListener('unmute', () => {
+                    if (window.screenStream !== capturedStream) return;
+                    if (screenFrameFallbackSourceVideo && screenFrameFallbackSourceVideo.paused) {
+                        const playResult = screenFrameFallbackSourceVideo.play();
+                        if (playResult && typeof playResult.catch === 'function') playResult.catch(() => {});
+                    }
+                    setScreenCaptureStatus('La fuente reanudó los fotogramas. La proyección continúa.');
+                    updateYouTubeMonitorCaptureUI();
+                });
                 const hasAudio = window.screenStream.getAudioTracks().length > 0;
                 if (purpose === 'youtube-monitor' && requestAudio && !hasAudio) youtubeCaptureVideoOnlyFallback = true;
                 const surface = track && typeof track.getSettings === 'function' ? track.getSettings().displaySurface : '';
@@ -4000,7 +4026,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 const canceled = err && err.name === 'NotAllowedError';
                 const retryWithoutAudio = purpose === 'youtube-monitor' && requestAudio && !canceled;
                 if (retryWithoutAudio) youtubeCaptureVideoOnlyFallback = true;
-                if (window.screenStream) { window.screenStream.getTracks().forEach(track => track.stop()); window.screenStream = null; }
+                if (window.screenStream) {
+                    const failedStream = window.screenStream;
+                    window.screenStream = null;
+                    failedStream.getTracks().forEach(track => track.stop());
+                }
                 screenCapturePending = false;
                 screenCapturePurpose = 'screen';
                 screenCapturePreviousMode = 'none';
@@ -4019,10 +4049,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (!window.screenStream && !screenCapturePending) return;
             stopScreenFrameFallback();
             closeScreenTransferPeer();
-            if (window.screenStream) {
-                window.screenStream.getTracks().forEach(track => track.stop());
-                window.screenStream = null;
-            }
+            const stoppedStream = window.screenStream;
+            window.screenStream = null;
+            if (stoppedStream) stoppedStream.getTracks().forEach(track => track.stop());
             screenCapturePending = false;
             mediaMode = screenCapturePreviousMode || 'none';
             screenCapturePreviousMode = 'none';

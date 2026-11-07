@@ -357,12 +357,12 @@
                     <!-- Libros cargados por JS -->
                 </div>
 
-                <div class="p-3 bg-gray-950 border-t border-gray-800 flex flex-col h-48 lg:h-56 shrink-0">
+                <div class="p-3 bg-gray-950 border-t border-gray-800 flex flex-col h-56 lg:h-64 xl:h-72 shrink-0">
                     <span class="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 flex items-center justify-between">
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-list-numeric text-blue-400"></i> Capítulos</span>
                         <span id="selected-book-label" class="text-blue-400 text-xs font-bold">Salmos</span>
                     </span>
-                    <div class="flex-1 min-h-0 overflow-y-auto grid grid-cols-5 gap-1.5 content-start pr-1" id="chapters-container">
+                    <div class="flex-1 min-h-0 overflow-y-auto grid grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-2 content-start pr-1" id="chapters-container">
                         <!-- Capítulos cargados por JS -->
                     </div>
                 </div>
@@ -472,9 +472,18 @@
                         <div id="tab-culto" class="space-y-3 h-full flex flex-col min-h-0">
                             <div class="flex items-center justify-between text-xs text-gray-400 shrink-0">
                                 <span>Pasajes agregados:</span>
-                                <button id="btn-clear-culto-list" class="text-gray-500 hover:text-red-400 transition font-semibold text-[11px]" title="Limpiar lista entera">
-                                    <i class="fa-solid fa-trash-can mr-1"></i> Limpiar
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button id="btn-expand-culto-list" type="button" aria-controls="culto-list-items" aria-expanded="false" class="text-blue-300 hover:text-white transition font-semibold text-[11px] rounded-lg border border-blue-400/20 bg-blue-500/5 px-2 py-1.5" title="Ampliar lista de pasajes">
+                                        <i class="fa-solid fa-expand mr-1"></i> Ampliar
+                                    </button>
+                                    <button id="btn-clear-culto-list" class="text-gray-500 hover:text-red-400 transition font-semibold text-[11px]" title="Limpiar lista entera">
+                                        <i class="fa-solid fa-trash-can mr-1"></i> Limpiar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="culto-list-search-wrap" class="hidden shrink-0">
+                                <input id="culto-list-search" type="search" aria-label="Buscar en los pasajes agregados" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500" placeholder="Buscar por libro, capítulo o texto…">
                             </div>
 
                             <div class="space-y-1.5 shrink-0 bg-gray-900 p-2.5 rounded-xl border border-gray-800">
@@ -3201,7 +3210,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             chapters.forEach(chap => {
                 const btn = document.createElement('button');
                 const isSelected = chap === selectedChapter;
-                btn.className = `aspect-square rounded-xl text-xs font-extrabold transition flex items-center justify-center border ${
+                btn.type = 'button';
+                btn.setAttribute('aria-label', `${selectedBook}, capítulo ${chap}`);
+                btn.setAttribute('aria-pressed', String(isSelected));
+                btn.title = `Capítulo ${chap}`;
+                btn.className = `aspect-square min-h-9 rounded-xl text-[11px] font-extrabold transition flex items-center justify-center border ${
                     isSelected ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-950/40' : 'bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white'
                 }`;
                 btn.innerText = chap;
@@ -3214,6 +3227,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 };
                 container.appendChild(btn);
             });
+            container.querySelector('button[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         }
 
         function renderVerses() {
@@ -3323,19 +3337,28 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
         function renderCultoList() {
             const container = document.getElementById('culto-list-items');
+            const search = String(document.getElementById('culto-list-search')?.value || '').trim().toLocaleLowerCase();
             container.innerHTML = '';
             if (cultoList.length === 0) {
                 container.innerHTML = `<p class="text-center text-gray-500 text-xs py-8">La lista del culto está vacía.</p>`;
                 return;
             }
 
-            cultoList.forEach((item, index) => {
+            const matches = cultoList.map((item, index) => ({ item, index })).filter(({ item }) =>
+                !search || `${item.citation || ''} ${item.text || ''}`.toLocaleLowerCase().includes(search)
+            );
+            if (matches.length === 0) {
+                container.innerHTML = `<p class="culto-list-empty text-center text-gray-500 text-sm py-8">No hay pasajes que coincidan con la búsqueda.</p>`;
+                return;
+            }
+
+            matches.forEach(({ item, index }) => {
                 const card = document.createElement('div');
-                card.className = "bg-gray-900 border border-gray-800 p-2.5 rounded-xl flex items-center justify-between gap-2 group hover:border-blue-500/50 transition";
+                card.className = "culto-list-card bg-gray-900 border border-gray-800 p-2.5 rounded-xl flex items-center justify-between gap-2 group hover:border-blue-500/50 transition";
                 card.innerHTML = `
                     <div class="flex-1 min-w-0 cursor-pointer">
-                        <span class="text-[10px] font-bold text-blue-400 block truncate">${item.citation}</span>
-                        <p class="text-xs text-gray-300 truncate">${item.text}</p>
+                        <span class="culto-list-citation text-[10px] font-bold text-blue-400 block truncate">${item.citation}</span>
+                        <p class="culto-list-text text-xs text-gray-300 truncate">${item.text}</p>
                     </div>
                     <div class="flex items-center gap-1">
                         <button class="btn-play text-emerald-400 hover:text-emerald-300 p-1.5 rounded-lg bg-emerald-950/40 border border-emerald-900/50 text-xs font-bold" title="Proyectar ahora">
@@ -3355,6 +3378,21 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 };
                 container.appendChild(card);
             });
+        }
+
+        function setCultoListExpanded(expanded) {
+            const workspace = document.getElementById('workspace-control');
+            const button = document.getElementById('btn-expand-culto-list');
+            const search = document.getElementById('culto-list-search');
+            if (!workspace || !button) return;
+            workspace.classList.toggle('culto-list-expanded', expanded);
+            button.setAttribute('aria-expanded', String(expanded));
+            button.title = expanded ? 'Cerrar lista ampliada' : 'Ampliar lista de pasajes';
+            button.innerHTML = expanded
+                ? '<i class="fa-solid fa-xmark mr-1"></i> Cerrar'
+                : '<i class="fa-solid fa-expand mr-1"></i> Ampliar';
+            if (!expanded && search) search.value = '';
+            renderCultoList();
         }
 
         function syncToProjector() {
@@ -3454,13 +3492,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         document.addEventListener('visibilitychange', resumeOperatorBackgroundVideos);
         window.addEventListener('pageshow', resumeOperatorBackgroundVideos);
 
-        function animateProjectionContent(element, contentKey, animation, reducedMotion, durationMs = 350) {
+        function animateProjectionContent(element, contentKey, animation, reducedMotion, durationMs = 350, animationTarget = null) {
             if (!element) return;
             const key = String(contentKey || '');
             const previousKey = element.dataset.projectionContentKey;
             element.dataset.projectionContentKey = key;
             if (previousKey === undefined || previousKey === key) return;
-            const target = element.parentElement || element;
+            const target = animationTarget || element.parentElement || element;
             const classes = ['projection-enter-fade','projection-enter-slide-up','projection-enter-slide-left','projection-enter-slide-down','projection-enter-slide-right','projection-enter-zoom','projection-enter-blur','projection-enter-reveal'];
             target.classList.remove(...classes);
             if (!animation || animation === 'none' || reducedMotion || !classes.includes(`projection-enter-${animation}`)) return;
@@ -3468,6 +3506,37 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             target.style.setProperty('animation-duration', duration + 'ms', 'important');
             void target.offsetWidth;
             target.classList.add(`projection-enter-${animation}`);
+        }
+
+        function applyKaraokeBackgroundStyle(element, style = {}) {
+            if (!element) return;
+            const transparent = style.transparent === true;
+            const mode = String(style.bgType || 'color');
+            const image = String(style.bgImage || '');
+            const gradient = String(style.bgGradient || 'linear-gradient(135deg,#020617,#1e1b4b)');
+            const color = String(style.bgColor || '#000000');
+            const opacityValue = style.bgOpacity === undefined ? 100 : Number(style.bgOpacity);
+            const opacity = Math.max(0, Math.min(100, Number.isFinite(opacityValue) ? opacityValue : 100)) / 100;
+            const previous = element._projectionKaraokeBackgroundStyle;
+            if (!previous || previous.opacity !== opacity) element.style.opacity = String(opacity);
+            if (!previous || previous.transparent !== transparent || previous.mode !== mode || previous.image !== image || previous.gradient !== gradient || previous.color !== color) {
+                if (transparent) {
+                    element.style.background = 'transparent';
+                    element.style.backgroundImage = 'none';
+                } else if (mode === 'image' && image) {
+                    element.style.background = 'none';
+                    element.style.backgroundImage = `url("${image.replace(/"/g, '%22')}")`;
+                    element.style.backgroundSize = 'cover';
+                    element.style.backgroundPosition = 'center';
+                } else if (mode === 'gradient') {
+                    element.style.background = gradient;
+                    element.style.backgroundImage = 'none';
+                } else {
+                    element.style.background = color;
+                    element.style.backgroundImage = 'none';
+                }
+            }
+            element._projectionKaraokeBackgroundStyle = { transparent, mode, image, gradient, color, opacity };
         }
 
         function updateProjectorDOM(docObj, data, isLocalFs = false) {
@@ -3708,7 +3777,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     karaokeTextEl.textContent = String(karaoke.stanza || '');
                     const respectReducedMotion = data.styles?.respectReducedMotion === true;
                     const reducedMotion = respectReducedMotion && !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-                    animateProjectionContent(karaokeTextEl, karaoke.stanza || '', data.styles.textAnimation || 'fade', reducedMotion, data.styles.textAnimationDurationMs);
+                    animateProjectionContent(karaokeTextEl, karaoke.stanza || '', data.styles.textAnimation || 'fade', reducedMotion, data.styles.textAnimationDurationMs, karaokeTextEl);
                     karaokeTextEl.style.fontFamily = `"${karaokeStyle.font || 'Inter'}", sans-serif`;
                     karaokeTextEl.style.fontSize = docObj === document && !isLocalFs
                         ? Math.max(9, (docObj.getElementById('projector-preview-container')?.clientWidth || 480) * (Number(karaokeStyle.size) || 4.5) / 100) + 'px'
@@ -3718,25 +3787,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     karaokeTextEl.style.fontWeight = '700';
                     karaokeTextEl.style.textShadow = karaokeStyle.shadow === false ? 'none' : '0 2px 12px rgba(0,0,0,.95), 0 4px 24px rgba(0,0,0,.75)';
                     karaokeTextEl.style.whiteSpace = 'pre-line';
-                    if (karaokeBgEl) {
-                        const opacity = karaokeStyle.bgOpacity === undefined ? 100 : Number(karaokeStyle.bgOpacity);
-                        karaokeBgEl.style.opacity = String(Math.max(0, Math.min(100, Number.isFinite(opacity) ? opacity : 100)) / 100);
-                        if (karaokeStyle.transparent) {
-                            karaokeBgEl.style.background = 'transparent';
-                            karaokeBgEl.style.backgroundImage = 'none';
-                        } else if (karaokeStyle.bgType === 'image' && karaokeStyle.bgImage) {
-                            karaokeBgEl.style.background = 'none';
-                            karaokeBgEl.style.backgroundImage = `url("${String(karaokeStyle.bgImage).replace(/"/g, '%22')}")`;
-                            karaokeBgEl.style.backgroundSize = 'cover';
-                            karaokeBgEl.style.backgroundPosition = 'center';
-                        } else if (karaokeStyle.bgType === 'gradient') {
-                            karaokeBgEl.style.background = karaokeStyle.bgGradient || 'linear-gradient(135deg,#020617,#1e1b4b)';
-                            karaokeBgEl.style.backgroundImage = 'none';
-                        } else {
-                            karaokeBgEl.style.background = karaokeStyle.bgColor || '#000000';
-                            karaokeBgEl.style.backgroundImage = 'none';
-                        }
-                    }
+                    if (karaokeBgEl) applyKaraokeBackgroundStyle(karaokeBgEl, karaokeStyle);
                 } else {
                     karaokeBoxEl.classList.add('hidden');
                 }
@@ -4384,6 +4435,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             });
 
             // Lista de Culto
+            document.getElementById('btn-expand-culto-list').onclick = () => {
+                const expanded = document.getElementById('workspace-control').classList.contains('culto-list-expanded');
+                setCultoListExpanded(!expanded);
+            };
+            document.getElementById('culto-list-search').addEventListener('input', renderCultoList);
             document.getElementById('btn-add-custom-culto').onclick = () => {
                 const input = document.getElementById('custom-culto-text');
                 const val = input.value.trim();
@@ -5035,6 +5091,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
 
             // Atajos compatibles con el Magic Keyboard: las flechas no interfieren con campos de edición.
             window.onkeydown = (e) => {
+                if (e.key === 'Escape' && document.getElementById('workspace-control')?.classList.contains('culto-list-expanded')) {
+                    e.preventDefault();
+                    setCultoListExpanded(false);
+                    return;
+                }
                 if (e.metaKey || e.ctrlKey || e.altKey) return;
                 if (e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
                 const key = e.key.toLowerCase();

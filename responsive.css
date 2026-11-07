@@ -17,6 +17,50 @@ body.operator-page {
     overscroll-behavior: none;
 }
 
+#workspace-control.culto-list-expanded {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 90 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    gap: 0 !important;
+    overflow: hidden !important;
+    background: #0b1120 !important;
+}
+
+#workspace-control.culto-list-expanded #projector-preview-card { display: none !important; }
+#culto-list-search-wrap { display: none; }
+#workspace-control.culto-list-expanded .control-panel { width: 100% !important; min-width: 0 !important; min-height: 0 !important; flex: 1 1 auto !important; border-radius: 16px; }
+#workspace-control.culto-list-expanded .control-panel > div:last-child { display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+#workspace-control.culto-list-expanded #tab-culto { display: flex !important; flex: 1 1 auto; height: auto !important; min-height: 0; }
+#workspace-control.culto-list-expanded #culto-list-search-wrap { display: block !important; }
+#workspace-control.culto-list-expanded #culto-list-items {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 10px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+#workspace-control.culto-list-expanded #culto-list-items > :not([hidden]) ~ :not([hidden]) { margin-top: 0 !important; }
+#workspace-control.culto-list-expanded .culto-list-card { align-items: flex-start; min-height: 88px; padding: 12px; }
+#workspace-control.culto-list-expanded .culto-list-citation { white-space: normal; overflow: visible; text-overflow: clip; font-size: 12px; }
+#workspace-control.culto-list-expanded .culto-list-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; white-space: normal; overflow: hidden; text-overflow: clip; font-size: 14px; line-height: 1.45; }
+
+@media (min-width: 760px) {
+    #workspace-control.culto-list-expanded #culto-list-items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1280px) {
+    #workspace-control.culto-list-expanded #culto-list-items { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 #operator-interface,
 #operator-interface main,
 #workspace-control {

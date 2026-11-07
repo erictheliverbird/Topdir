@@ -110,13 +110,13 @@
                                         const visible = styles.bgType === 'video' && !!projectedBackgroundAssetId && data.mediaMode === 'none' && !data.isBlackout;
                                         projectedBackgroundLoop.set(projectedBackgroundAssetId, visible);
                                     }
-                                    function animateProjectedText(element, contentKey, animation, reducedMotion, durationMs = 350) {
+                                    function animateProjectedText(element, contentKey, animation, reducedMotion, durationMs = 350, animationTarget = null) {
                                         if (!element) return;
                                         const key = String(contentKey || '');
                                         const previous = element.dataset.projectionContentKey;
                                         element.dataset.projectionContentKey = key;
                                         if (previous === undefined || previous === key) return;
-                                        const target = element.parentElement || element;
+                                        const target = animationTarget || element.parentElement || element;
                                         const classes = ['projection-enter-fade','projection-enter-slide-up','projection-enter-slide-left','projection-enter-slide-down','projection-enter-slide-right','projection-enter-zoom','projection-enter-blur','projection-enter-reveal'];
                                         target.classList.remove(...classes);
                                         const animationClass = 'projection-enter-' + animation;
@@ -124,6 +124,25 @@
                                         target.style.setProperty('animation-duration', Math.min(5000, Math.max(100, Number(durationMs) || 350)) + 'ms', 'important');
                                         void target.offsetWidth;
                                         target.classList.add(animationClass);
+                                    }
+                                    function applyProjectedKaraokeBackground(element, style = {}) {
+                                        if (!element) return;
+                                        const transparent = style.transparent === true;
+                                        const mode = String(style.bgType || 'color');
+                                        const image = String(style.bgImage || '');
+                                        const gradient = String(style.bgGradient || 'linear-gradient(135deg,#020617,#1e1b4b)');
+                                        const color = String(style.bgColor || '#000000');
+                                        const opacityValue = style.bgOpacity === undefined ? 100 : Number(style.bgOpacity);
+                                        const opacity = Math.max(0, Math.min(100, Number.isFinite(opacityValue) ? opacityValue : 100)) / 100;
+                                        const previous = element._projectionKaraokeBackgroundStyle;
+                                        if (!previous || previous.opacity !== opacity) element.style.opacity = String(opacity);
+                                        if (!previous || previous.transparent !== transparent || previous.mode !== mode || previous.image !== image || previous.gradient !== gradient || previous.color !== color) {
+                                            if (transparent) { element.style.background='transparent'; element.style.backgroundImage='none'; }
+                                            else if (mode==='image' && image) { element.style.background='none'; element.style.backgroundImage='url("'+image.replace(/"/g,'%22')+'")'; element.style.backgroundSize='cover'; element.style.backgroundPosition='center'; }
+                                            else if (mode==='gradient') { element.style.background=gradient; element.style.backgroundImage='none'; }
+                                            else { element.style.background=color; element.style.backgroundImage='none'; }
+                                        }
+                                        element._projectionKaraokeBackgroundStyle = { transparent, mode, image, gradient, color, opacity };
                                     }
                                     let lastAcceptedProjection = null;
                                     let mediaTransitionSequence = 0;
@@ -752,20 +771,14 @@
                                         // El fondo del video se oculta por separado, sin ocultar la capa de karaoke.
                                         if (karaokeLoaded && !data.isClearText && !data.isStandby && data.mediaMode !== 'screen') {
                                             karaokeBox.classList.remove('hidden'); karaokeText.textContent=karaoke.stanza || '';
-                                            animateProjectedText(karaokeText, karaoke.stanza || '', styles.textAnimation || 'fade', reducedMotion, styles.textAnimationDurationMs);
+                                            animateProjectedText(karaokeText, karaoke.stanza || '', styles.textAnimation || 'fade', reducedMotion, styles.textAnimationDurationMs, karaokeText);
                                             karaokeText.style.fontFamily='\"'+(karaokeStyle.font||'Inter')+'\", sans-serif';
                                             if (!youtubeLyricsLayout) karaokeText.style.fontSize=(Number(karaokeStyle.size)||4.5)+'vw';
                                             karaokeText.style.color=karaokeStyle.color||'#fff'; karaokeText.style.textAlign=karaokeStyle.align||'center';
                                             karaokeText.style.fontWeight='700';
                                             karaokeText.style.textShadow=karaokeStyle.shadow===false?'none':'0 2px 12px rgba(0,0,0,.95), 0 4px 24px rgba(0,0,0,.75)';
                                             karaokeText.style.whiteSpace='pre-line';
-                                            if (karaokeBg) {
-                                                karaokeBg.style.opacity=String(Math.max(0,Math.min(100,Number(karaokeStyle.bgOpacity===undefined?100:karaokeStyle.bgOpacity))/100));
-                                                if (karaokeStyle.transparent) { karaokeBg.style.background='transparent'; karaokeBg.style.backgroundImage='none'; }
-                                                else if (karaokeStyle.bgType==='image' && karaokeStyle.bgImage) { karaokeBg.style.background='none'; karaokeBg.style.backgroundImage='url(\"'+String(karaokeStyle.bgImage).replace(/\"/g,'%22')+'\")'; karaokeBg.style.backgroundSize='cover'; karaokeBg.style.backgroundPosition='center'; }
-                                                else if (karaokeStyle.bgType==='gradient') { karaokeBg.style.background=karaokeStyle.bgGradient||'linear-gradient(135deg,#020617,#1e1b4b)'; }
-                                                else { karaokeBg.style.background=karaokeStyle.bgColor||'#000000'; karaokeBg.style.backgroundImage='none'; }
-                                            }
+                                            if (karaokeBg) applyProjectedKaraokeBackground(karaokeBg, karaokeStyle);
                                         } else { karaokeBox.classList.add('hidden'); }
                                         if (!text || !backdrop) return;
 

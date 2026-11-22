@@ -10,7 +10,6 @@
                             <title>Proyección en Vivo - Pantalla Externa</title>
                             <script src="https://cdn.tailwindcss.com"></script>
                             <script src="background-loop.js"></script>
-                            <script src="water-ripple.js"></script>
                             <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Cinzel:wght@500;700;900&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Montserrat:wght@400;600;800&family=Open+Sans:wght@300;400;600;700&family=Oswald:wght@400;700&family=Playfair+Display:ital,wght@0,600;0,800;1,400&family=Poppins:wght@300;400;600;700&family=Quicksand:wght@400;600;700&family=Raleway:wght@300;400;600;700&family=Roboto+Slab:wght@400;700&family=Ubuntu:wght@400;700&family=Fira+Sans:wght@400;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@400;600;700&family=Spectral:ital,wght@0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=Cardo:wght@400;700&family=Josefin+Sans:wght@400;600;700&family=Nunito+Sans:wght@400;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Archivo+Black&display=swap" rel="stylesheet">
                             <style>
                                 :root { color-scheme: dark; }
@@ -825,9 +824,8 @@
                                         const previous = lastAcceptedProjection;
                                         const shouldTransition = !!previous && !force && isMediaTransitionBoundary(previous, data);
                                         applyProjectionContent(data, force);
-                                        if (window.ProjectionWaterRipple) window.ProjectionWaterRipple.sync(document.body, data, !force);
                                         lastAcceptedProjection = data;
-                                        if (shouldTransition && data.styles.mediaTransition !== 'water-ripple') startMediaTransition(data);
+                                        if (shouldTransition) startMediaTransition(data);
                                     }
 
                                     function applyProjectionContent(data, force = false) {

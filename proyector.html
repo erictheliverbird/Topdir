@@ -37,7 +37,20 @@
                             <div id="proj-karaoke" class="absolute inset-0 z-40 hidden flex items-center justify-center px-[8%] py-[6%] pointer-events-none"><div id="proj-karaoke-bg" class="absolute inset-0 z-0 pointer-events-none"></div><div id="proj-karaoke-stanza" class="relative z-10 w-full whitespace-pre-line leading-relaxed text-center"></div></div>
                             <div id="proj-transition-curtain" class="projection-transition-curtain" aria-hidden="true"></div>
                             <video id="proj-transition-video" class="projection-transition-video" muted playsinline preload="auto" aria-hidden="true"></video>
-                            <div id="proj-transition-logo" class="projection-logo-transition" aria-hidden="true"><img id="proj-transition-logo-image" alt="Logo de la iglesia" /></div>
+                            <div id="proj-transition-logo" class="projection-logo-transition" aria-hidden="true">
+                                <div class="projection-cinematic-aura"></div>
+                                <div class="projection-cinematic-ring"></div>
+                                <div class="projection-cinematic-streak"></div>
+                                <div class="projection-water-scene">
+                                    <div class="projection-water-sheen"></div>
+                                    <div class="projection-water-drop"></div>
+                                    <div class="projection-water-impact"></div>
+                                    <div class="projection-water-ripple projection-water-ripple-one"></div>
+                                    <div class="projection-water-ripple projection-water-ripple-two"></div>
+                                    <div class="projection-water-ripple projection-water-ripple-three"></div>
+                                </div>
+                                <img id="proj-transition-logo-image" alt="Logo de la iglesia" />
+                            </div>
                             <div class="z-30 text-center w-full my-auto px-12">
                                 <p id="proj-text" class="text-white leading-relaxed"></p>
                             </div>
@@ -53,6 +66,7 @@
                                     const projectorInstanceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
                                     const projectorControllerId = new URLSearchParams(window.location.search).get('controller') || '';
                                     let channel = null;
+                                    let projectorKeyboardChannel = null;
                                     const PROJECTOR_DB_NAME = 'proyector-biblico-local';
                                     const PROJECTION_MEDIA_RECORD_PREFIX = 'projection-media:';
                                     let projectorMediaDbPromise = null;
@@ -269,6 +283,68 @@
                                         if (pending.targetMode === 'youtube') return ytPlayerReady && ytPlayerState !== -1;
                                         return false;
                                     }
+                                    async function sampleProjectionLogoAccent(logoUrl) {
+                                        const fallback = '244, 207, 92';
+                                        if (!logoUrl) return fallback;
+                                        try {
+                                            const image = new Image();
+                                            image.decoding = 'async';
+                                            const loaded = new Promise((resolve, reject) => {
+                                                image.onload = resolve;
+                                                image.onerror = reject;
+                                            });
+                                            image.src = logoUrl;
+                                            if (!image.complete) await loaded;
+                                            if (!image.naturalWidth || !image.naturalHeight) return fallback;
+                                            const canvas = document.createElement('canvas');
+                                            canvas.width = 36;
+                                            canvas.height = 36;
+                                            const context = canvas.getContext('2d', { willReadFrequently: true }) || canvas.getContext('2d');
+                                            if (!context) return fallback;
+                                            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                                            const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                                            const hueBins = Array.from({ length: 24 }, () => ({ weight: 0, r: 0, g: 0, b: 0 }));
+                                            let neutral = { weight: 0, r: 0, g: 0, b: 0 };
+                                            for (let i = 0; i < pixels.length; i += 4) {
+                                                const alpha = pixels[i + 3] / 255;
+                                                if (alpha < 0.18) continue;
+                                                const r = pixels[i] / 255;
+                                                const g = pixels[i + 1] / 255;
+                                                const b = pixels[i + 2] / 255;
+                                                const max = Math.max(r, g, b);
+                                                const min = Math.min(r, g, b);
+                                                const saturation = max > 0 ? (max - min) / max : 0;
+                                                if (max < 0.16) continue;
+                                                if (saturation < 0.18) {
+                                                    if (max < 0.42) continue;
+                                                    const weight = alpha * max;
+                                                    neutral.weight += weight;
+                                                    neutral.r += r * weight;
+                                                    neutral.g += g * weight;
+                                                    neutral.b += b * weight;
+                                                    continue;
+                                                }
+                                                const delta = max - min;
+                                                let hue = 0;
+                                                if (max === r) hue = ((g - b) / delta) % 6;
+                                                else if (max === g) hue = (b - r) / delta + 2;
+                                                else hue = (r - g) / delta + 4;
+                                                hue = (hue * 60 + 360) % 360;
+                                                const bin = hueBins[Math.floor(hue / 15) % hueBins.length];
+                                                const weight = alpha * (0.25 + saturation) * (0.35 + max);
+                                                bin.weight += weight;
+                                                bin.r += r * weight;
+                                                bin.g += g * weight;
+                                                bin.b += b * weight;
+                                            }
+                                            const dominant = hueBins.reduce((best, bin) => bin.weight > best.weight ? bin : best, hueBins[0]);
+                                            const chosen = dominant.weight > 0 ? dominant : neutral;
+                                            if (!chosen.weight) return fallback;
+                                            return [chosen.r, chosen.g, chosen.b].map(value => Math.round(value / chosen.weight * 255)).join(', ');
+                                        } catch (_) {
+                                            return fallback;
+                                        }
+                                    }
                                     function finishMediaTransition(token, force = false) {
                                         const pending = activeMediaTransition;
                                         if (!pending || pending.token !== token || (!force && (!pending.visualComplete || !mediaTransitionTargetReady(pending)))) return;
@@ -285,7 +361,7 @@
                                     function maybeFinishMediaTransition() {
                                         if (activeMediaTransition) finishMediaTransition(activeMediaTransition.token);
                                     }
-                                    function runBuiltInMediaTransition(pending, effect, logoUrl = '', durationMs = 700) {
+                                    function runBuiltInMediaTransition(pending, effect, logoUrl = '', durationMs = 700, logoAccent = '244, 207, 92') {
                                         const curtain = document.getElementById('proj-transition-curtain');
                                         const clip = document.getElementById('proj-transition-video');
                                         const logoLayer = document.getElementById('proj-transition-logo');
@@ -294,12 +370,21 @@
                                         if (clip) { clip.onended = null; clip.onerror = null; clip.onloadedmetadata = null; clip.pause(); clip.classList.remove('is-active'); }
                                         if (logoLayer) { logoLayer.onanimationend = null; logoLayer.className = 'projection-logo-transition'; }
                                         const safeDuration = Math.min(6000, Math.max(300, Number(durationMs) || 700));
-                                        if (effect === 'logo' && logoUrl && logoLayer && logoImage) {
+                                        if ((effect === 'logo' || effect === 'cinematic-logo' || effect === 'water-logo') && logoUrl && logoLayer && logoImage) {
+                                            const cinematic = effect === 'cinematic-logo';
+                                            const water = effect === 'water-logo';
                                             curtain.className = 'projection-transition-curtain';
                                             logoImage.src = logoUrl;
+                                            if (cinematic || water) logoLayer.style.setProperty('--projection-transition-accent-rgb', logoAccent);
+                                            if (cinematic || water) logoLayer.style.setProperty('--projection-transition-duration', safeDuration + 'ms');
+                                            if (water) {
+                                                logoLayer.style.setProperty('--projection-water-ripple-one-delay', Math.round(safeDuration * .05) + 'ms');
+                                                logoLayer.style.setProperty('--projection-water-ripple-two-delay', Math.round(safeDuration * .09) + 'ms');
+                                                logoLayer.style.setProperty('--projection-water-ripple-three-delay', Math.round(safeDuration * .13) + 'ms');
+                                            }
                                             logoLayer.style.setProperty('animation-duration', safeDuration + 'ms', 'important');
                                             logoImage.style.setProperty('animation-duration', safeDuration + 'ms', 'important');
-                                            logoLayer.className = 'projection-logo-transition is-active';
+                                            logoLayer.className = 'projection-logo-transition' + (cinematic ? ' is-cinematic' : '') + (water ? ' is-water' : '') + ' is-active';
                                             void logoLayer.offsetWidth;
                                             logoLayer.classList.add('is-playing');
                                             logoLayer.onanimationend = event => {
@@ -319,7 +404,7 @@
                                             }, safeDuration + 120);
                                             return;
                                         }
-                                        if (effect === 'logo') sendProjectionAssetStatus('transition', '', 'No hay logo de iglesia cargado; se usó el fundido a negro.');
+                                        if (effect === 'logo' || effect === 'cinematic-logo' || effect === 'water-logo') sendProjectionAssetStatus('transition', '', 'No hay logo de iglesia cargado; se usó el fundido a negro.');
                                         const safeEffect = ['fade','wipe','zoom'].includes(effect) ? effect : 'fade';
                                         curtain.style.setProperty('animation-duration', safeDuration + 'ms', 'important');
                                         curtain.className = 'projection-transition-curtain is-active is-held';
@@ -355,11 +440,13 @@
                                         const clip = document.getElementById('proj-transition-video');
                                         const logoLayer = document.getElementById('proj-transition-logo');
                                         const assetId = String(data.styles.transitionVideoId || '');
-                                        const logoOnly = effect === 'logo' && !assetId && !!logoUrl;
+                                        const logoOnly = (effect === 'logo' || effect === 'cinematic-logo' || effect === 'water-logo') && !assetId && !!logoUrl;
                                         if (curtain) curtain.className = logoOnly ? 'projection-transition-curtain' : 'projection-transition-curtain is-active is-held';
                                         if (clip) { clip.pause(); clip.classList.remove('is-active'); clip.onended = null; clip.onerror = null; clip.onloadedmetadata = null; }
                                         if (logoLayer) { logoLayer.onanimationend = null; logoLayer.className = 'projection-logo-transition'; }
                                         pending.timeout = setTimeout(() => finishMediaTransition(token, true), 10000);
+                                        const logoAccent = (effect === 'cinematic-logo' || effect === 'water-logo') && logoUrl ? await sampleProjectionLogoAccent(logoUrl) : '244, 207, 92';
+                                        if (activeMediaTransition !== pending) return;
                                         if (assetId && clip) {
                                             try {
                                                 const url = await getProjectorMediaUrl(assetId);
@@ -389,7 +476,7 @@
                                                 };
                                                 clip.onerror = () => {
                                                     sendProjectionAssetStatus('transition', assetId, 'No se pudo reproducir el clip; se usó la transición integrada.');
-                                                    runBuiltInMediaTransition(pending, effect, logoUrl, durationMs);
+                                                    runBuiltInMediaTransition(pending, effect, logoUrl, durationMs, logoAccent);
                                                 };
                                                 clip.classList.add('is-active');
                                                 pending.startedAt = Date.now();
@@ -400,7 +487,7 @@
                                                 sendProjectionAssetStatus('transition', assetId, 'Safari no pudo iniciar el clip; se usó la transición integrada.');
                                             }
                                         }
-                                        runBuiltInMediaTransition(pending, effect, logoUrl, durationMs);
+                                        runBuiltInMediaTransition(pending, effect, logoUrl, durationMs, logoAccent);
                                     }
 
                                     // Pantalla completa: Safari solo permite solicitarla de forma fiable
@@ -627,6 +714,28 @@
                                             });
                                         }
                                     } catch (error) { console.warn('BroadcastChannel no disponible', error); }
+
+                                    try {
+                                        if ('BroadcastChannel' in window) projectorKeyboardChannel = new BroadcastChannel('biblical-projector-keyboard');
+                                    } catch (error) { console.warn('Canal de atajos no disponible', error); }
+                                    document.addEventListener('keydown', event => {
+                                        if (event.metaKey || event.ctrlKey || event.altKey) return;
+                                        const keyTarget = event.target instanceof Element ? event.target : null;
+                                        if (keyTarget && keyTarget.closest('input, textarea, select, [contenteditable="true"]')) return;
+                                        const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+                                        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'l', 'b', 'c', ' '].includes(key)) return;
+                                        if (!projectorKeyboardChannel || !projectorControllerId) return;
+                                        event.preventDefault();
+                                        try {
+                                            projectorKeyboardChannel.postMessage({
+                                                type: '__projector_keyboard_shortcut',
+                                                controllerId: projectorControllerId,
+                                                projectorId: projectorInstanceId,
+                                                key,
+                                                timestamp: Date.now()
+                                            });
+                                        } catch (_) {}
+                                    }, true);
 
                                     function sendProjectorHeartbeat() {
                                         try {

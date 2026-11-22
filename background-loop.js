@@ -62,6 +62,7 @@
         function setLayer(video, isVisible, isActive) {
             video.classList.toggle('projection-background-loop-visible', !!isVisible);
             video.classList.toggle('projection-background-loop-active', !!isVisible && !!isActive);
+            video.style.zIndex = isActive ? '3' : '2';
         }
 
         function reportError(message, error) {
@@ -94,6 +95,7 @@
             state.fadeEndsAt = 0;
             outgoing.pause();
             try { outgoing.currentTime = 0; } catch (_) {}
+            outgoing.classList.remove('projection-background-loop-hold');
             setVisibleLayers();
         }
 
@@ -188,6 +190,9 @@
                 state.fadeEndsAt = Date.now() + durationMs + 80;
                 incoming.style.transitionDuration = durationMs + 'ms';
                 outgoing.style.transitionDuration = durationMs + 'ms';
+                // Mantener opaco el fotograma saliente mientras el entrante se desvanece
+                // por encima: dos capas bajando su opacidad a la vez producen un pulso oscuro.
+                outgoing.classList.add('projection-background-loop-hold');
                 setLayer(incoming, true, true);
                 setLayer(outgoing, true, false);
             }).catch(function () {
@@ -259,6 +264,7 @@
             state.retryAt = 0;
             videos.forEach(function (video) {
                 video.pause();
+                video.classList.remove('projection-background-loop-hold');
                 setLayer(video, state.visible, video === state.active);
                 video.dataset.projectionBackgroundAsset = '';
             });
@@ -379,7 +385,8 @@
                 video.pause();
                 video.removeAttribute('src');
                 video.load();
-                video.classList.remove('projection-background-loop-visible', 'projection-background-loop-active', 'projection-background-loop-layer');
+                video.classList.remove('projection-background-loop-visible', 'projection-background-loop-active', 'projection-background-loop-hold', 'projection-background-loop-layer');
+                video.style.removeProperty('z-index');
             });
             global.removeEventListener('pageshow', resume);
             document.removeEventListener('visibilitychange', resume);

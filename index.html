@@ -67,7 +67,7 @@
         #operator-interface button { -webkit-tap-highlight-color: transparent; }
         #operator-interface button:not(.workspace-nav-item) { transition: background-color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
         #operator-interface button:not(:disabled):active { transform: scale(.985); }
-        .workspace-nav { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; padding: 9px max(12px, env(safe-area-inset-left)) calc(9px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right)); background: rgba(9,14,26,.97); border-top: 1px solid rgba(148,163,184,.18); box-shadow: 0 -10px 28px rgba(0,0,0,.16); }
+        .workspace-nav { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 8px; padding: 9px max(12px, env(safe-area-inset-left)) calc(9px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right)); background: rgba(9,14,26,.97); border-top: 1px solid rgba(148,163,184,.18); box-shadow: 0 -10px 28px rgba(0,0,0,.16); }
         .workspace-nav-item { min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:10px 5px 8px; border:1px solid transparent; border-radius:14px; color:#8b98ad; background:transparent; position:relative; }
         .workspace-nav-item i { font-size:19px; line-height:1; }
         .workspace-nav-item span { font-size:12px; font-weight:750; letter-spacing:.01em; color:#d1d9e6; }
@@ -79,6 +79,7 @@
         body[data-workspace="youtube"] #workspace-bible-books, body[data-workspace="youtube"] #workspace-bible-verses,
         body[data-workspace="design"] #workspace-bible-books, body[data-workspace="design"] #workspace-bible-verses,
         body[data-workspace="capture"] #workspace-bible-books, body[data-workspace="capture"] #workspace-bible-verses { display:none !important; }
+        body[data-workspace="culto"] #workspace-bible-books, body[data-workspace="culto"] #workspace-bible-verses { display:none !important; }
         body[data-workspace="local"] #workspace-control, body[data-workspace="youtube"] #workspace-control, body[data-workspace="design"] #workspace-control, body[data-workspace="capture"] #workspace-control { width:auto !important; flex:1 1 auto !important; min-width:0; }
         body[data-workspace="local"] #workspace-control, body[data-workspace="youtube"] #workspace-control, body[data-workspace="design"] #workspace-control, body[data-workspace="capture"] #workspace-control { display:flex; flex-direction:row; gap:16px; }
         body[data-workspace="local"] #projector-preview-card, body[data-workspace="youtube"] #projector-preview-card, body[data-workspace="design"] #projector-preview-card { width:min(42%, 560px); flex:0 0 min(42%, 560px); align-self:flex-start; }
@@ -96,6 +97,13 @@
         body[data-workspace="capture"] #tab-culto, body[data-workspace="capture"] #youtube-controls-panel, body[data-workspace="capture"] #video-playback-controls, body[data-workspace="capture"] #local-video-file-panel { display:none !important; }
         body[data-workspace="capture"] #tab-video { display:flex !important; flex-direction:column; height:100%; overflow-y:auto; }
         body[data-workspace="capture"] #screen-capture-controls-panel { display:block !important; width:100%; max-width:900px; margin:0 auto; background:linear-gradient(145deg,rgba(23,35,56,.95),rgba(15,23,42,.95)); border:1px solid rgba(96,165,250,.22); }
+        body[data-workspace="culto"] #workspace-control { width:100% !important; flex:1 1 auto !important; min-width:0; display:flex; flex-direction:column; }
+        body[data-workspace="culto"] #projector-preview-card { display:none !important; }
+        body[data-workspace="culto"] #workspace-control > .control-panel { width:100%; flex:1 1 auto; min-width:0; }
+        body[data-workspace="culto"] #workspace-control > .control-panel > div:last-child { display:flex !important; flex-direction:column; min-height:0; }
+        body[data-workspace="culto"] #tab-video, body[data-workspace="culto"] #tab-estilos { display:none !important; }
+        body[data-workspace="culto"] #tab-culto { display:flex !important; flex:1 1 auto; min-height:0; height:100%; }
+        body[data-workspace="culto"] #culto-list-search-wrap { display:block !important; }
         body[data-workspace="karaoke"] #workspace-bible-books, body[data-workspace="karaoke"] #workspace-bible-verses { display:none !important; }
         body[data-workspace="karaoke"] #workspace-control { width:100% !important; flex:1 1 auto !important; min-width:0; display:flex; flex-direction:row; }
         body[data-workspace="karaoke"] #projector-preview-card { display:none !important; }
@@ -157,7 +165,7 @@
         body[data-workspace="design"] #workspace-control .flex-1.min-h-0.bg-gray-900 { min-width:0; }
         body[data-workspace="design"] #tab-estilos { display:block !important; }
         @media (max-width: 900px) {
-          .workspace-nav { grid-template-columns: repeat(6,minmax(0,1fr)); gap:4px; padding-left:6px; padding-right:6px; }
+          .workspace-nav { grid-template-columns: repeat(7,minmax(0,1fr)); gap:4px; padding-left:6px; padding-right:6px; }
           .workspace-nav-item { padding:9px 2px 7px; border-radius:11px; }
           .workspace-nav-item i { font-size:17px; }
           .workspace-nav-item span { font-size:10px; }
@@ -357,12 +365,12 @@
                     <!-- Libros cargados por JS -->
                 </div>
 
-                <div class="p-3 bg-gray-950 border-t border-gray-800 flex flex-col h-56 lg:h-64 xl:h-72 shrink-0">
+            <div class="p-3 bg-gray-950 border-t border-gray-800 flex flex-col h-56 lg:h-64 xl:h-72 shrink-0">
                     <span class="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 flex items-center justify-between">
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-list-numeric text-blue-400"></i> Capítulos</span>
                         <span id="selected-book-label" class="text-blue-400 text-xs font-bold">Salmos</span>
                     </span>
-                    <div class="flex-1 min-h-0 overflow-y-auto grid grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-2 content-start pr-1" id="chapters-container">
+                    <div class="bible-chapter-grid flex-1 min-h-0 overflow-y-auto pr-1" id="chapters-container">
                         <!-- Capítulos cargados por JS -->
                     </div>
                 </div>
@@ -471,11 +479,8 @@
                         <!-- TAB 1: LISTA DE CULTO -->
                         <div id="tab-culto" class="space-y-3 h-full flex flex-col min-h-0">
                             <div class="flex items-center justify-between text-xs text-gray-400 shrink-0">
-                                <span>Pasajes agregados:</span>
+                                <span class="flex items-center gap-2"><span class="font-black uppercase tracking-widest text-gray-200">Orden del culto</span><span id="culto-list-count" class="rounded-full border border-blue-400/20 bg-blue-400/10 px-2 py-1 text-[10px] font-bold text-blue-200">0 elementos</span></span>
                                 <div class="flex items-center gap-2">
-                                    <button id="btn-expand-culto-list" type="button" aria-controls="culto-list-items" aria-expanded="false" class="text-blue-300 hover:text-white transition font-semibold text-[11px] rounded-lg border border-blue-400/20 bg-blue-500/5 px-2 py-1.5" title="Ampliar lista de pasajes">
-                                        <i class="fa-solid fa-expand mr-1"></i> Ampliar
-                                    </button>
                                     <button id="btn-clear-culto-list" class="text-gray-500 hover:text-red-400 transition font-semibold text-[11px]" title="Limpiar lista entera">
                                         <i class="fa-solid fa-trash-can mr-1"></i> Limpiar
                                     </button>
@@ -483,10 +488,10 @@
                             </div>
 
                             <div id="culto-list-search-wrap" class="hidden shrink-0">
-                                <input id="culto-list-search" type="search" aria-label="Buscar en los pasajes agregados" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500" placeholder="Buscar por libro, capítulo o texto…">
+                                <input id="culto-list-search" type="search" aria-label="Buscar en el orden del culto" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500" placeholder="Buscar pasaje, canto, nota o texto…">
                             </div>
 
-                            <div class="space-y-1.5 shrink-0 bg-gray-900 p-2.5 rounded-xl border border-gray-800">
+                            <div class="culto-add-note space-y-1.5 shrink-0 bg-gray-900 p-2.5 rounded-xl border border-gray-800">
                                 <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Agregar Canto o Nota</span>
                                 <div class="flex gap-1.5">
                                     <input type="text" id="custom-culto-text" placeholder="Ej: Estrofa 1..." class="flex-1 bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500">
@@ -727,6 +732,20 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                 </div>
                                 <input type="range" id="style-size" min="2" max="8" step="0.1" value="4.5" class="w-full accent-blue-500">
                             </div>
+                            <div class="space-y-1.5">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Color del versículo</label>
+                                <div class="flex gap-2">
+                                    <input type="color" id="style-textcolor" value="#ffffff" class="bg-transparent border-0 rounded cursor-pointer w-10 h-9">
+                                    <div class="grid grid-cols-6 gap-1 flex-1">
+                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #ffffff" data-textcolor="#ffffff" aria-label="Texto blanco" title="Blanco"></button>
+                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #fef08a" data-textcolor="#fef08a" aria-label="Texto amarillo claro" title="Amarillo"></button>
+                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #fed7aa" data-textcolor="#fed7aa" aria-label="Texto naranja claro" title="Naranja"></button>
+                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #bfdbfe" data-textcolor="#bfdbfe" aria-label="Texto azul claro" title="Azul"></button>
+                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #bbf7d0" data-textcolor="#bbf7d0" aria-label="Texto verde claro" title="Verde"></button>
+                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #fbcfe8" data-textcolor="#fbcfe8" aria-label="Texto rosa claro" title="Rosa"></button>
+                                    </div>
+                                </div>
+                            </div>
                                 </div>
                             </details>
 
@@ -919,9 +938,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                         <option value="wipe">Cortinilla lateral</option>
                                         <option value="zoom">Zoom suave</option>
                                         <option value="logo">Zoom con logo de la iglesia</option>
+                                        <option value="cinematic-logo">Halo cinematográfico con logo</option>
+                                        <option value="water-logo">Gota y ondas de agua con logo</option>
                                         <option value="none">Sin transición</option>
                                     </select>
-                                    <p class="text-[10px] leading-relaxed text-gray-500">Se aplica al cambiar entre versículo, karaoke, pantalla de espera y video. No se repite al cambiar de versículo o estrofa.</p>
+                                    <p class="text-[10px] leading-relaxed text-gray-500">Se aplica al cambiar entre Biblia, karaoke, espera y video; no al avanzar dentro de la misma escena. La gota y ondas lucen mejor entre 2.4 y 3.2 s. Los efectos están optimizados para aprovechar el refresco de pantalla.</p>
                                     <div class="space-y-1">
                                         <div class="flex justify-between items-center"><label for="projection-transition-duration" class="text-[10px] text-gray-400">Duración de transición</label><span id="val-projection-transition-duration" class="text-[10px] font-bold text-blue-300">700 ms</span></div>
                                         <input id="projection-transition-duration" type="range" min="300" max="6000" step="50" value="700" class="w-full accent-blue-500">
@@ -951,22 +972,6 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                     <span id="val-overlay-opacity" class="text-xs font-bold text-blue-400">40%</span>
                                 </div>
                                 <input type="range" id="style-overlay-opacity" min="0" max="90" step="5" value="40" class="w-full accent-blue-500">
-                            </div>
-
-                            <!-- Color de Texto -->
-                            <div class="space-y-1.5">
-                                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Color del versículo</label>
-                                <div class="flex gap-2">
-                                    <input type="color" id="style-textcolor" value="#ffffff" class="bg-transparent border-0 rounded cursor-pointer w-10 h-9">
-                                    <div class="grid grid-cols-6 gap-1 flex-1">
-                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #ffffff" data-textcolor="#ffffff"></button>
-                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #fef08a" data-textcolor="#fef08a"></button>
-                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #fed7aa" data-textcolor="#fed7aa"></button>
-                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #bfdbfe" data-textcolor="#bfdbfe"></button>
-                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #bbf7d0" data-textcolor="#bbf7d0"></button>
-                                        <button class="w-full h-9 rounded-lg border border-white/10 btn-textcolor-preset" style="background-color: #fbcfe8" data-textcolor="#fbcfe8"></button>
-                                    </div>
-                                </div>
                             </div>
 
                             <!-- Logo Institucional -->
@@ -1026,6 +1031,9 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         <nav id="workspace-navigation" class="workspace-nav shrink-0" aria-label="Secciones principales">
             <button type="button" class="workspace-nav-item is-active" data-workspace="bible" aria-current="page">
                 <i class="fa-solid fa-book-bible"></i><span>Biblia</span><small>Libros y versículos</small>
+            </button>
+            <button type="button" class="workspace-nav-item" data-workspace="culto">
+                <i class="fa-solid fa-list-check"></i><span>Culto</span><small>Orden y pasajes</small>
             </button>
             <button type="button" class="workspace-nav-item" data-workspace="local">
                 <i class="fa-solid fa-file-video"></i><span>Video local</span><small>Archivos del iPad</small>
@@ -1283,6 +1291,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         let youtubeWindowPlayerReady = false;
         let youtubeWindowHeartbeatTimestamp = 0;
         let broadcastChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('biblical-projector-channel') : null;
+        let projectorKeyboardChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('biblical-projector-keyboard') : null;
         let localProjectorId = '';
         const projectorControllerId = (() => {
             const key = 'biblical_projector_controller_id';
@@ -2261,6 +2270,15 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             });
             try { broadcastChannel.postMessage({ type: '__controller_hello', controllerId: projectorControllerId, timestamp: Date.now() }); } catch (_) {}
         }
+        if (projectorKeyboardChannel) {
+            projectorKeyboardChannel.addEventListener('message', event => {
+                const data = event.data;
+                if (!data || data.type !== '__projector_keyboard_shortcut') return;
+                if (data.controllerId !== projectorControllerId) return;
+                if (localProjectorId && data.projectorId !== localProjectorId) return;
+                runOperatorKeyboardShortcut(String(data.key || ''));
+            });
+        }
         window.addEventListener('message', event => {
             if (event.origin !== location.origin || !event.data || event.data.type !== '__youtube_window_heartbeat') return;
             if (youtubeMonitorWindow && event.source !== youtubeMonitorWindow) return;
@@ -2831,7 +2849,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (Array.isArray(saved.cultoList)) cultoList = saved.cultoList;
             if (saved.projectionStyles) projectionStyles = { ...projectionStyles, ...saved.projectionStyles };
             if (!['none','fade','slide-up','slide-left','slide-down','slide-right','zoom','blur','reveal'].includes(projectionStyles.textAnimation)) projectionStyles.textAnimation = 'fade';
-            if (!['none','fade','wipe','zoom','logo'].includes(projectionStyles.mediaTransition)) projectionStyles.mediaTransition = 'fade';
+            if (!['none','fade','wipe','zoom','logo','cinematic-logo','water-logo'].includes(projectionStyles.mediaTransition)) projectionStyles.mediaTransition = 'fade';
             const textAnimationDuration = Number(projectionStyles.textAnimationDurationMs);
             projectionStyles.textAnimationDurationMs = Number.isFinite(textAnimationDuration) ? Math.min(5000, Math.max(100, Math.round(textAnimationDuration / 50) * 50)) : 350;
             const mediaTransitionDuration = Number(projectionStyles.mediaTransitionDurationMs);
@@ -2845,7 +2863,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             projectionStyles.backgroundVideoId = String(projectionStyles.backgroundVideoId || '');
             projectionStyles.transitionVideoId = String(projectionStyles.transitionVideoId || '');
             projectionStyles.bgVideoFallbackType = ['color','gradient','image'].includes(projectionStyles.bgVideoFallbackType) ? projectionStyles.bgVideoFallbackType : 'color';
-            if (['bible','local','youtube','capture','karaoke','design'].includes(saved.workspace)) savedWorkspace = saved.workspace;
+            if (['bible','culto','local','youtube','capture','karaoke','design'].includes(saved.workspace)) savedWorkspace = saved.workspace;
 
             const karaoke = saved.karaoke || {};
             document.getElementById('karaoke-track').value = karaoke.track || '';
@@ -3214,7 +3232,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 btn.setAttribute('aria-label', `${selectedBook}, capítulo ${chap}`);
                 btn.setAttribute('aria-pressed', String(isSelected));
                 btn.title = `Capítulo ${chap}`;
-                btn.className = `aspect-square min-h-9 rounded-xl text-[11px] font-extrabold transition flex items-center justify-center border ${
+                btn.className = `min-w-0 w-full h-full rounded-xl text-[11px] font-extrabold transition flex items-center justify-center border ${
                     isSelected ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-950/40' : 'bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-800 hover:text-white'
                 }`;
                 btn.innerText = chap;
@@ -3328,6 +3346,50 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             return true;
         }
 
+        function runOperatorKeyboardShortcut(key) {
+            if (key.startsWith('Arrow')) {
+                const delta = (key === 'ArrowLeft' || key === 'ArrowUp') ? -1 : 1;
+                if (document.body.dataset.workspace === 'karaoke') {
+                    const button = document.getElementById(delta < 0 ? 'karaoke-prev' : 'karaoke-next');
+                    if (!button || button.disabled) return false;
+                    button.click();
+                    return true;
+                }
+                return moveBibleVerse(delta);
+            }
+            if (key === 'l') {
+                document.getElementById('btn-standby').click();
+                return true;
+            }
+            if (key === 'b') {
+                document.getElementById('btn-blackout').click();
+                return true;
+            }
+            if (key === 'c') {
+                document.getElementById('btn-cleartext').click();
+                return true;
+            }
+            if (key === ' ') {
+                if (mediaMode === 'youtube') {
+                    sendYouTubeCommand(isVideoPlaying ? 'pauseVideo' : 'playVideo');
+                    isVideoPlaying = !isVideoPlaying;
+                    saveOperatorState();
+                    return true;
+                }
+                if (mediaMode === 'video') {
+                    document.getElementById('btn-video-play-pause').click();
+                    return true;
+                }
+                return false;
+            }
+            if (key === 'Escape') {
+                document.getElementById('local-fullscreen-container').classList.add('hidden');
+                syncToProjector();
+                return true;
+            }
+            return false;
+        }
+
         function addToCultoList(text, citation) {
             cultoList.push({ id: Date.now(), text: text, citation: citation });
             renderCultoList();
@@ -3338,8 +3400,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
         function renderCultoList() {
             const container = document.getElementById('culto-list-items');
             const search = String(document.getElementById('culto-list-search')?.value || '').trim().toLocaleLowerCase();
+            const count = document.getElementById('culto-list-count');
             container.innerHTML = '';
             if (cultoList.length === 0) {
+                if (count) count.textContent = '0 elementos';
                 container.innerHTML = `<p class="text-center text-gray-500 text-xs py-8">La lista del culto está vacía.</p>`;
                 return;
             }
@@ -3347,6 +3411,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const matches = cultoList.map((item, index) => ({ item, index })).filter(({ item }) =>
                 !search || `${item.citation || ''} ${item.text || ''}`.toLocaleLowerCase().includes(search)
             );
+            if (count) count.textContent = `${matches.length} ${matches.length === 1 ? 'elemento' : 'elementos'}`;
             if (matches.length === 0) {
                 container.innerHTML = `<p class="culto-list-empty text-center text-gray-500 text-sm py-8">No hay pasajes que coincidan con la búsqueda.</p>`;
                 return;
@@ -3355,44 +3420,49 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             matches.forEach(({ item, index }) => {
                 const card = document.createElement('div');
                 card.className = "culto-list-card bg-gray-900 border border-gray-800 p-2.5 rounded-xl flex items-center justify-between gap-2 group hover:border-blue-500/50 transition";
-                card.innerHTML = `
-                    <div class="flex-1 min-w-0 cursor-pointer">
-                        <span class="culto-list-citation text-[10px] font-bold text-blue-400 block truncate">${item.citation}</span>
-                        <p class="culto-list-text text-xs text-gray-300 truncate">${item.text}</p>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <button class="btn-play text-emerald-400 hover:text-emerald-300 p-1.5 rounded-lg bg-emerald-950/40 border border-emerald-900/50 text-xs font-bold" title="Proyectar ahora">
-                            <i class="fa-solid fa-play"></i>
-                        </button>
-                        <button class="btn-del-item text-gray-500 hover:text-red-400 p-1.5 rounded-lg text-xs" title="Quitar">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                `;
-                card.querySelector('.flex-1').onclick = () => projectVerse(item.text, item.citation, null);
-                card.querySelector('.btn-play').onclick = () => projectVerse(item.text, item.citation, null);
-                card.querySelector('.btn-del-item').onclick = () => {
+                const openButton = document.createElement('button');
+                openButton.type = 'button';
+                openButton.className = 'culto-list-open flex-1 min-w-0 text-left cursor-pointer';
+                openButton.setAttribute('aria-label', `Proyectar ${item.citation || 'pasaje'}: ${item.text || ''}`);
+                const header = document.createElement('span');
+                header.className = 'flex items-center gap-2 mb-1';
+                const number = document.createElement('span');
+                number.className = 'culto-list-number shrink-0 inline-flex items-center justify-center rounded-md bg-blue-500/10 border border-blue-400/15 px-1.5 py-0.5 text-[10px] font-black text-blue-200';
+                number.textContent = String(index + 1).padStart(2, '0');
+                const citation = document.createElement('span');
+                citation.className = 'culto-list-citation text-[10px] font-bold text-blue-400 block truncate';
+                citation.textContent = item.citation || 'Sin referencia';
+                header.append(number, citation);
+                const verse = document.createElement('p');
+                verse.className = 'culto-list-text text-xs text-gray-300';
+                verse.textContent = item.text || '';
+                openButton.append(header, verse);
+                openButton.onclick = () => projectVerse(item.text, item.citation, null);
+
+                const actions = document.createElement('div');
+                actions.className = 'flex items-center gap-1 shrink-0';
+                const playButton = document.createElement('button');
+                playButton.type = 'button';
+                playButton.className = 'btn-play text-emerald-300 hover:text-white p-2 rounded-lg bg-emerald-950/40 border border-emerald-900/50 text-xs font-bold';
+                playButton.title = 'Proyectar ahora';
+                playButton.setAttribute('aria-label', `Proyectar ${item.citation || 'pasaje'}`);
+                playButton.innerHTML = '<i class="fa-solid fa-play"></i>';
+                playButton.onclick = () => projectVerse(item.text, item.citation, null);
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'btn-del-item text-gray-500 hover:text-red-300 p-2 rounded-lg text-xs';
+                deleteButton.title = 'Quitar del orden del culto';
+                deleteButton.setAttribute('aria-label', `Quitar ${item.citation || 'pasaje'}`);
+                deleteButton.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                deleteButton.onclick = () => {
                     cultoList.splice(index, 1);
                     renderCultoList();
                     saveOperatorState();
                 };
+                actions.append(playButton, deleteButton);
+                card.append(openButton, actions);
                 container.appendChild(card);
             });
-        }
-
-        function setCultoListExpanded(expanded) {
-            const workspace = document.getElementById('workspace-control');
-            const button = document.getElementById('btn-expand-culto-list');
-            const search = document.getElementById('culto-list-search');
-            if (!workspace || !button) return;
-            workspace.classList.toggle('culto-list-expanded', expanded);
-            button.setAttribute('aria-expanded', String(expanded));
-            button.title = expanded ? 'Cerrar lista ampliada' : 'Ampliar lista de pasajes';
-            button.innerHTML = expanded
-                ? '<i class="fa-solid fa-xmark mr-1"></i> Cerrar'
-                : '<i class="fa-solid fa-expand mr-1"></i> Ampliar';
-            if (!expanded && search) search.value = '';
-            renderCultoList();
         }
 
         function syncToProjector() {
@@ -4403,11 +4473,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                     item.classList.toggle('is-active', active);
                     if (active) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
                 });
-                const internalTab = workspace === 'bible' ? 'btn-tab-culto' : (workspace === 'design' ? 'btn-tab-estilos' : 'btn-tab-video');
+                const internalTab = workspace === 'bible' || workspace === 'culto' ? 'btn-tab-culto' : (workspace === 'design' ? 'btn-tab-estilos' : 'btn-tab-video');
                 const tabButton = document.getElementById(internalTab);
                 if (tabButton) tabButton.click();
                 // En los espacios multimedia, conserva visible la vista previa y muestra solo los controles del modo elegido.
-                if (workspace === 'local' || workspace === 'youtube' || workspace === 'design' || workspace === 'capture' || workspace === 'karaoke') {
+                if (workspace === 'local' || workspace === 'youtube' || workspace === 'design' || workspace === 'capture' || workspace === 'karaoke' || workspace === 'culto') {
                     const panel = document.getElementById('workspace-control');
                     if (panel) panel.scrollTop = 0;
                 }
@@ -4435,10 +4505,6 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             });
 
             // Lista de Culto
-            document.getElementById('btn-expand-culto-list').onclick = () => {
-                const expanded = document.getElementById('workspace-control').classList.contains('culto-list-expanded');
-                setCultoListExpanded(!expanded);
-            };
             document.getElementById('culto-list-search').addEventListener('input', renderCultoList);
             document.getElementById('btn-add-custom-culto').onclick = () => {
                 const input = document.getElementById('custom-culto-text');
@@ -4720,7 +4786,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 const track = document.getElementById('karaoke-track').value.trim();
                 const artist = document.getElementById('karaoke-artist').value.trim();
                 if (!track && !artist) { karaokeStatus.textContent = 'Escribe el nombre de la canción o del artista para buscar en Google.'; return; }
-                const query = [track, artist, 'letra canción Musixmatch'].filter(Boolean).join(' ');
+                const query = [track, artist, 'letra'].filter(Boolean).join(' ');
                 window.open('https://www.google.com/search?q=' + encodeURIComponent(query), '_blank', 'noopener,noreferrer');
                 karaokeStatus.textContent = 'Se abrió Google en otra pestaña. Si encuentras la letra, cópiala y pégala en el editor.';
             };
@@ -4924,6 +4990,12 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             };
             document.getElementById('projection-media-transition').onchange = (e) => {
                 projectionStyles.mediaTransition = e.target.value;
+                const durationControl = document.getElementById('projection-transition-duration');
+                if (e.target.value === 'water-logo' && Number(projectionStyles.mediaTransitionDurationMs) < 2400) {
+                    projectionStyles.mediaTransitionDurationMs = 2600;
+                    durationControl.value = '2600';
+                    document.getElementById('val-projection-transition-duration').textContent = '2600 ms';
+                }
                 syncToProjector();
             };
             document.getElementById('projection-transition-duration').oninput = (e) => {
@@ -5089,40 +5161,14 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                 }
             });
 
-            // Atajos compatibles con el Magic Keyboard: las flechas no interfieren con campos de edición.
-            window.onkeydown = (e) => {
-                if (e.key === 'Escape' && document.getElementById('workspace-control')?.classList.contains('culto-list-expanded')) {
-                    e.preventDefault();
-                    setCultoListExpanded(false);
-                    return;
-                }
+            // Captura antes de los controles de video para conservar los atajos con un video local enfocado.
+            document.addEventListener('keydown', (e) => {
                 if (e.metaKey || e.ctrlKey || e.altKey) return;
-                if (e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
-                const key = e.key.toLowerCase();
-                if (e.key.startsWith('Arrow')) {
-                    const delta = (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ? -1 : 1;
-                    if (document.body.dataset.workspace === 'karaoke') {
-                        const button = document.getElementById(delta < 0 ? 'karaoke-prev' : 'karaoke-next');
-                        if (button && !button.disabled) { e.preventDefault(); button.click(); }
-                    } else if (moveBibleVerse(delta)) e.preventDefault();
-                } else if (key === 'l') {
-                    document.getElementById('btn-standby').click();
-                } else if (key === 'b') {
-                    document.getElementById('btn-blackout').click();
-                } else if (key === 'c') {
-                    document.getElementById('btn-cleartext').click();
-                } else if (e.key === ' ') {
-                    if (mediaMode === 'youtube') {
-                        e.preventDefault(); sendYouTubeCommand(isVideoPlaying ? 'pauseVideo' : 'playVideo');
-                        isVideoPlaying = !isVideoPlaying; saveOperatorState();
-                    } else if (mediaMode === 'video') {
-                        e.preventDefault(); document.getElementById('btn-video-play-pause').click();
-                    }
-                } else if (e.key === 'Escape') {
-                    document.getElementById('local-fullscreen-container').classList.add('hidden');
-                    syncToProjector();
-                }
-            };
+                const keyTarget = e.target instanceof Element ? e.target : null;
+                if (keyTarget?.closest('input, textarea, select, [contenteditable="true"]')) return;
+                const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+                if (runOperatorKeyboardShortcut(key)) e.preventDefault();
+            }, true);
         }
 
         document.addEventListener('DOMContentLoaded', async () => {

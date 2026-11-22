@@ -21,6 +21,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Cinzel:wght@500;700;900&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@300;400;700&family=Montserrat:wght@400;600;800&family=Open+Sans:wght@300;400;600;700&family=Oswald:wght@400;700&family=Playfair+Display:ital,wght@0,600;0,800;1,400&family=Poppins:wght@300;400;600;700&family=Quicksand:wght@400;600;700&family=Raleway:wght@300;400;600;700&family=Roboto+Slab:wght@400;700&family=Ubuntu:wght@400;700&family=Fira+Sans:wght@400;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@400;600;700&family=Spectral:ital,wght@0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=Cardo:wght@400;700&family=Josefin+Sans:wght@400;600;700&family=Nunito+Sans:wght@400;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Archivo+Black&display=swap" rel="stylesheet">
     <script src="background-loop.js"></script>
+    <script src="water-ripple.js"></script>
     
     <style>
         ::-webkit-scrollbar {
@@ -940,9 +941,10 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
                                         <option value="logo">Zoom con logo de la iglesia</option>
                                         <option value="cinematic-logo">Halo cinematográfico con logo</option>
                                         <option value="water-logo">Gota y ondas de agua con logo</option>
+                                        <option value="water-ripple">Gota de agua (Water Ripple)</option>
                                         <option value="none">Sin transición</option>
                                     </select>
-                                    <p class="text-[10px] leading-relaxed text-gray-500">Se aplica al cambiar entre Biblia, karaoke, espera y video; no al avanzar dentro de la misma escena. La gota y ondas lucen mejor entre 2.4 y 3.2 s. Los efectos están optimizados para aprovechar el refresco de pantalla.</p>
+                                    <p class="text-[10px] leading-relaxed text-gray-500">Water Ripple es nativa, dura 2 s por defecto y revela el nuevo contenido con ondas; no usa el clip MP4 opcional. Solo se activa cuando cambia el contenido proyectado, no por ajustes ni por el estado de reproducción.</p>
                                     <div class="space-y-1">
                                         <div class="flex justify-between items-center"><label for="projection-transition-duration" class="text-[10px] text-gray-400">Duración de transición</label><span id="val-projection-transition-duration" class="text-[10px] font-bold text-blue-300">700 ms</span></div>
                                         <input id="projection-transition-duration" type="range" min="300" max="6000" step="50" value="700" class="w-full accent-blue-500">
@@ -2849,7 +2851,7 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             if (Array.isArray(saved.cultoList)) cultoList = saved.cultoList;
             if (saved.projectionStyles) projectionStyles = { ...projectionStyles, ...saved.projectionStyles };
             if (!['none','fade','slide-up','slide-left','slide-down','slide-right','zoom','blur','reveal'].includes(projectionStyles.textAnimation)) projectionStyles.textAnimation = 'fade';
-            if (!['none','fade','wipe','zoom','logo','cinematic-logo','water-logo'].includes(projectionStyles.mediaTransition)) projectionStyles.mediaTransition = 'fade';
+            if (!['none','fade','wipe','zoom','logo','cinematic-logo','water-logo','water-ripple'].includes(projectionStyles.mediaTransition)) projectionStyles.mediaTransition = 'fade';
             const textAnimationDuration = Number(projectionStyles.textAnimationDurationMs);
             projectionStyles.textAnimationDurationMs = Number.isFinite(textAnimationDuration) ? Math.min(5000, Math.max(100, Math.round(textAnimationDuration / 50) * 50)) : 350;
             const mediaTransitionDuration = Number(projectionStyles.mediaTransitionDurationMs);
@@ -3632,6 +3634,13 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             const karaokeVisible = !!karaoke.active && !!String(karaoke.stanza || '').trim() && !data.isClearText && !data.isStandby && !data.isBlackout && data.mediaMode !== 'screen';
 
             if (!textEl) return;
+
+            if (window.ProjectionWaterRipple) {
+                const rippleHost = isLocalFs
+                    ? docObj.getElementById('local-fullscreen-container')
+                    : (docObj === document ? docObj.getElementById('projector-preview-container') : docObj.body);
+                window.ProjectionWaterRipple.sync(rippleHost, data);
+            }
 
             if (data.isBlackout) {
                 if (backdropEl) backdropEl.style.background = '#000000';
@@ -4991,6 +5000,11 @@ Siguiente estrofa..."></textarea><div class="flex flex-wrap gap-2"><button id="k
             document.getElementById('projection-media-transition').onchange = (e) => {
                 projectionStyles.mediaTransition = e.target.value;
                 const durationControl = document.getElementById('projection-transition-duration');
+                if (e.target.value === 'water-ripple' && Number(projectionStyles.mediaTransitionDurationMs) < 1800) {
+                    projectionStyles.mediaTransitionDurationMs = 2000;
+                    durationControl.value = '2000';
+                    document.getElementById('val-projection-transition-duration').textContent = '2000 ms';
+                }
                 if (e.target.value === 'water-logo' && Number(projectionStyles.mediaTransitionDurationMs) < 2400) {
                     projectionStyles.mediaTransitionDurationMs = 2600;
                     durationControl.value = '2600';
